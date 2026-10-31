@@ -13,6 +13,7 @@ export type PromoType = "percent" | "fixed" | "free_delivery";
 export interface Settings {
   store_name: string;
   tagline: string;
+  tagline_en: string | null;
   whatsapp_number: string; // international format without +, e.g. 628111234567
   bank_name: string;
   bank_account: string;
@@ -28,15 +29,21 @@ export interface Settings {
   instagram: string;
   address_line: string;
   announcement: string | null;
+  announcement_en: string | null;
+  hero_image_url: string | null;
+  about_image_url: string | null;
 }
 
 export interface Category {
   id: string;
   slug: string;
   name: string;
+  name_en: string | null;
   description: string;
+  description_en: string | null;
   sort: number;
   icon: string; // key into the icon set
+  image_url: string | null;
   is_seafood: boolean;
 }
 
@@ -44,6 +51,7 @@ export interface Variant {
   id: string;
   product_id: string;
   label: string; // "300–500 g/ekor", "1 kg", "Tray 30"
+  label_en: string | null;
   unit: Unit;
   min_qty: number;
   step_qty: number;
@@ -60,8 +68,10 @@ export interface PrepOption {
   id: string;
   product_id: string;
   label: string;
+  label_en: string | null;
   surcharge: number; // per unit
   note: string | null;
+  note_en: string | null;
   sort: number;
 }
 
@@ -74,9 +84,12 @@ export interface Product {
   scientific_name: string | null;
   aliases: string[];
   description: string;
+  description_en: string | null;
   origin: string;
+  origin_en: string | null;
   storage_class: StorageClass;
   storage_note: string;
+  storage_note_en: string | null;
   is_catch_weight: boolean;
   available_today: boolean;
   is_active: boolean;

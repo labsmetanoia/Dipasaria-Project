@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BRAND, SITE_URL } from "@/lib/config";
 import { RegisterSW } from "@/components/RegisterSW";
+import { LocaleProvider } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -14,26 +16,19 @@ export const metadata: Metadata = {
   icons: { icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }, { url: "/icons/icon-192.png", sizes: "192x192" }], apple: "/icons/icon-192.png" },
 };
 
-export const viewport: Viewport = {
-  themeColor: "#0b2a3f",
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-};
+export const viewport: Viewport = { themeColor: "#011624", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const { locale, t } = await getT();
   return (
-    <html lang="id">
+    <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
+        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body>
-        {children}
+        <LocaleProvider locale={locale} t={t}>{children}</LocaleProvider>
         <RegisterSW />
       </body>
     </html>

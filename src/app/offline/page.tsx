@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
+import { getT } from "@/lib/i18n/server";
 
-export default function OfflinePage() {
+export default async function OfflinePage() {
+  const { t } = await getT();
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
       <LogoMark className="h-14 w-14" />
-      <h1 className="mt-6 text-2xl font-semibold text-ocean-900">Anda sedang offline</h1>
-      <p className="mt-2 max-w-sm text-mute">Harga ikan berubah setiap hari, jadi katalog memerlukan koneksi. Keranjang Anda tetap tersimpan di perangkat ini.</p>
-      <Link href="/belanja" className="btn-primary mt-6">Coba lagi</Link>
+      <h1 className="mt-6 text-2xl text-ocean-950">{t.common.offline}</h1>
+      <p className="mt-2 max-w-sm text-mute">{t.common.offlineBody}</p>
+      <Link href="/belanja" className="btn-primary mt-6">{t.common.tryAgain}</Link>
     </main>
   );
 }

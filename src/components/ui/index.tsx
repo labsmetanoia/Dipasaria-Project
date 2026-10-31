@@ -1,7 +1,4 @@
 import type { ReactNode } from "react";
-import { STORAGE_LABEL } from "@/lib/config";
-import type { OrderStatus, PaymentStatus, StorageClass } from "@/lib/types";
-import { STATUS_LABEL, PAYMENT_STATUS_LABEL } from "@/lib/config";
 
 export function Badge({ children, tone = "neutral", className = "" }: { children: ReactNode; tone?: "neutral" | "tide" | "coral" | "success" | "warn" | "frozen" | "dark"; className?: string }) {
   const tones = {
@@ -16,27 +13,7 @@ export function Badge({ children, tone = "neutral", className = "" }: { children
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tones[tone]} ${className}`}>{children}</span>;
 }
 
-export function StorageBadge({ storage }: { storage: StorageClass }) {
-  const tone = storage === "chilled" ? "tide" : storage === "frozen" ? "frozen" : "warn";
-  return <Badge tone={tone}>{STORAGE_LABEL[storage]}</Badge>;
-}
-
-export function StatusBadge({ status }: { status: OrderStatus }) {
-  const tone: Record<OrderStatus, "neutral" | "tide" | "coral" | "success" | "warn" | "dark"> = {
-    new: "coral",
-    confirmed: "tide",
-    packing: "warn",
-    delivering: "dark",
-    completed: "success",
-    cancelled: "neutral",
-  };
-  return <Badge tone={tone[status]}>{STATUS_LABEL[status]}</Badge>;
-}
-
-export function PaymentBadge({ status }: { status: PaymentStatus }) {
-  const tone: Record<PaymentStatus, "neutral" | "success" | "warn" | "coral"> = { unpaid: "coral", awaiting_confirmation: "warn", paid: "success", void: "neutral" };
-  return <Badge tone={tone[status]}>{PAYMENT_STATUS_LABEL[status]}</Badge>;
-}
+export { StorageBadge, StatusBadge, PaymentBadge } from "./badges";
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode; htmlFor?: string }) {
   return (

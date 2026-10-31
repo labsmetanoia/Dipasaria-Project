@@ -19,6 +19,7 @@ interface SavedOrderRef {
 
 interface CartState {
   lines: CartLine[];
+  lastAdded: { name: string; at: number } | null;
   customer: SavedCustomer;
   orders: SavedOrderRef[];
   add: (line: CartLine) => void;
@@ -28,6 +29,7 @@ interface CartState {
   clear: () => void;
   saveCustomer: (c: Partial<SavedCustomer>) => void;
   rememberOrder: (ref: SavedOrderRef) => void;
+  notify: (name: string) => void;
 }
 
 const same = (a: CartLine, variant_id: string, prep: string | null) => a.variant_id === variant_id && (a.prep_option_id ?? null) === (prep ?? null);
@@ -36,6 +38,7 @@ export const useCart = create<CartState>()(
   persist(
     (set) => ({
       lines: [],
+      lastAdded: null,
       customer: { name: "", phone: "", address: "", area_id: "", maps_url: "" },
       orders: [],
       add: (line) =>
@@ -54,9 +57,10 @@ export const useCart = create<CartState>()(
       replace: (lines) => set({ lines }),
       clear: () => set({ lines: [] }),
       saveCustomer: (c) => set((s) => ({ customer: { ...s.customer, ...c } })),
+      notify: (name) => set({ lastAdded: { name, at: Date.now() } }),
       rememberOrder: (ref) => set((s) => ({ orders: [ref, ...s.orders.filter((o) => o.code !== ref.code)].slice(0, 30) })),
     }),
-    { name: "dipasaria-cart", version: 1 },
+    { name: "dipasaria-cart", version: 1, partialize: (s) => ({ lines: s.lines, customer: s.customer, orders: s.orders }) as unknown as CartState },
   ),
 );
 

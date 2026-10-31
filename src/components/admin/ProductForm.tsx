@@ -15,7 +15,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [p, setP] = useState<Omit<Product, "variants" | "prep_options">>(
-    product ?? { id: "", slug: "", category_id: categories[0]?.id ?? "", name: "", name_en: "", scientific_name: "", aliases: [], description: "", origin: "", storage_class: "chilled", storage_note: "", is_catch_weight: false, available_today: true, is_active: true, is_featured: false, image_url: null, icon: "fish", sort: 99 },
+    product ?? { id: "", slug: "", category_id: categories[0]?.id ?? "", name: "", name_en: "", scientific_name: "", aliases: [], description: "", description_en: "", origin: "", origin_en: "", storage_class: "chilled", storage_note: "", storage_note_en: "", is_catch_weight: false, available_today: true, is_active: true, is_featured: false, image_url: null, icon: "fish", sort: 99 },
   );
   const [variants, setVariants] = useState<Variant[]>(product?.variants ?? []);
   const [preps, setPreps] = useState<PrepOption[]>(product?.prep_options ?? []);
@@ -24,7 +24,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
   const save = () =>
     start(async () => {
       setErr(null);
-      const body = { ...p, slug: p.slug || slugify(p.name), name_en: p.name_en || null, scientific_name: p.scientific_name || null, image_url: p.image_url || null };
+      const body = { ...p, slug: p.slug || slugify(p.name), name_en: p.name_en || null, scientific_name: p.scientific_name || null, image_url: p.image_url || null, description_en: p.description_en || null, origin_en: p.origin_en || null, storage_note_en: p.storage_note_en || null };
       const r = await upsertProductAction(body);
       if (!r.ok) { setErr(r.error); return; }
       if (!product) router.push(`/admin/produk/${r.data.id}`);
@@ -45,10 +45,13 @@ export function ProductForm({ product, categories }: { product: Product | null; 
           <Field label="Penyimpanan"><select className="input" value={p.storage_class} onChange={(e) => set("storage_class", e.target.value as Product["storage_class"])}><option value="chilled">Segar 0–4 °C</option><option value="frozen">Beku −18 °C</option><option value="ambient">Suhu ruang</option></select></Field>
           <Field label="Ikon"><select className="input" value={p.icon} onChange={(e) => set("icon", e.target.value)}>{ICONS.map((i) => <option key={i}>{i}</option>)}</select></Field>
         </div>
-        <Field label="Deskripsi"><textarea className="input" rows={3} value={p.description} onChange={(e) => set("description", e.target.value)} /></Field>
+        <Field label="Deskripsi (ID)"><textarea className="input" rows={3} value={p.description} onChange={(e) => set("description", e.target.value)} /></Field>
+        <Field label="Description (EN)"><textarea className="input" rows={2} value={p.description_en ?? ""} onChange={(e) => set("description_en", e.target.value)} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Asal"><input className="input" value={p.origin} onChange={(e) => set("origin", e.target.value)} placeholder="Muara Baru, didaratkan subuh" /></Field>
-          <Field label="Catatan penyimpanan"><input className="input" value={p.storage_note} onChange={(e) => set("storage_note", e.target.value)} /></Field>
+          <Field label="Asal (ID)"><input className="input" value={p.origin} onChange={(e) => set("origin", e.target.value)} placeholder="Muara Baru, didaratkan subuh" /></Field>
+          <Field label="Origin (EN)"><input className="input" value={p.origin_en ?? ""} onChange={(e) => set("origin_en", e.target.value)} /></Field>
+          <Field label="Catatan penyimpanan (ID)"><input className="input" value={p.storage_note} onChange={(e) => set("storage_note", e.target.value)} /></Field>
+          <Field label="Storage note (EN)"><input className="input" value={p.storage_note_en ?? ""} onChange={(e) => set("storage_note_en", e.target.value)} /></Field>
           <Field label="URL foto (opsional)"><input className="input" value={p.image_url ?? ""} onChange={(e) => set("image_url", e.target.value)} placeholder="https://…" /></Field>
           <Field label="Urutan"><input className="input" type="number" value={p.sort} onChange={(e) => set("sort", Number(e.target.value))} /></Field>
         </div>
@@ -91,7 +94,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
                 </li>
               ))}
             </ul>
-            <button onClick={() => { const o: PrepOption = { id: `pp_${Date.now().toString(36)}`, product_id: product.id, label: "Siangi", surcharge: 3000, note: null, sort: preps.length + 1 }; setPreps([...preps, o]); upsertPrepOptionAction(o); }} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah opsi</button>
+            <button onClick={() => { const o: PrepOption = { id: `pp_${Date.now().toString(36)}`, product_id: product.id, label: "Siangi", label_en: "Gutted & scaled", surcharge: 3000, note: null, note_en: null, sort: preps.length + 1 }; setPreps([...preps, o]); upsertPrepOptionAction(o); }} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah opsi</button>
           </div>
         </div>
       )}
@@ -102,7 +105,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
 function NewVariant({ productId, onCreated }: { productId: string; onCreated: (v: Variant) => void }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
-  const [v, setV] = useState<Omit<Variant, "id">>({ product_id: productId, label: "", unit: "kg", min_qty: 0.5, step_qty: 0.5, price_retail: 0, price_business: 0, cost: 0, stock_qty: null, business_only: false, is_active: true, sort: 99 });
+  const [v, setV] = useState<Omit<Variant, "id">>({ product_id: productId, label: "", label_en: null, unit: "kg", min_qty: 0.5, step_qty: 0.5, price_retail: 0, price_business: 0, cost: 0, stock_qty: null, business_only: false, is_active: true, sort: 99 });
   if (!open) return <button onClick={() => setOpen(true)} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah varian</button>;
   return (
     <div className="mt-3 space-y-2 rounded-xl bg-sand-100 p-3 text-sm">

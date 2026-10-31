@@ -1,22 +1,23 @@
 import { ProductIcon } from "./Icons";
 import type { StorageClass } from "@/lib/types";
 
-const TINT: Record<StorageClass, { bg: string; fg: string }> = {
-  chilled: { bg: "bg-tide-50", fg: "text-tide-600" },
-  frozen: { bg: "bg-[#eaf1fb]", fg: "text-[#2f5f9e]" },
-  ambient: { bg: "bg-sand-100", fg: "text-[#9a6b2f]" },
+const TINT: Record<StorageClass, string> = {
+  chilled: "from-[#dcecf5] via-[#eaf4f9] to-white text-tide-600",
+  frozen: "from-[#dfe8f4] via-[#edf2f9] to-white text-[#3a6ea8]",
+  ambient: "from-[#f3e9d8] via-[#f8f1e6] to-white text-[#9a6b2f]",
 };
 
-/** Product visual: real photo when image_url is set, otherwise a line icon tinted by storage class. */
+/** Product visual: the photo when image_url is set, otherwise a tinted illustrated mark. */
 export function ProductArt({ icon, storage, image, alt, className = "" }: { icon: string; storage: StorageClass; image?: string | null; alt: string; className?: string }) {
   if (image) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={image} alt={alt} className={`h-full w-full object-cover ${className}`} loading="lazy" />;
   }
-  const t = TINT[storage];
   return (
-    <div className={`flex h-full w-full items-center justify-center ${t.bg} ${t.fg} ${className}`} aria-label={alt} role="img">
-      <ProductIcon name={icon} className="h-[46%] w-[46%]" />
+    <div className={`relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br ${TINT[storage]} ${className}`} aria-label={alt} role="img">
+      <div className="absolute inset-0 opacity-40 grid-lines" style={{ backgroundSize: "28px 28px" }} />
+      <div className="absolute h-[62%] w-[62%] rounded-full bg-white/60 blur-2xl" />
+      <ProductIcon name={icon} className="relative h-[48%] w-[48%] drop-shadow-[0_8px_12px_rgba(1,22,36,0.12)]" strokeWidth={1.8} />
     </div>
   );
 }

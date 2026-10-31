@@ -1,14 +1,14 @@
 # Dipasaria — Seafood-Led Protein Commerce Platform
 
-Corporate website, installable mobile storefront (PWA) and founder back-office for a Jakarta supplier of graded seafood, halal chicken, eggs and kitchen essentials. One Next.js codebase on Supabase; Rp 0 a month on free tiers until daily sales justify Supabase Pro.
+Corporate website, installable mobile storefront (PWA) and founder back-office for a Jakarta supplier of graded seafood, halal chicken, eggs and kitchen essentials. One Next.js codebase on Supabase; Rp 0 a month on free tiers until daily sales justify Supabase Pro. Customer-facing pages are bilingual (Bahasa Indonesia default, English via the header toggle); the back-office is in Indonesian.
 
 | Surface | Where | Who |
 | --- | --- | --- |
-| Corporate site | `/`, `/tentang`, `/restoran`, `/cara-kerja`, `/kontak`, `/privasi` | Prospects, partners, search engines |
+| Corporate site | `/`, `/tentang`, `/produk`, `/panduan`, `/restoran`, `/rumah-tangga`, `/kontak`, `/privasi` | Prospects, partners, search engines |
 | Storefront (PWA) | `/belanja`, `/keranjang`, `/checkout`, `/pesanan`, `/akun` | Households (guest checkout) and restaurants (phone + access code) |
 | Back-office | `/admin` | The founder, from a phone at 02:30 or a laptop in the afternoon |
 
-Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`.
+Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
 
 ## Run it in two minutes (demo mode, no database)
 
@@ -26,7 +26,7 @@ Open http://localhost:3000. Without Supabase credentials the app runs on an in-m
 
 ## Go live on Supabase + Vercel (about two hours)
 
-1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`.
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. (A project created from the round-1 schema instead runs `supabase/migrations/002_bilingual_content.sql`, then `seed.sql` again.)
 2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
 3. **Delete the example accounts** before sharing the link: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
 4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`), deploy, connect your domain.
@@ -47,9 +47,15 @@ The service-role key is used only by the Next.js server; the browser never recei
 | Afternoon | Produk & stok | Update prices and costs before 18:00; the margin column turns red under 10% |
 | Weekly | Laporan | Sales, gross margin, non-seafood share; CSV export for the accountant |
 
+## Design direction (round 2)
+
+Benchmarked on a corporate-plus-retail protein distributor site: one modern sans (Manrope), deep navy and orange, full-bleed dark heroes with image slots, orange letter-spaced eyebrows, pill buttons, alternating white/light/navy bands, corner crosshair marks, floating WhatsApp button, EN/ID toggle. The product page carries a fish-anatomy diagram (the seafood counterpart of a beef-cut chart) above a tabbed catalogue. Six bilingual kitchen guides (`src/lib/content/guides.ts`) give the site editorial depth and search content.
+
+Every photo slot renders a designed illustrated placeholder until you add a photo; see `docs/photo-brief.md` for the 14 photos that complete the site.
+
 ## What is built
 
-**Storefront**: catalogue by category, search across Indonesian/English/scientific/market names, product sheet with size grades, preparation options (siangi, fillet, kupas) and storage notes, catch-weight transparency ("perkiraan" totals until weighed), cart with minimum-order progress bar, checkout with delivery areas, date chips honouring the 20:00 WIB cut-off, slots with live remaining capacity, promo codes, QRIS/transfer/COD/terms, order confirmation, tracking by order code + WhatsApp number from any device, "Saya sudah bayar", business login without passwords, one-tap **Pesan lagi**, installable PWA with offline fallback.
+**Storefront**: bilingual catalogue by category with quick-add on cards, add-to-cart toast and a sticky cart bar, "today's catch" / "kitchen favourites" / "stock the freezer" sections, two value boxes, search across Indonesian/English/scientific/market names, product sheet with size grades, preparation options (siangi, fillet, kupas) and storage notes, catch-weight transparency ("perkiraan" totals until weighed), cart with minimum-order progress bar, three-step checkout with delivery areas, date chips honouring the 20:00 WIB cut-off, slots with live remaining capacity, promo codes, QRIS/transfer/COD/terms, order confirmation, tracking by order code + WhatsApp number from any device, "Saya sudah bayar", business login without passwords, one-tap **Pesan lagi**, installable PWA with offline fallback.
 
 **Back-office**: daily summary with delivery-date selector (orders, sales, estimated gross margin, non-seafood share against the Gate B target, unpaid, to-weigh), orders list with filters and search, order detail with status flow, cancel (stock returned), weigh-and-reprice, payment status, internal notes and three prepared WhatsApp messages, dawn buying list, route and packing sheet (printable), products with inline auto-saving price/cost/stock edits and an "available today" switch, product and variant editor, business account approvals with generated access codes sent via WhatsApp, promo codes, settings (store, payment, cut-off, minimums, areas, slots), sales report with CSV.
 

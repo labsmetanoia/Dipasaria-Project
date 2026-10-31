@@ -22,15 +22,15 @@ const s = seedSettings;
 const sc = Object.keys(s) as (keyof typeof s)[];
 sql += `insert into settings (id, ${sc.join(", ")}) values (1, ${sc.map((k) => q(s[k])).join(", ")})\non conflict (id) do update set ${sc.map((k) => `${k} = excluded.${k}`).join(", ")};\n\n`;
 
-sql += insert("categories", ["id", "slug", "name", "description", "sort", "icon", "is_seafood"], seedCategories.map((c) => [c.id, c.slug, c.name, c.description, c.sort, c.icon, c.is_seafood])) + "\n";
+sql += insert("categories", ["id", "slug", "name", "name_en", "description", "description_en", "sort", "icon", "image_url", "is_seafood"], seedCategories.map((c) => [c.id, c.slug, c.name, c.name_en, c.description, c.description_en, c.sort, c.icon, c.image_url, c.is_seafood])) + "\n";
 
-const pc = ["id", "slug", "category_id", "name", "name_en", "scientific_name", "aliases", "description", "origin", "storage_class", "storage_note", "is_catch_weight", "available_today", "is_active", "is_featured", "image_url", "icon", "sort"] as const;
+const pc = ["id", "slug", "category_id", "name", "name_en", "scientific_name", "aliases", "description", "description_en", "origin", "origin_en", "storage_class", "storage_note", "storage_note_en", "is_catch_weight", "available_today", "is_active", "is_featured", "image_url", "icon", "sort"] as const;
 sql += insert("products", [...pc], seedProducts.map((p) => pc.map((k) => p[k]))) + "\n";
 
-const vc = ["id", "product_id", "label", "unit", "min_qty", "step_qty", "price_retail", "price_business", "cost", "stock_qty", "business_only", "is_active", "sort"] as const;
+const vc = ["id", "product_id", "label", "label_en", "unit", "min_qty", "step_qty", "price_retail", "price_business", "cost", "stock_qty", "business_only", "is_active", "sort"] as const;
 sql += insert("variants", [...vc], seedProducts.flatMap((p) => p.variants.map((v) => vc.map((k) => v[k])))) + "\n";
 
-const ppc = ["id", "product_id", "label", "surcharge", "note", "sort"] as const;
+const ppc = ["id", "product_id", "label", "label_en", "surcharge", "note", "note_en", "sort"] as const;
 sql += insert("prep_options", [...ppc], seedProducts.flatMap((p) => p.prep_options.map((o) => ppc.map((k) => o[k])))) + "\n";
 
 sql += insert("delivery_areas", ["id", "name", "fee", "is_active", "sort"], seedAreas.map((a) => [a.id, a.name, a.fee, a.is_active, a.sort])) + "\n";

@@ -41,6 +41,7 @@ create table if not exists settings (
   id int primary key default 1 check (id = 1),
   store_name text not null default 'Dipasaria',
   tagline text not null default '',
+  tagline_en text,
   whatsapp_number text not null default '',
   bank_name text not null default '',
   bank_account text not null default '',
@@ -55,16 +56,22 @@ create table if not exists settings (
   max_days_ahead int not null default 6,
   instagram text not null default '',
   address_line text not null default '',
-  announcement text
+  announcement text,
+  announcement_en text,
+  hero_image_url text,
+  about_image_url text
 );
 
 create table if not exists categories (
   id text primary key default new_id('c'),
   slug text unique not null,
   name text not null,
+  name_en text,
   description text not null default '',
+  description_en text,
   sort int not null default 0,
   icon text not null default 'fish',
+  image_url text,
   is_seafood boolean not null default true
 );
 
@@ -77,9 +84,12 @@ create table if not exists products (
   scientific_name text,
   aliases text[] not null default '{}',
   description text not null default '',
+  description_en text,
   origin text not null default '',
+  origin_en text,
   storage_class text not null check (storage_class in ('chilled','frozen','ambient')),
   storage_note text not null default '',
+  storage_note_en text,
   is_catch_weight boolean not null default false,
   available_today boolean not null default true,
   is_active boolean not null default true,
@@ -93,6 +103,7 @@ create table if not exists variants (
   id text primary key default new_id('v'),
   product_id text not null references products(id) on delete cascade,
   label text not null,
+  label_en text,
   unit text not null check (unit in ('kg','pack','tray','pcs','bottle','crate','box')),
   min_qty numeric not null default 1,
   step_qty numeric not null default 1 check (step_qty > 0),
@@ -110,8 +121,10 @@ create table if not exists prep_options (
   id text primary key default new_id('pp'),
   product_id text not null references products(id) on delete cascade,
   label text not null,
+  label_en text,
   surcharge numeric not null default 0,
   note text,
+  note_en text,
   sort int not null default 0
 );
 

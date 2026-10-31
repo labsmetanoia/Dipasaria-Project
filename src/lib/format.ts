@@ -47,13 +47,16 @@ export function parseTime(t: string): number {
   return h * 60 + (m || 0);
 }
 
-export function formatDate(isoDate: string, style: "short" | "long" | "weekday" = "long"): string {
+const LOC = { id: "id-ID", en: "en-GB" } as const;
+export type Loc = keyof typeof LOC;
+
+export function formatDate(isoDate: string, style: "short" | "long" | "weekday" = "long", locale: Loc = "id"): string {
   const [y, m, d] = isoDate.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d, 12));
   if (style === "weekday") {
-    return new Intl.DateTimeFormat("id-ID", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(dt);
+    return new Intl.DateTimeFormat(LOC[locale], { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(dt);
   }
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat(LOC[locale], {
     timeZone: "UTC",
     weekday: style === "long" ? "long" : undefined,
     day: "numeric",
@@ -62,8 +65,8 @@ export function formatDate(isoDate: string, style: "short" | "long" | "weekday" 
   }).format(dt);
 }
 
-export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("id-ID", {
+export function formatDateTime(iso: string, locale: Loc = "id"): string {
+  return new Intl.DateTimeFormat(LOC[locale], {
     timeZone: TZ,
     day: "numeric",
     month: "short",
@@ -72,11 +75,12 @@ export function formatDateTime(iso: string): string {
   }).format(new Date(iso));
 }
 
-export function relativeDayLabel(isoDate: string, today: string): string {
-  if (isoDate === today) return "Hari ini";
-  if (isoDate === addDays(today, 1)) return "Besok";
-  if (isoDate === addDays(today, 2)) return "Lusa";
-  return formatDate(isoDate, "weekday");
+export function relativeDayLabel(isoDate: string, today: string, locale: Loc = "id"): string {
+  const L = locale === "en" ? { today: "Today", tomorrow: "Tomorrow", dayAfter: "Day after" } : { today: "Hari ini", tomorrow: "Besok", dayAfter: "Lusa" };
+  if (isoDate === today) return L.today;
+  if (isoDate === addDays(today, 1)) return L.tomorrow;
+  if (isoDate === addDays(today, 2)) return L.dayAfter;
+  return formatDate(isoDate, "weekday", locale);
 }
 
 /** Normalise an Indonesian phone number to 62xxxxxxxxx digits. */
