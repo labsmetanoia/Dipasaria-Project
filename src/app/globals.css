@@ -1,121 +1,97 @@
 @import "tailwindcss";
 
-/* Design system v2 — benchmarked on a corporate-plus-retail protein distributor:
-   one modern sans, deep navy + orange, white and light-grey bands, pill buttons,
-   orange letter-spaced eyebrows, generous whitespace. Class names kept from v1. */
+/* Design system v3 — benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette:
+   cream #FAF8F4 · parchment #EEE7DA · gold #EAB200 · deep gold #C09200 · black #000000.
+   Class names are kept from earlier rounds (ocean = black scale, coral = gold, tide = deep gold, sand = cream). */
 @theme {
-  --color-ocean-950: #011624;
-  --color-ocean-900: #0a2436;
-  --color-ocean-800: #123349;
-  --color-ocean-700: #1b4663;
-  --color-ocean-600: #245a7e;
-  --color-tide-700: #175c87;
-  --color-tide-600: #1f6fa3;
-  --color-tide-500: #2f8dc9;
-  --color-tide-400: #5fb0e0;
-  --color-tide-100: #ddeef8;
-  --color-tide-50: #eef6fb;
-  --color-sand-50: #f8f9fa;
-  --color-sand-100: #f1f3f5;
-  --color-sand-200: #e3e7ea;
-  --color-sand-300: #cbd2d8;
-  --color-coral-700: #b9660a;
-  --color-coral-600: #e2800f;
-  --color-coral-500: #f7931d;
-  --color-coral-100: #fde9cf;
-  --color-coral-50: #fef5e9;
-  --color-ink: #0f1b24;
-  --color-mute: #66717b;
-  --color-line: #e6e9ec;
-  --color-success-600: #2f8a5b;
-  --color-success-50: #e9f6ee;
-  --color-warn-600: #b7791f;
-  --color-warn-50: #fdf4e3;
-  --font-display: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --shadow-soft: 0 1px 2px rgba(1, 22, 36, 0.05), 0 10px 30px -14px rgba(1, 22, 36, 0.18);
-  --shadow-float: 0 18px 50px -20px rgba(1, 22, 36, 0.45);
+  --color-ocean-950: #000000;
+  --color-ocean-900: #141414;
+  --color-ocean-800: #1f1f1f;
+  --color-ocean-700: #2b2b2b;
+  --color-ocean-600: #3a3a3a;
+  --color-tide-700: #7a5c00;
+  --color-tide-600: #9a7500;
+  --color-tide-500: #c09200;
+  --color-tide-400: #d4a71a;
+  --color-tide-100: #f6e9b8;
+  --color-tide-50: #fbf4dc;
+  --color-sand-50: #faf8f4;
+  --color-sand-100: #eee7da;
+  --color-sand-200: #e3d9c6;
+  --color-sand-300: #cdbf9f;
+  --color-coral-700: #9a7500;
+  --color-coral-600: #c09200;
+  --color-coral-500: #eab200;
+  --color-coral-100: #f9edbf;
+  --color-coral-50: #fdf7e3;
+  --color-ink: #121212;
+  --color-mute: #5c5c5c;
+  --color-line: #e2dccf;
+  --color-success-600: #2f7a4f;
+  --color-success-50: #e8f3ec;
+  --color-warn-600: #a66a00;
+  --color-warn-50: #fdf3dc;
+  --font-display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+  --font-sans: "Barlow", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -16px rgba(0, 0, 0, 0.25);
+  --shadow-float: 0 20px 50px -20px rgba(0, 0, 0, 0.45);
 }
 
-:root {
-  color-scheme: light;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-}
+:root { color-scheme: light; --safe-bottom: env(safe-area-inset-bottom, 0px); }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 6rem; }
+body { @apply bg-sand-50 text-ink font-sans antialiased; }
 
-html {
-  -webkit-text-size-adjust: 100%;
-  scroll-behavior: smooth;
-  scroll-padding-top: 7.5rem;
-}
-
-body {
-  @apply bg-white text-ink font-sans antialiased;
-}
-
-h1, h2, h3, .display {
-  @apply font-sans font-semibold;
-  letter-spacing: -0.025em;
-}
-
+h1, h2, h3, .display { @apply font-display font-bold uppercase; letter-spacing: -0.01em; line-height: 0.95; }
+h1 { letter-spacing: -0.02em; }
 input, select, textarea, button { font: inherit; }
 ::selection { background: var(--color-coral-100); }
 
-@utility container-x { @apply mx-auto w-full max-w-[1200px] px-5 sm:px-8 lg:px-10; }
-@utility card { @apply rounded-2xl border border-line bg-white shadow-soft; }
-@utility eyebrow { @apply text-[11px] font-bold uppercase tracking-[0.28em] text-coral-500; }
-@utility input { @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-mute/60 outline-none transition focus:border-tide-500 focus:ring-4 focus:ring-tide-500/15 disabled:bg-sand-100; }
-@utility label { @apply mb-1.5 block text-[13px] font-semibold text-ink/80; }
+@utility container-x { @apply mx-auto w-full max-w-[1320px] px-5 sm:px-8 lg:px-10; }
+@utility card { @apply border border-line bg-white; }
+@utility eyebrow { @apply font-sans text-[11px] font-bold uppercase tracking-[0.22em] text-coral-600; }
+@utility input { @apply w-full border border-line bg-white px-3.5 py-2.5 text-[15px] text-ink placeholder:text-mute/60 outline-none transition focus:border-ocean-950 focus:ring-2 focus:ring-coral-500/40 disabled:bg-sand-100; }
+@utility label { @apply mb-1.5 block font-sans text-[11px] font-bold uppercase tracking-[0.14em] text-ink/70; }
 
-@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-[14.5px] font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
-@utility btn-primary { @apply btn bg-ocean-950 text-white hover:bg-ocean-800; }
-@utility btn-accent { @apply btn bg-coral-500 text-white shadow-[0_8px_20px_-8px_rgba(247,147,29,0.7)] hover:bg-coral-600; }
-@utility btn-outline { @apply btn border border-coral-500 text-coral-600 hover:bg-coral-50; }
-@utility btn-secondary { @apply btn border border-line bg-white text-ink hover:border-ocean-950/30 hover:bg-sand-50; }
-@utility btn-ghost { @apply btn text-ocean-950 hover:bg-ocean-950/5; }
+/* Buttons: square-cornered, uppercase, letter-spaced (reference style). */
+@utility btn { @apply inline-flex items-center justify-center gap-2 px-5 py-3 font-sans text-[12px] font-bold uppercase tracking-[0.14em] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50; }
+@utility btn-accent { @apply btn bg-coral-500 text-ocean-950 hover:bg-coral-600; }
+@utility btn-primary { @apply btn bg-ocean-950 text-white hover:bg-ocean-700; }
+@utility btn-outline { @apply btn border border-ocean-950 text-ocean-950 hover:bg-ocean-950 hover:text-white; }
 @utility btn-light { @apply btn bg-white text-ocean-950 hover:bg-sand-100; }
+@utility btn-secondary { @apply btn border border-line bg-white text-ocean-950 hover:border-ocean-950; }
+@utility btn-ghost { @apply btn text-ocean-950 hover:bg-ocean-950/5; }
+@utility btn-link { @apply inline-flex items-center gap-2 font-sans text-[12px] font-bold uppercase tracking-[0.14em] text-ocean-950 hover:text-coral-600; }
 
-@utility chip { @apply inline-flex items-center gap-1 rounded-full border border-line bg-white px-3.5 py-1.5 text-[13px] font-semibold text-ink transition; }
+@utility chip { @apply inline-flex items-center gap-1 border border-line bg-white px-3.5 py-2 font-sans text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink transition hover:border-ocean-950; }
 @utility chip-on { @apply border-ocean-950 bg-ocean-950 text-white; }
 @utility scrollbar-none { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
 @utility pb-safe { padding-bottom: calc(var(--safe-bottom) + 0.5rem); }
 
-/* Decorative crosshair marks used on section corners (see reference). */
-.crosshair {
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  pointer-events: none;
-  opacity: 0.45;
-}
-.crosshair::before, .crosshair::after {
-  content: "";
-  position: absolute;
-  background: currentColor;
-}
-.crosshair::before { left: 50%; top: 0; width: 1px; height: 100%; }
-.crosshair::after { top: 50%; left: 0; height: 1px; width: 100%; }
+/* Product tile image area: pale grey like the reference's cut-outs */
+.tile-bg { background: linear-gradient(180deg, #f3f1ec 0%, #e9e6df 100%); }
 
-/* Hero art: deep navy with soft light and a faint grid; photos drop in via <ImageSlot>. */
+/* Hero art placeholder: near-black with warm gold light and a faint grid */
 .hero-art {
   background:
-    radial-gradient(900px 500px at 15% 0%, rgba(47, 141, 201, 0.35), transparent 60%),
-    radial-gradient(700px 400px at 95% 100%, rgba(247, 147, 29, 0.16), transparent 60%),
-    linear-gradient(160deg, #0a2436 0%, #011624 70%);
+    radial-gradient(900px 500px at 20% 10%, rgba(234, 178, 0, 0.22), transparent 60%),
+    radial-gradient(700px 400px at 90% 100%, rgba(192, 146, 0, 0.14), transparent 60%),
+    linear-gradient(160deg, #1a1a1a 0%, #000 70%);
 }
 .grid-lines {
-  background-image:
-    linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
   background-size: 64px 64px;
 }
-.photo-fade { background: linear-gradient(180deg, rgba(1,22,36,0.15) 0%, rgba(1,22,36,0.55) 55%, rgba(1,22,36,0.92) 100%); }
+.photo-fade { background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.85) 100%); }
+
+/* Outline marquee text, as on the reference product page */
+.outline-text { -webkit-text-stroke: 1px rgba(0,0,0,0.18); color: transparent; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.marquee { animation: marquee 40s linear infinite; }
 
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.rise { animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
-.rise-2 { animation-delay: 0.1s; }
-.rise-3 { animation-delay: 0.2s; }
-@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.sheet-up { animation: sheetUp 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.rise { animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; } .rise-2 { animation-delay: 0.1s; } .rise-3 { animation-delay: 0.2s; }
+@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.slide-in { animation: slideIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .toast-in { animation: toastIn 0.25s ease-out both; }
 

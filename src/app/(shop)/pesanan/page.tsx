@@ -10,5 +10,5 @@ export const dynamic = "force-dynamic";
 export default async function OrdersPage() {
   const [account, { t }] = await Promise.all([getCurrentAccount(), getT()]);
   const accountOrders = account ? await (await getRepo()).getOrdersForAccount(account.id, 20) : [];
-  return <div className="space-y-6"><h1 className="text-2xl text-ocean-950">{t.tracking.title}</h1><MyOrders accountOrders={accountOrders} /><OrderLookup /></div>;
+  return <div className="container-x max-w-3xl space-y-6 py-8 md:py-12"><h1 className="text-[2.6rem] sm:text-[3.4rem]">{t.tracking.title}</h1><MyOrders accountOrders={accountOrders} /><OrderLookup /></div>;
 }

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Check } from "lucide-react";
+import { Check, Smartphone, Fish, Scale, Truck } from "lucide-react";
 import { getRepo } from "@/lib/data";
 import { getT } from "@/lib/i18n/server";
-import { PageHero, Band, SplitHeading } from "@/components/site/Sections";
+import { PageHero, Band, SectionHead, StepsStrip } from "@/components/site/Sections";
+import { IMAGES } from "@/lib/content/images";
 import { BusinessApplyForm } from "@/components/shop/BusinessApplyForm";
 import { rupiah } from "@/lib/format";
 
@@ -54,38 +55,24 @@ export default async function RestoranPage() {
   const { locale } = await getT();
   const c = copy[locale];
   const [settings, areas] = await Promise.all([repo.getSettings(), repo.getAreas()]);
+  const icons = [<Smartphone key="a" className="h-5 w-5" />, <Fish key="b" className="h-5 w-5" />, <Scale key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
   return (
     <>
-      <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="shrimp" />
+      <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="shrimp" image={IMAGES.restaurant} />
       <Band>
-        <div className="grid gap-12 lg:grid-cols-12">
-          <ul className="space-y-3 lg:col-span-6">
-            {c.points(rupiah(settings.free_delivery_business)).map((p) => <li key={p} className="flex gap-3 text-[15.5px] text-ink/85"><Check className="mt-0.5 h-5 w-5 flex-none text-coral-500" />{p}</li>)}
-          </ul>
-          <div id="daftar" className="card scroll-mt-28 p-6 lg:col-span-6 lg:p-8">
-            <h2 className="text-2xl text-ocean-950">{c.formTitle}</h2>
-            <p className="mt-1 text-sm text-mute">{c.formSub}</p>
-            <div className="mt-6"><BusinessApplyForm areas={areas} /></div>
-          </div>
+        <div className="grid gap-10 lg:grid-cols-12">
+          <ul className="space-y-3 lg:col-span-6">{c.points(rupiah(settings.free_delivery_business)).map((p) => <li key={p} className="flex gap-3 font-sans text-[15px] text-ink/85"><Check className="mt-0.5 h-5 w-5 flex-none text-coral-600" />{p}</li>)}</ul>
+          <div id="daftar" className="card scroll-mt-28 p-6 lg:col-span-6 lg:p-8"><h2 className="text-[2rem]">{c.formTitle}</h2><p className="mt-1 font-sans text-sm text-mute">{c.formSub}</p><div className="mt-6"><BusinessApplyForm areas={areas} /></div></div>
         </div>
       </Band>
-      <Band tone="dark">
-        <SplitHeading dark eyebrow={c.flowEyebrow} title={c.flowTitle} />
-        <ol className="mt-12 grid gap-4 md:grid-cols-4">
-          {c.flow.map(([time, d]) => <li key={time} className="rounded-2xl border border-white/10 bg-white/5 p-6"><p className="text-3xl font-bold tracking-tight text-tide-400">{time}</p><p className="mt-3 text-[14px] leading-relaxed text-white/75">{d}</p></li>)}
-        </ol>
+      <StepsStrip title={c.flowTitle} steps={c.flow.map(([time, d], i) => ({ icon: icons[i], text: `${time} — ${d}` }))} />
+      <Band tone="parchment">
+        <SectionHead eyebrow={c.mathEyebrow} title={c.mathTitle} sub={c.mathBody} />
+        <div className="mt-10 grid grid-cols-2 gap-6 lg:grid-cols-4">{c.math.map(([v, d]) => <div key={v} className="border-l-2 border-ocean-950 pl-5"><p className="font-display text-[2.8rem] font-bold leading-none">{v}</p><p className="mt-2 font-sans text-[13px] text-mute">{d}</p></div>)}</div>
       </Band>
       <Band>
-        <SplitHeading eyebrow={c.mathEyebrow} title={c.mathTitle}>{c.mathBody}</SplitHeading>
-        <div className="mt-12 grid grid-cols-2 gap-6 lg:grid-cols-4">
-          {c.math.map(([v, d]) => <div key={v} className="border-l border-line pl-5"><p className="text-3xl font-bold tracking-tight text-tide-500">{v}</p><p className="mt-2 text-[13.5px] text-mute">{d}</p></div>)}
-        </div>
-      </Band>
-      <Band tone="light">
-        <SplitHeading eyebrow={c.segEyebrow} title={c.segTitle}>{c.segBody}</SplitHeading>
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {c.segments.map(([t, d]) => <div key={t} className="card p-6"><p className="text-[16px] font-bold text-ocean-950">{t}</p><p className="mt-1.5 text-[14px] text-mute">{d}</p></div>)}
-        </div>
+        <SectionHead eyebrow={c.segEyebrow} title={c.segTitle} sub={c.segBody} />
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{c.segments.map(([t, d]) => <div key={t} className="card p-6"><p className="text-[1.4rem]">{t}</p><p className="mt-1.5 font-sans text-[13.5px] text-mute">{d}</p></div>)}</div>
       </Band>
     </>
   );

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { getRepo } from "@/lib/data";
 import { getT } from "@/lib/i18n/server";
-import { PageHero, Band, SplitHeading } from "@/components/site/Sections";
+import { PageHero, Band, SectionHead } from "@/components/site/Sections";
+import { IMAGES } from "@/lib/content/images";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { rupiah } from "@/lib/format";
 
@@ -44,25 +45,19 @@ export default async function RumahTanggaPage() {
   const boxes = products.filter((p) => p.category_id === "c_paket");
   return (
     <>
-      <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="box" />
+      <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="box" image={IMAGES.box} />
       <Band>
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {c.points(rupiah(settings.min_order_retail), rupiah(settings.free_delivery_retail)).map((p) => <li key={p} className="flex gap-3 rounded-2xl border border-line px-5 py-4 text-[15px] text-ink/85"><Check className="mt-0.5 h-5 w-5 flex-none text-coral-500" />{p}</li>)}
-        </ul>
+        <ul className="grid gap-3 sm:grid-cols-2">{c.points(rupiah(settings.min_order_retail), rupiah(settings.free_delivery_retail)).map((p) => <li key={p} className="flex gap-3 border border-line bg-white px-5 py-4 font-sans text-[14.5px] text-ink/85"><Check className="mt-0.5 h-5 w-5 flex-none text-coral-600" />{p}</li>)}</ul>
       </Band>
-      <Band tone="light">
-        <SplitHeading eyebrow={c.howEyebrow} title={c.howTitle} />
-        <ol className="mt-12 grid gap-4 md:grid-cols-3">
-          {c.how.map(([n, t, d]) => <li key={n} className="card p-7"><span className="text-5xl font-bold text-sand-300">{n}</span><h3 className="mt-4 text-[19px] text-ocean-950">{t}</h3><p className="mt-2 text-[14.5px] leading-relaxed text-mute">{d}</p></li>)}
-        </ol>
+      <Band tone="parchment">
+        <SectionHead eyebrow={c.howEyebrow} title={c.howTitle} />
+        <ol className="mt-10 grid gap-4 md:grid-cols-3">{c.how.map(([n, t, d]) => <li key={n} className="card p-7"><span className="font-display text-[4rem] font-extrabold leading-none text-coral-500">{n}</span><h3 className="mt-3 text-[1.6rem]">{t}</h3><p className="mt-2 font-sans text-[14px] leading-relaxed text-mute">{d}</p></li>)}</ol>
       </Band>
       {boxes.length > 0 && (
         <Band>
-          <SplitHeading eyebrow={c.boxesEyebrow} title={c.boxesTitle} action={{ href: "/belanja", label: c.cta }} />
-          <div className="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {boxes.map((p) => <ProductCard key={p.id} p={p} segment="retail" locale={locale} />)}
-          </div>
-          <Link href="/belanja/kategori/paket-hemat" className="btn-outline mt-8">{c.boxesEyebrow} <ArrowRight className="h-4 w-4" /></Link>
+          <SectionHead eyebrow={c.boxesEyebrow} title={c.boxesTitle} action={{ href: "/belanja/kategori/paket-hemat", label: c.boxesEyebrow }} />
+          <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">{boxes.map((p) => <ProductCard key={p.id} p={p} segment="retail" locale={locale} />)}</div>
+          <Link href="/belanja" className="btn-accent mt-8">{c.cta} <ArrowRight className="h-4 w-4" /></Link>
         </Band>
       )}
     </>

@@ -1,6 +1,6 @@
 # Photo brief — the 14 photos that complete the site
 
-Every hero, pillar card and product tile is a photo slot. Until a photo is set, the site shows a designed navy placeholder with the species mark. Add photos through the back-office (product and category image URLs) or Pengaturan (hero and about images); upload the files to Supabase Storage (public bucket) or any image host and paste the link.
+Every hero, category tile, story block and product tile is a photo slot. Until a photo is set, the site shows a designed black-and-gold placeholder with the species mark. Page photos go in `src/lib/content/images.ts` (hero[0..2], category by slug, story, standards, box, kitchen, restaurant); product photos go on each product in the back-office (URL foto). Direct Unsplash links work: `https://images.unsplash.com/photo-<id>?w=1600&q=80`.
 
 Shoot on a phone is fine. Landscape for heroes, square for products, natural light or the auction's floodlights. Keep hands and crates in frame: the site sells a process, not a stock image.
 

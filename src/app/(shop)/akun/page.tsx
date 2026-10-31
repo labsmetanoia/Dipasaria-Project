@@ -17,14 +17,14 @@ export default async function AccountPage() {
   const repo = await getRepo();
   const [account, { t, locale }] = await Promise.all([getCurrentAccount(), getT()]);
   const settings = await repo.getSettings();
-  if (!account) return <div className="mx-auto max-w-lg space-y-4"><h1 className="text-2xl text-ocean-950">{t.account.title}</h1><p className="text-sm text-mute">{t.account.sub}</p><BusinessLogin demoHint={repo.mode === "memory"} /></div>;
+  if (!account) return <div className="container-x max-w-lg space-y-4 py-10 md:py-16"><h1 className="text-[2.6rem] sm:text-[3.4rem]">{t.account.title}</h1><p className="font-sans text-sm text-mute">{t.account.sub}</p><BusinessLogin demoHint={repo.mode === "memory"} /></div>;
   const [orders, slots] = await Promise.all([repo.getOrdersForAccount(account.id, 10), repo.getSlots()]);
   const slot = slots.find((s) => s.id === account.preferred_slot_id);
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl bg-ocean-950 p-6 text-white">
+    <div className="container-x max-w-4xl space-y-6 py-8 md:py-12">
+      <div className="bg-ocean-950 p-6 text-white">
         <div className="flex items-start justify-between gap-3">
-          <div><p className="eyebrow"><Store className="mr-1 inline h-3 w-3" />{t.account.title}</p><h1 className="mt-1 text-2xl">{account.business_name}</h1><p className="text-sm text-white/70">{account.contact_name} · +{account.phone}</p></div>
+          <div><p className="eyebrow"><Store className="mr-1 inline h-3 w-3" />{t.account.title}</p><h1 className="mt-1 text-[2.4rem]">{account.business_name}</h1><p className="text-sm text-white/70">{account.contact_name} · +{account.phone}</p></div>
           <form action={businessLogoutAction}><button className="btn text-sm text-white/80 ring-1 ring-white/20 hover:bg-white/10"><LogOut className="h-4 w-4" /> {t.account.logout}</button></form>
         </div>
         <dl className="mt-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">

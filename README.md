@@ -4,8 +4,8 @@ Corporate website, installable mobile storefront (PWA) and founder back-office f
 
 | Surface | Where | Who |
 | --- | --- | --- |
-| Corporate site | `/`, `/tentang`, `/produk`, `/panduan`, `/restoran`, `/rumah-tangga`, `/kontak`, `/privasi` | Prospects, partners, search engines |
-| Storefront (PWA) | `/belanja`, `/keranjang`, `/checkout`, `/pesanan`, `/akun` | Households (guest checkout) and restaurants (phone + access code) |
+| Storefront (PWA), the landing page | `/belanja`, `/belanja/semua`, `/belanja/kategori/[slug]`, `/belanja/produk/[slug]`, `/keranjang`, `/checkout`, `/pesanan`, `/akun` | Households (guest checkout) and restaurants (phone + access code) |
+| Corporate pages | `/tentang`, `/restoran`, `/rumah-tangga`, `/panduan`, `/kontak`, `/privasi` | Prospects, partners, search engines |
 | Back-office | `/admin` | The founder, from a phone at 02:30 or a laptop in the afternoon |
 
 Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
@@ -47,11 +47,13 @@ The service-role key is used only by the Next.js server; the browser never recei
 | Afternoon | Produk & stok | Update prices and costs before 18:00; the margin column turns red under 10% |
 | Weekly | Laporan | Sales, gross margin, non-seafood share; CSV export for the accountant |
 
-## Design direction (round 2)
+## Design direction (round 3)
 
-Benchmarked on a corporate-plus-retail protein distributor site: one modern sans (Manrope), deep navy and orange, full-bleed dark heroes with image slots, orange letter-spaced eyebrows, pill buttons, alternating white/light/navy bands, corner crosshair marks, floating WhatsApp button, EN/ID toggle. The product page carries a fish-anatomy diagram (the seafood counterpart of a beef-cut chart) above a tabbed catalogue. Six bilingual kitchen guides (`src/lib/content/guides.ts`) give the site editorial depth and search content.
+Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette (cream `#FAF8F4`, parchment `#EEE7DA`, gold `#EAB200`, deep gold `#C09200`, black `#000000`): bold condensed uppercase headings (Barlow Condensed) with Barlow body text, a black header bar with a category mega-menu and cart drawer, a gold cut-off strip, cream collection headers with filters and sort, white product cards with a "from" price and a square gold cart button, a gold "How's it work?" strip, cream story sections, FAQ accordions, an outline-text marquee and a black footer with a WhatsApp newsletter.
 
-Every photo slot renders a designed illustrated placeholder until you add a photo; see `docs/photo-brief.md` for the 14 photos that complete the site.
+**Belanja is the primary landing and conversion page** (`/` redirects to `/belanja`): hero carousel, shop-by-category tiles, "find your next order" cards, how it works, standards split with today's catch, story band, most-reordered and freezer sections, and a closing image band. Category pages are collection pages; the product page carries trust icons, "often bought together", related products and an FAQ.
+
+Every image is a slot: product photos on each product (`image_url`), page photos in `src/lib/content/images.ts`. Until a URL is set, a designed black-and-gold placeholder renders. The shot list is in `docs/photo-brief.md`.
 
 ## What is built
 

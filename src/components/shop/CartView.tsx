@@ -14,10 +14,10 @@ import { ProductArt } from "@/components/ProductArt";
 import { Empty } from "@/components/ui";
 
 export function MinOrderBar({ subtotal, min }: { subtotal: number; min: number }) {
-  const { t } = useT();
-  const pct = Math.min(100, Math.round((subtotal / min) * 100));
-  const left = Math.max(0, min - subtotal);
-  return (
+ const { t } = useT();
+ const pct = Math.min(100, Math.round((subtotal / min) * 100));
+ const left = Math.max(0, min - subtotal);
+ return (
     <div>
       <div className="flex items-center justify-between text-xs">
         <span className={left > 0 ? "text-ink/70" : "font-bold text-success-600"}>{left > 0 ? fmt(t.cart.addMore, { amount: rupiah(left) }) : t.cart.minMet}</span>
@@ -29,31 +29,31 @@ export function MinOrderBar({ subtotal, min }: { subtotal: number; min: number }
 }
 
 export function CartView({ products, settings, areas, account }: { products: Product[]; settings: Settings; areas: DeliveryArea[]; account: BusinessAccount | null }) {
-  const { t, locale } = useT();
-  const { lines, setQty, remove } = useCart();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return <div className="h-40 animate-pulse rounded-2xl bg-sand-100" />;
-  const q = quote({ settings, products, areas, promos: [], account, now: nowJakarta() }, { lines });
-  if (!lines.length) {
-    return <Empty title={t.cart.empty} icon={<ShoppingBag className="h-8 w-8" />}><Link href="/belanja" className="btn-primary mt-4">{t.cart.emptyCta}</Link></Empty>;
+ const { t, locale } = useT();
+ const { lines, setQty, remove } = useCart();
+ const [mounted, setMounted] = useState(false);
+ useEffect(() => setMounted(true), []);
+ if (!mounted) return <div className="h-40 animate-pulse bg-sand-100" />;
+ const q = quote({ settings, products, areas, promos: [], account, now: nowJakarta() }, { lines });
+ if (!lines.length) {
+ return <Empty title={t.cart.empty} icon={<ShoppingBag className="h-8 w-8" />}><Link href="/belanja" className="btn-primary mt-4">{t.cart.emptyCta}</Link></Empty>;
   }
-  return (
+ return (
     <div className="grid gap-6 lg:grid-cols-12">
       <div className="min-w-0 space-y-3 lg:col-span-7">
-        {q.errors.length > 0 && <div className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-coral-700">{q.errors.map((e) => <p key={e}>{e}</p>)}</div>}
+        {q.errors.length > 0 && <div className=" bg-coral-50 px-4 py-3 text-sm text-coral-700">{q.errors.map((e) => <p key={e}>{e}</p>)}</div>}
         {lines.map((l) => {
-          const ql = q.lines.find((x) => x.variant.id === l.variant_id && (x.prep?.id ?? null) === (l.prep_option_id ?? null));
-          const p = products.find((x) => x.id === l.product_id);
-          if (!p) return null;
-          const v = p.variants.find((x) => x.id === l.variant_id);
-          return (
+ const ql = q.lines.find((x) => x.variant.id === l.variant_id && (x.prep?.id ?? null) === (l.prep_option_id ?? null));
+ const p = products.find((x) => x.id === l.product_id);
+ if (!p) return null;
+ const v = p.variants.find((x) => x.id === l.variant_id);
+ return (
             <div key={`${l.variant_id}|${l.prep_option_id}`} className="card flex gap-3 p-3">
-              <Link href={`/belanja/produk/${p.slug}`} className="h-20 w-20 flex-none overflow-hidden rounded-xl"><ProductArt icon={p.icon} storage={p.storage_class} image={p.image_url} alt={p.name} /></Link>
+              <Link href={`/belanja/produk/${p.slug}`} className="h-20 w-20 flex-none overflow-hidden "><ProductArt icon={p.icon} storage={p.storage_class} image={p.image_url} alt={p.name} /></Link>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0"><p className="truncate font-bold text-ocean-950">{locale === "en" && p.name_en ? p.name_en : p.name}</p><p className="truncate text-xs text-mute">{v && pick(locale, v.label, v.label_en)}{ql?.prep ? ` · ${pick(locale, ql.prep.label, ql.prep.label_en)}` : ""}</p></div>
-                  <button onClick={() => remove(l.variant_id, l.prep_option_id)} className="rounded-lg p-1.5 text-mute hover:bg-sand-100 hover:text-coral-600" aria-label={t.cart.remove}><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={() => remove(l.variant_id, l.prep_option_id)} className=" p-1.5 text-mute hover:bg-sand-100 hover:text-coral-600" aria-label={t.cart.remove}><Trash2 className="h-4 w-4" /></button>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   {v && <QtyStepper size="sm" value={l.qty} min={v.min_qty} step={v.step_qty} unit={t.unit[v.unit]} onChange={(n) => setQty(l.variant_id, l.prep_option_id, n < v.min_qty ? 0 : n)} />}

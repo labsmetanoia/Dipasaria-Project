@@ -8,13 +8,13 @@ import { Field } from "@/components/ui";
 import { useT } from "@/lib/i18n/client";
 
 export function BusinessLogin({ demoHint }: { demoHint?: boolean }) {
-  const { t } = useT();
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-  const router = useRouter();
-  return (
+ const { t } = useT();
+ const [phone, setPhone] = useState("");
+ const [code, setCode] = useState("");
+ const [err, setErr] = useState<string | null>(null);
+ const [pending, start] = useTransition();
+ const router = useRouter();
+ return (
     <div className="card p-5">
       <div className="flex items-center gap-2 text-ocean-950"><KeyRound className="h-5 w-5 text-coral-500" /><h2 className="font-bold">{t.account.login}</h2></div>
       <p className="mt-1 text-sm text-mute">{t.account.loginSub}</p>
@@ -24,7 +24,7 @@ export function BusinessLogin({ demoHint }: { demoHint?: boolean }) {
         {err && <p className="text-sm text-coral-600">{err}</p>}
         <button className="btn-primary w-full" disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.account.enter}</button>
       </form>
-      {demoHint && <p className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-600">{t.account.demoHint}</p>}
+      {demoHint && <p className="mt-3 bg-warn-50 px-3 py-2 text-xs text-warn-600">{t.account.demoHint}</p>}
       <p className="mt-4 text-sm text-mute">{t.account.noAccount} <Link href="/akun/daftar" className="font-bold text-coral-600">{t.account.register}</Link>.</p>
     </div>
   );

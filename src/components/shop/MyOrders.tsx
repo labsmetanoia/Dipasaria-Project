@@ -10,14 +10,14 @@ import { useT } from "@/lib/i18n/client";
 import { StatusBadge, PaymentBadge } from "@/components/ui";
 
 export function MyOrders({ accountOrders }: { accountOrders: Order[] }) {
-  const { t, locale } = useT();
-  const refs = useCart((s) => s.orders);
-  const [orders, setOrders] = useState<Order[] | null>(null);
-  useEffect(() => { if (!refs.length) { setOrders([]); return; } lookupOrdersAction(refs.map((r) => ({ code: r.code, phone: r.phone }))).then(setOrders); }, [refs]);
-  const list = [...accountOrders, ...(orders ?? []).filter((o) => !accountOrders.some((a) => a.id === o.id))];
-  if (orders === null && !accountOrders.length) return <div className="h-24 animate-pulse rounded-2xl bg-sand-100" />;
-  if (!list.length) return null;
-  return (
+ const { t, locale } = useT();
+ const refs = useCart((s) => s.orders);
+ const [orders, setOrders] = useState<Order[] | null>(null);
+ useEffect(() => { if (!refs.length) { setOrders([]); return; } lookupOrdersAction(refs.map((r) => ({ code: r.code, phone: r.phone }))).then(setOrders); }, [refs]);
+ const list = [...accountOrders, ...(orders ?? []).filter((o) => !accountOrders.some((a) => a.id === o.id))];
+ if (orders === null && !accountOrders.length) return <div className="h-24 animate-pulse bg-sand-100" />;
+ if (!list.length) return null;
+ return (
     <section>
       <h2 className="mb-3 font-bold text-ocean-950">{t.tracking.yourOrders}</h2>
       <ul className="space-y-2">

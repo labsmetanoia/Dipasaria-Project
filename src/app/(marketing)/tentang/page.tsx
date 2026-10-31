@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Fish, Snowflake, Scale, Truck } from "lucide-react";
 import { getRepo } from "@/lib/data";
 import { getT } from "@/lib/i18n/server";
-import { PageHero, Band, SplitHeading } from "@/components/site/Sections";
+import { PageHero, Band, SectionHead, StepsStrip } from "@/components/site/Sections";
 import { ImageSlot } from "@/components/site/Decor";
+import { IMAGES } from "@/lib/content/images";
 import { ProductIcon } from "@/components/Icons";
 
 export const metadata: Metadata = { title: "Tentang kami" };
@@ -90,60 +91,43 @@ export default async function TentangPage() {
   const { locale } = await getT();
   const c = copy[locale];
   const settings = await (await getRepo()).getSettings();
+  const icons = [<Fish key="a" className="h-5 w-5" />, <Scale key="b" className="h-5 w-5" />, <Snowflake key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
   return (
     <>
-      <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="fish" image={settings.about_image_url} />
+      <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="fish" image={IMAGES.story ?? settings.about_image_url} />
       <Band>
-        <SplitHeading eyebrow={c.storyEyebrow} title={c.storyTitle}>
-          <div className="space-y-4">{c.story.map((p) => <p key={p}>{p}</p>)}</div>
-        </SplitHeading>
+        <div className="grid gap-10 lg:grid-cols-12">
+          <div className="lg:col-span-5"><p className="eyebrow">{c.storyEyebrow}</p><h2 className="mt-2 text-[2.6rem] sm:text-[3.4rem]">{c.storyTitle}</h2></div>
+          <div className="space-y-5 font-sans text-[15px] leading-relaxed text-ink/80 lg:col-span-7">{c.story.map((x) => <p key={x}>{x}</p>)}</div>
+        </div>
       </Band>
-      <Band tone="light">
-        <SplitHeading eyebrow={c.valuesEyebrow} title={c.valuesTitle} />
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Band tone="parchment">
+        <SectionHead eyebrow={c.valuesEyebrow} title={c.valuesTitle} />
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {c.values.map((v) => (
             <div key={v.t} className="card p-6">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-tide-50 text-tide-600"><ProductIcon name={v.icon} className="h-6 w-6" /></span>
-              <h3 className="mt-5 text-[18px] text-ocean-950">{v.t}</h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-mute">{v.d}</p>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-ocean-950 text-coral-500"><ProductIcon name={v.icon} className="h-6 w-6" /></span>
+              <h3 className="mt-5 text-[1.5rem]">{v.t}</h3>
+              <p className="mt-2 font-sans text-[13.5px] leading-relaxed text-mute">{v.d}</p>
             </div>
           ))}
         </div>
       </Band>
-      <Band tone="dark">
-        <SplitHeading dark eyebrow={c.cycleEyebrow} title={c.cycleTitle} />
-        <ol className="mt-12 grid gap-4 md:grid-cols-4">
-          {c.cycle.map(([time, d]) => (
-            <li key={time} className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <p className="text-3xl font-bold tracking-tight text-tide-400">{time}</p>
-              <p className="mt-3 text-[14px] leading-relaxed text-white/75">{d}</p>
-            </li>
-          ))}
-        </ol>
-      </Band>
+      <StepsStrip title={c.cycleTitle} steps={c.cycle.map(([time, d], i) => ({ icon: icons[i], text: `${time} — ${d}` }))} />
       <Band className="scroll-mt-24">
         <div id="standar" />
-        <SplitHeading eyebrow={c.stdEyebrow} title={c.stdTitle} />
-        <div className="mt-12 grid gap-10 lg:grid-cols-12">
+        <SectionHead eyebrow={c.stdEyebrow} title={c.stdTitle} />
+        <div className="mt-10 grid gap-10 lg:grid-cols-12">
           <dl className="divide-y divide-line lg:col-span-7">
-            {c.sources.map(([k, v]) => (
-              <div key={k} className="grid gap-1 py-5 sm:grid-cols-3"><dt className="font-semibold text-ocean-950">{k}</dt><dd className="text-[14.5px] leading-relaxed text-mute sm:col-span-2">{v}</dd></div>
-            ))}
+            {c.sources.map(([k, v]) => <div key={k} className="grid gap-1 py-5 sm:grid-cols-3"><dt className="font-display text-[18px] font-bold uppercase">{k}</dt><dd className="font-sans text-[14px] leading-relaxed text-mute sm:col-span-2">{v}</dd></div>)}
           </dl>
           <div className="lg:col-span-5">
-            <div className="rounded-3xl bg-ocean-950 p-7 text-white">
-              <p className="eyebrow">{c.dns}</p>
-              <ul className="mt-4 space-y-2.5 text-[14.5px] text-white/80">{c.dnsList.map((d) => <li key={d} className="flex gap-3"><span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-coral-500" />{d}</li>)}</ul>
-            </div>
-            <div className="mt-4 rounded-3xl bg-coral-50 p-7">
-              <h3 className="text-[18px] text-ocean-950">{c.guaranteeT}</h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-ink/75">{c.guaranteeD}</p>
-              <Link href="/belanja" className="btn-accent mt-5">{c.cta} <ArrowRight className="h-4 w-4" /></Link>
-            </div>
+            <div className="bg-ocean-950 p-7 text-white"><p className="eyebrow">{c.dns}</p><ul className="mt-4 space-y-2.5 font-sans text-[14px] text-white/80">{c.dnsList.map((d) => <li key={d} className="flex gap-3"><span className="mt-2 h-1.5 w-1.5 flex-none bg-coral-500" />{d}</li>)}</ul></div>
+            <div className="mt-4 bg-coral-500 p-7 text-ocean-950"><h3 className="text-[1.6rem]">{c.guaranteeT}</h3><p className="mt-2 font-sans text-[13.5px] leading-relaxed">{c.guaranteeD}</p><Link href="/belanja" className="btn-primary mt-5">{c.cta} <ArrowRight className="h-4 w-4" /></Link></div>
           </div>
         </div>
       </Band>
-      <ImageSlot src={null} alt="" icon="shrimp" className="h-40 md:h-56" />
+      <ImageSlot src={IMAGES.kitchen} alt="" icon="shrimp" className="h-48 md:h-64" />
     </>
   );
 }

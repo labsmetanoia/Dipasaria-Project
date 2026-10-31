@@ -13,31 +13,31 @@ import { ReorderButton } from "./ReorderPanel";
 const STEPS: Order["status"][] = ["new", "confirmed", "packing", "delivering", "completed"];
 
 export function OrderTracking({ order: initial, settings, isNew }: { order: Order; settings: Settings; isNew?: boolean }) {
-  const { t, locale } = useT();
-  const [order, setOrder] = useState(initial);
-  const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
-  const idx = order.status === "cancelled" ? -1 : STEPS.indexOf(order.status);
-  const finalKnown = !order.has_catch_weight || order.weighed_at !== null;
-  const total = order.total_final ?? order.total_est;
-  const payNow = finalKnown && (order.payment_method === "qris" || order.payment_method === "transfer") && order.payment_status !== "paid" && order.status !== "cancelled";
-  const markPaid = () => start(async () => { const r = await confirmPaymentAction(order.code, order.phone); if (r.ok) { setOrder(r.data); setMsg(t.tracking.paidThanks); } else setMsg(r.error); });
-  const unit = (u: Order["items"][number]["unit"]) => t.unit[u];
+ const { t, locale } = useT();
+ const [order, setOrder] = useState(initial);
+ const [pending, start] = useTransition();
+ const [msg, setMsg] = useState<string | null>(null);
+ const idx = order.status === "cancelled" ? -1 : STEPS.indexOf(order.status);
+ const finalKnown = !order.has_catch_weight || order.weighed_at !== null;
+ const total = order.total_final ?? order.total_est;
+ const payNow = finalKnown && (order.payment_method === "qris" || order.payment_method === "transfer") && order.payment_status !== "paid" && order.status !== "cancelled";
+ const markPaid = () => start(async () => { const r = await confirmPaymentAction(order.code, order.phone); if (r.ok) { setOrder(r.data); setMsg(t.tracking.paidThanks); } else setMsg(r.error); });
+ const unit = (u: Order["items"][number]["unit"]) => t.unit[u];
 
-  return (
+ return (
     <div className="space-y-5">
-      {isNew && <div className="rounded-2xl bg-success-50 px-5 py-4 text-success-600"><p className="font-bold">{t.tracking.received}</p><p className="mt-0.5 text-sm">{fmt(t.tracking.receivedBody, { what: order.has_catch_weight ? t.tracking.receivedCatch : t.tracking.receivedStatus, phone: order.phone })}</p></div>}
+      {isNew && <div className=" bg-success-50 px-5 py-4 text-success-600"><p className="font-bold">{t.tracking.received}</p><p className="mt-0.5 text-sm">{fmt(t.tracking.receivedBody, { what: order.has_catch_weight ? t.tracking.receivedCatch : t.tracking.receivedStatus, phone: order.phone })}</p></div>}
       <div className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><p className="eyebrow">{t.tracking.orderNo}</p><p className="text-2xl font-bold text-ocean-950">{order.code}</p><p className="mt-1 text-sm text-mute">{formatDate(order.delivery_date, "long", locale)} · {order.slot_label}</p></div>
           <div className="text-right"><PaymentBadge status={order.payment_status} /><p className="mt-1 text-xs text-mute">{t.paymentMethod[order.payment_method]}</p></div>
         </div>
-        {order.status === "cancelled" ? <p className="mt-5 rounded-xl bg-sand-100 px-4 py-3 text-sm">{t.tracking.cancelled}</p> : (
+        {order.status === "cancelled" ? <p className="mt-5 bg-sand-100 px-4 py-3 text-sm">{t.tracking.cancelled}</p> : (
           <ol className="mt-6 grid grid-cols-5 gap-1">
             {STEPS.map((s, i) => {
-              const done = i <= idx;
-              const at = order.history.filter((h) => h.status === s).at(-1)?.at;
-              return (
+ const done = i <= idx;
+ const at = order.history.filter((h) => h.status === s).at(-1)?.at;
+ return (
                 <li key={s} className="flex flex-col items-center text-center">
                   <div className={`flex h-7 w-7 items-center justify-center rounded-full ${done ? "bg-tide-600 text-white" : "bg-sand-200 text-mute"}`}>{done ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-3 w-3" />}</div>
                   <p className={`mt-1.5 text-[11px] font-bold ${done ? "text-ocean-950" : "text-mute"}`}>{t.status[s]}</p>
@@ -79,11 +79,11 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
           {order.payment_method === "qris" ? (
             <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              {settings.qris_image_url ? <img src={settings.qris_image_url} alt="QRIS" className="h-48 w-48 rounded-xl border border-line object-contain" /> : <div className="flex h-48 w-48 items-center justify-center rounded-xl border border-dashed border-line text-center text-xs text-mute">{t.tracking.qrisMissing}</div>}
+              {settings.qris_image_url ? <img src={settings.qris_image_url} alt="QRIS" className="h-48 w-48 border border-line object-contain" /> : <div className="flex h-48 w-48 items-center justify-center border border-dashed border-line text-center text-xs text-mute">{t.tracking.qrisMissing}</div>}
               <p className="text-sm text-ink/80">{fmt(t.tracking.qrisHelp, { holder: settings.bank_holder, amount: rupiah(total) })}</p>
             </div>
           ) : (
-            <div className="mt-3 rounded-xl bg-sand-100 px-4 py-3 text-sm"><p>{fmt(t.tracking.transferTo, { amount: rupiah(total) })}</p><p className="mt-1 text-xl font-bold text-ocean-950">{settings.bank_name} {settings.bank_account}</p><p className="text-mute">{fmt(t.tracking.onBehalf, { holder: settings.bank_holder })}</p></div>
+            <div className="mt-3 bg-sand-100 px-4 py-3 text-sm"><p>{fmt(t.tracking.transferTo, { amount: rupiah(total) })}</p><p className="mt-1 text-xl font-bold text-ocean-950">{settings.bank_name} {settings.bank_account}</p><p className="text-mute">{fmt(t.tracking.onBehalf, { holder: settings.bank_holder })}</p></div>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
             {order.payment_status === "unpaid" && <button onClick={markPaid} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.tracking.paid}</button>}
@@ -92,7 +92,7 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
           {msg && <p className="mt-2 text-sm text-tide-700">{msg}</p>}
         </div>
       )}
-      {!finalKnown && order.status !== "cancelled" && <div className="rounded-2xl bg-tide-50 px-5 py-4 text-sm text-tide-700">{t.tracking.catchPending}</div>}
+      {!finalKnown && order.status !== "cancelled" && <div className=" bg-tide-50 px-5 py-4 text-sm text-tide-700">{t.tracking.catchPending}</div>}
       <div className="flex flex-wrap gap-2">
         <a href={waLink(settings.whatsapp_number, msgCustomerAsk(order.code, settings))} target="_blank" rel="noreferrer" className="btn-secondary"><MessageCircle className="h-4 w-4" /> {t.tracking.ask}</a>
         <ReorderButton order={order} className="btn-secondary" />

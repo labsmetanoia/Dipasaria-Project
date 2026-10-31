@@ -12,5 +12,5 @@ export default async function CheckoutPage() {
   const repo = await getRepo();
   const [products, settings, areas, slots, account, { t }] = await Promise.all([repo.getProducts(), repo.getSettings(), repo.getAreas(), repo.getSlots(), getCurrentAccount(), getT()]);
   const slotUsage = await repo.getSlotUsage(availableDates(settings, nowJakarta()));
-  return <div><h1 className="mb-4 text-2xl text-ocean-950">{t.checkout.title}</h1><CheckoutForm products={products} settings={settings} areas={areas} slots={slots} slotUsage={slotUsage} account={account} /></div>;
+  return <div className="container-x py-8 md:py-12"><h1 className="mb-6 text-[2.6rem] sm:text-[3.4rem]">{t.checkout.title}</h1><CheckoutForm products={products} settings={settings} areas={areas} slots={slots} slotUsage={slotUsage} account={account} /></div>;
 }

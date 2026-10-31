@@ -36,7 +36,7 @@ export default async function PrivasiPage() {
   return (
     <>
       <PageHero eyebrow={c.eyebrow} title={c.title} icon="snow" />
-      <section className="container-x py-16"><div className="mx-auto max-w-2xl space-y-5 text-[16px] leading-[1.75] text-ink/85">{c.body.map((p, i) => <p key={i}>{p}</p>)}</div></section>
+      <section className="container-x py-16"><div className="mx-auto max-w-2xl space-y-5 font-sans text-[16px] leading-[1.75] text-ink/85">{c.body.map((p, i) => <p key={i}>{p}</p>)}</div></section>
     </>
   );
 }

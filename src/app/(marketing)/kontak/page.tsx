@@ -21,12 +21,12 @@ export default async function KontakPage() {
       <Band>
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="grid gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
-            <a href={waLink(settings.whatsapp_number, fmt(t.common.chatDefault, { store: settings.store_name }))} target="_blank" rel="noreferrer" className="card flex items-start gap-4 p-6 hover:border-coral-500"><MessageCircle className="h-6 w-6 text-coral-500" /><div><p className="font-bold text-ocean-950">WhatsApp</p><p className="mt-1 text-sm text-mute">+{settings.whatsapp_number}</p></div></a>
-            {settings.instagram && <a href={`https://instagram.com/${settings.instagram}`} target="_blank" rel="noreferrer" className="card flex items-start gap-4 p-6 hover:border-coral-500"><Instagram className="h-6 w-6 text-coral-500" /><div><p className="font-bold text-ocean-950">Instagram</p><p className="mt-1 text-sm text-mute">@{settings.instagram}</p></div></a>}
-            <div className="card flex items-start gap-4 p-6"><MapPin className="h-6 w-6 text-coral-500" /><div><p className="font-bold text-ocean-950">{c.base}</p><p className="mt-1 text-sm text-mute">{settings.address_line}. {c.baseSub}</p></div></div>
-            <div className="card flex items-start gap-4 p-6"><Clock className="h-6 w-6 text-coral-500" /><div><p className="font-bold text-ocean-950">{c.hours}</p><p className="mt-1 text-sm text-mute">{c.hoursSub}</p></div></div>
+            <a href={waLink(settings.whatsapp_number, fmt(t.common.chatDefault, { store: settings.store_name }))} target="_blank" rel="noreferrer" className="card flex items-start gap-4 p-6 hover:border-ocean-950"><MessageCircle className="h-6 w-6 text-coral-600" /><div><p className="font-display text-[1.3rem] font-bold uppercase">WhatsApp</p><p className="mt-1 text-sm text-mute">+{settings.whatsapp_number}</p></div></a>
+            {settings.instagram && <a href={`https://instagram.com/${settings.instagram}`} target="_blank" rel="noreferrer" className="card flex items-start gap-4 p-6 hover:border-ocean-950"><Instagram className="h-6 w-6 text-coral-600" /><div><p className="font-display text-[1.3rem] font-bold uppercase">Instagram</p><p className="mt-1 text-sm text-mute">@{settings.instagram}</p></div></a>}
+            <div className="card flex items-start gap-4 p-6"><MapPin className="h-6 w-6 text-coral-600" /><div><p className="font-display text-[1.3rem] font-bold uppercase">{c.base}</p><p className="mt-1 text-sm text-mute">{settings.address_line}. {c.baseSub}</p></div></div>
+            <div className="card flex items-start gap-4 p-6"><Clock className="h-6 w-6 text-coral-600" /><div><p className="font-display text-[1.3rem] font-bold uppercase">{c.hours}</p><p className="mt-1 text-sm text-mute">{c.hoursSub}</p></div></div>
           </div>
-          <div className="card p-6 lg:col-span-7 lg:p-8"><h2 className="mb-5 text-2xl text-ocean-950">{c.form}</h2><ContactForm whatsapp={settings.whatsapp_number} storeName={settings.store_name} /></div>
+          <div className="card p-6 lg:col-span-7 lg:p-8"><h2 className="mb-5 text-[2rem]">{c.form}</h2><ContactForm whatsapp={settings.whatsapp_number} storeName={settings.store_name} /></div>
         </div>
       </Band>
     </>

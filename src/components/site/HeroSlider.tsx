@@ -1,45 +1,34 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
-import { ImageSlot, Crosshairs } from "./Decor";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ImageSlot } from "./Decor";
 
 export interface Slide { eyebrow: string; title: string; sub?: string; cta: { href: string; label: string }; cta2?: { href: string; label: string }; icon: string; image?: string | null }
 
-export function HeroSlider({ slides, counter }: { slides: Slide[]; counter: string }) {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setI((x) => (x + 1) % slides.length), 7000);
-    return () => clearInterval(id);
-  }, [slides.length]);
-  const s = slides[i];
-  return (
-    <section className="relative isolate min-h-[88svh] text-white">
+export function HeroSlider({ slides }: { slides: Slide[] }) {
+ const [i, setI] = useState(0);
+ useEffect(() => { const id = setInterval(() => setI((x) => (x + 1) % slides.length), 7000); return () => clearInterval(id); }, [slides.length]);
+ const s = slides[i];
+ return (
+    <section className="relative isolate h-[72svh] min-h-[480px] max-h-[760px] text-white">
       {slides.map((sl, k) => (
-        <ImageSlot key={k} src={sl.image} alt={sl.title} icon={sl.icon} className={`absolute inset-0 -z-10 transition-opacity duration-700 ${k === i ? "opacity-100" : "opacity-0"}`}>
-          <div className="photo-fade absolute inset-0" />
-        </ImageSlot>
+        <ImageSlot key={k} src={sl.image} alt={sl.title} icon={sl.icon} className={`absolute inset-0 -z-10 transition-opacity duration-700 ${k === i ? "opacity-100" : "opacity-0"}`}><div className="photo-fade absolute inset-0" /></ImageSlot>
       ))}
-      <Crosshairs className="text-white/60" />
-      <div className="container-x flex min-h-[88svh] flex-col justify-end pb-16 pt-36 md:pb-24">
+      <div className="container-x flex h-full flex-col justify-end pb-14 md:pb-20">
         <div key={i} className="max-w-3xl">
-          <p className="eyebrow rise">{s.eyebrow}</p>
-          <h1 className="rise rise-2 mt-4 text-[2.2rem] leading-[1.06] sm:text-5xl lg:text-[3.6rem]">{s.title}</h1>
-          {s.sub && <p className="rise rise-3 mt-5 max-w-xl text-[17px] leading-relaxed text-white/75">{s.sub}</p>}
-          <div className="rise rise-3 mt-8 flex flex-wrap gap-3">
-            <Link href={s.cta.href} className="btn-accent px-6 py-3 text-[15px]">{s.cta.label} <ArrowRight className="h-4 w-4" /></Link>
-            {s.cta2 && <Link href={s.cta2.href} className="btn px-6 py-3 text-[15px] text-white ring-1 ring-white/35 hover:bg-white/10">{s.cta2.label}</Link>}
-          </div>
-        </div>
-        <div className="mt-12 flex items-center justify-between text-[12.5px] text-white/60">
-          <span>{counter.replace("{i}", String(i + 1)).replace("{n}", String(slides.length))}</span>
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1.5">{slides.map((_, k) => <button key={k} onClick={() => setI(k)} aria-label={`Slide ${k + 1}`} className={`h-1 rounded-full transition-all ${k === i ? "w-8 bg-coral-500" : "w-3 bg-white/40"}`} />)}</div>
-            <button onClick={() => setI((i - 1 + slides.length) % slides.length)} className="rounded-full border border-white/25 p-1.5 hover:bg-white/10" aria-label="Previous"><ChevronLeft className="h-4 w-4" /></button>
-            <button onClick={() => setI((i + 1) % slides.length)} className="rounded-full border border-white/25 p-1.5 hover:bg-white/10" aria-label="Next"><ChevronRight className="h-4 w-4" /></button>
+          <p className="eyebrow rise text-coral-500">{s.eyebrow}</p>
+          <h1 className="rise rise-2 mt-3 text-[2.8rem] sm:text-[4.4rem] lg:text-[5.6rem]">{s.title}</h1>
+          {s.sub && <p className="rise rise-3 mt-4 max-w-xl font-sans text-[15px] leading-relaxed text-white/80 sm:text-[16px]">{s.sub}</p>}
+          <div className="rise rise-3 mt-7 flex flex-wrap gap-3">
+            <Link href={s.cta.href} className="btn-accent">{s.cta.label}</Link>
+            {s.cta2 && <Link href={s.cta2.href} className="btn border border-white/60 text-white hover:bg-white hover:text-ocean-950">{s.cta2.label}</Link>}
           </div>
         </div>
       </div>
+      <button onClick={() => setI((i - 1 + slides.length) % slides.length)} className="absolute left-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center bg-black/30 text-white hover:bg-coral-500 hover:text-ocean-950 md:flex" aria-label="Previous"><ChevronLeft className="h-5 w-5" /></button>
+      <button onClick={() => setI((i + 1) % slides.length)} className="absolute right-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center bg-black/30 text-white hover:bg-coral-500 hover:text-ocean-950 md:flex" aria-label="Next"><ChevronRight className="h-5 w-5" /></button>
+      <div className="absolute bottom-5 right-6 flex gap-2">{slides.map((_, k) => <button key={k} onClick={() => setI(k)} aria-label={`Slide ${k + 1}`} className={`h-2.5 w-2.5 rounded-full border border-white/60 ${k === i ? "bg-coral-500" : "bg-white/20"}`} />)}</div>
     </section>
   );
 }
