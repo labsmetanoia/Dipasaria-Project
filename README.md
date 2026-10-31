@@ -1,0 +1,73 @@
+# Dipasaria — Seafood-Led Protein Commerce Platform
+
+Corporate website, installable mobile storefront (PWA) and founder back-office for a Jakarta supplier of graded seafood, halal chicken, eggs and kitchen essentials. One Next.js codebase on Supabase; Rp 0 a month on free tiers until daily sales justify Supabase Pro.
+
+| Surface | Where | Who |
+| --- | --- | --- |
+| Corporate site | `/`, `/tentang`, `/restoran`, `/cara-kerja`, `/kontak`, `/privasi` | Prospects, partners, search engines |
+| Storefront (PWA) | `/belanja`, `/keranjang`, `/checkout`, `/pesanan`, `/akun` | Households (guest checkout) and restaurants (phone + access code) |
+| Back-office | `/admin` | The founder, from a phone at 02:30 or a laptop in the afternoon |
+
+Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`.
+
+## Run it in two minutes (demo mode, no database)
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open http://localhost:3000. Without Supabase credentials the app runs on an in-memory copy of the seed catalogue with four example orders for tomorrow. Data resets when the server restarts.
+
+- Storefront: http://localhost:3000/belanja
+- Restaurant login: phone `081200000001`, code `BHR123` (or `081200000002` / `MNG456`)
+- Back-office: http://localhost:3000/admin, any email, password `dipasaria` (`DEMO_ADMIN_PASSWORD`)
+
+## Go live on Supabase + Vercel (about two hours)
+
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`.
+2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
+3. **Delete the example accounts** before sharing the link: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
+4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`), deploy, connect your domain.
+5. **Back-office → Pengaturan**: WhatsApp number, bank account, QRIS image link, cut-off, minimums, areas and slots. **Produk & stok**: real prices and buying costs.
+6. Place one test order from your own phone, weigh it, mark it paid, cancel it (stock comes back). Then send the first access codes from **Pelanggan**.
+
+The service-role key is used only by the Next.js server; the browser never receives it. Row-level security denies everything to the anon key, so even a leaked anon key reads nothing.
+
+## The daily loop on your phone
+
+| Time | Screen | What you do |
+| --- | --- | --- |
+| 20:00 | Ringkasan | Cut-off passes; confirm new orders (WA konfirmasi button opens WhatsApp with the message filled in) |
+| 02:30 | Belanja subuh | Buying list by temperature zone with the +5% buffer and the cleaning partner's prep notes; tick as you buy |
+| 04:30 | Pesanan → order | Type weighed kg, **Simpan timbangan**; server re-prices promo and delivery fee; send **WA invoice final** |
+| 05:00 | Rute & packing | Drops grouped by slot and area, bags per temperature zone, amount to collect for COD, **WA sedang dikirim** |
+| 08:00 | Pesanan | Mark delivered and, once money is in the bank app, **Tandai lunas** |
+| Afternoon | Produk & stok | Update prices and costs before 18:00; the margin column turns red under 10% |
+| Weekly | Laporan | Sales, gross margin, non-seafood share; CSV export for the accountant |
+
+## What is built
+
+**Storefront**: catalogue by category, search across Indonesian/English/scientific/market names, product sheet with size grades, preparation options (siangi, fillet, kupas) and storage notes, catch-weight transparency ("perkiraan" totals until weighed), cart with minimum-order progress bar, checkout with delivery areas, date chips honouring the 20:00 WIB cut-off, slots with live remaining capacity, promo codes, QRIS/transfer/COD/terms, order confirmation, tracking by order code + WhatsApp number from any device, "Saya sudah bayar", business login without passwords, one-tap **Pesan lagi**, installable PWA with offline fallback.
+
+**Back-office**: daily summary with delivery-date selector (orders, sales, estimated gross margin, non-seafood share against the Gate B target, unpaid, to-weigh), orders list with filters and search, order detail with status flow, cancel (stock returned), weigh-and-reprice, payment status, internal notes and three prepared WhatsApp messages, dawn buying list, route and packing sheet (printable), products with inline auto-saving price/cost/stock edits and an "available today" switch, product and variant editor, business account approvals with generated access codes sent via WhatsApp, promo codes, settings (store, payment, cut-off, minimums, areas, slots), sales report with CSV.
+
+**Server-side rules** (in `supabase/schema.sql` and mirrored in `src/lib/pricing.ts` for demo mode): prices from the price list, account discount, prep surcharge, minimum qty and step, stock reservation, business-only variants, daily availability, cut-off and date window, slot capacity with locking, payment-method rights, promo validity (segment, dates, quota, minimum spend, first order per phone), delivery fee thresholds, re-pricing after weighing, stock return on cancel.
+
+## Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` / `npm run build` / `npm start` | Next.js |
+| `npm run typecheck` | TypeScript |
+| `npm run test:sql` | Loads schema + seed into a local PostgreSQL and runs `scripts/sql-tests.sql` (needs `psql`; set `PGHOST`/`PGPORT`/`PGUSER`) |
+| `node scripts/gen-seed.mts` | Regenerates `supabase/seed.sql` from `src/lib/data/seed.ts` |
+
+## Costs and roadmap
+
+Launch: Rp 0 a month (Supabase Free, Vercel Hobby) plus a domain. Supabase Pro (US$25) at Gate A/B for daily backups. Midtrans or a static QRIS from your bank for payments; WhatsApp Business API alerts, Biteship courier booking, standing orders and accounting export are Phase 3 items (see `docs/architecture.md`). Native apps only as a thin wrapper around this PWA, after Gate D.
+
+## Not yet tested against a real Supabase project
+
+The SQL functions are tested on PostgreSQL 16 (`npm run test:sql`), and the whole app is driven end to end in demo mode (Playwright: household order with promo, business reorder, tracking from another device, admin weigh/confirm/pay, inline price edit, account approval). The Supabase adapter (`src/lib/data/supabase.ts`) has not yet been run against a live project: the test order in step 6 above covers it.
