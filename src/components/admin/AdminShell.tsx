@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ClipboardList, ShoppingBasket, Route, Package, Users, Tag, Settings, BarChart3, LogOut, ExternalLink } from "lucide-react";
+import { LayoutDashboard, ClipboardList, ShoppingBasket, Route, Package, Users, Tag, Settings, BarChart3, LogOut, ExternalLink, Repeat } from "lucide-react";
 import { Logo, LogoMark } from "@/components/Logo";
 import { adminLogoutAction } from "@/actions/admin";
 
 const NAV = [
   { href: "/admin", label: "Ringkasan", Icon: LayoutDashboard, exact: true },
   { href: "/admin/pesanan", label: "Pesanan", Icon: ClipboardList },
+  { href: "/admin/rutin", label: "Pesanan rutin", Icon: Repeat },
   { href: "/admin/belanja-subuh", label: "Belanja subuh", Icon: ShoppingBasket },
   { href: "/admin/rute", label: "Rute dan pengemasan", Icon: Route },
   { href: "/admin/produk", label: "Produk dan stok", Icon: Package },

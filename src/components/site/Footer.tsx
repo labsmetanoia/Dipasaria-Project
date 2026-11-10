@@ -38,6 +38,7 @@ export function Footer({ settings, t, locale }: { settings: Settings; t: Dict; l
             <Link className={link} href="/tentang">{t.nav.aboutStory}</Link>
             <Link className={link} href="/tentang#makna-logo">{en ? "The meaning of our mark" : "Makna logo"}</Link>
             <Link className={link} href="/restoran">{t.nav.forRestaurants}</Link>
+            <Link className={link} href="/resep">{t.nav.recipes}</Link>
             <Link className={link} href="/panduan">{t.nav.guides}</Link>
             <Link className={link} href="/akun">{t.nav.businessAccount}</Link>
             <Link className={link} href="/restoran#daftar">{t.account.register}</Link>

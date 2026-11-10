@@ -13,6 +13,9 @@ import { ImageSlot, Sisik } from "@/components/site/Decor";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { ReorderPanel } from "@/components/shop/ReorderPanel";
 import { rupiah } from "@/lib/format";
+import { recipes } from "@/lib/content/recipes";
+import { recipeTotal, resolveRecipe } from "@/lib/content/recipe-items";
+import { RecipeCard } from "@/components/site/RecipeCard";
 
 export const metadata = { title: "Belanja" };
 
@@ -171,6 +174,14 @@ export default async function BelanjaPage() {
         <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">{featured.slice(0, 8).map((p) => <ProductCard key={p.id} p={p} segment={segment} discountPct={account?.discount_pct} locale={locale} size="lg" />)}</div>
         <div className="mt-14 flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">{t.shop.fillFreezer}</p><h2 className="mt-2 text-[2rem] sm:text-[2.6rem]">{c.freezerTitle}</h2><p className="mt-2 font-sans text-[13.5px] text-mute">{c.freezerSub}</p></div><Link href="/belanja/kategori/seafood-beku" className="btn-link">{t.common.viewAll} <ArrowRight className="h-4 w-4" /></Link></div>
         <div className={`mt-6 ${grid}`}>{freezer.map((p) => <ProductCard key={p.id} p={p} segment={segment} discountPct={account?.discount_pct} locale={locale} />)}</div>
+      </Band>
+
+      {/* Recipe bundles */}
+      <Band tone="parchment">
+        <SectionHead eyebrow={en ? "Recipe bundles" : "Paket resep"} title={en ? "Cook it tonight. Every ingredient in one tap." : "Masak malam ini. Semua bahan sekali sentuh."} sub={en ? "Choose a recipe, set the servings, and the right cut and size go straight into your cart." : "Pilih resep, atur jumlah porsi, dan potongan serta ukuran yang tepat langsung masuk ke keranjang."} action={{ href: "/resep", label: en ? "All recipes" : "Semua resep" }} />
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {recipes.slice(0, 3).map((r) => <RecipeCard key={r.slug} recipe={r} locale={locale} total={recipeTotal(resolveRecipe(r, products), segment, account)} />)}
+        </div>
       </Band>
 
       {/* Big image band */}

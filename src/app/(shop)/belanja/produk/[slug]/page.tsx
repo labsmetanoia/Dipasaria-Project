@@ -17,6 +17,9 @@ import { MarqueeBand } from "@/components/site/Decor";
 import { segmentOf } from "@/lib/pricing";
 import { rupiah } from "@/lib/format";
 import { SITE_URL } from "@/lib/config";
+import { recipesForProduct } from "@/lib/content/recipes";
+import { recipeTotal, resolveRecipe } from "@/lib/content/recipe-items";
+import { RecipeCard } from "@/components/site/RecipeCard";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -53,6 +56,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   ];
   const stepIcons = [<ClipboardList key="a" className="h-5 w-5" />, <CalendarDays key="b" className="h-5 w-5" />, <Fish key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
   const steps = en ? ["Choose products, sizes and preparation", "Pick a delivery day and slot", "We auction, weigh and prepare at dawn", "Delivered cold to your door"] : ["Pilih produk, ukuran, dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, siapkan, dan timbang saat subuh", "Diantar dingin sampai ke pintu Anda"];
+  const cookWith = recipesForProduct(product.variants.map((v) => v.id)).slice(0, 3);
   const active = product.variants.filter((v) => v.is_active && !v.business_only && v.price_retail > 0);
   const jsonLd = {
     "@context": "https://schema.org",
@@ -126,6 +130,12 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
       </Band>
+      {cookWith.length > 0 && (
+        <Band tone="parchment">
+          <SectionHead eyebrow={en ? "Recipe bundles" : "Paket resep"} title={en ? "Cook with this" : "Masak dengan ini"} action={{ href: "/resep", label: en ? "All recipes" : "Semua resep" }} />
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{cookWith.map((r) => <RecipeCard key={r.slug} recipe={r} locale={locale} total={recipeTotal(resolveRecipe(r, products), segment, account)} />)}</div>
+        </Band>
+      )}
       <MarqueeBand text={en ? "The chef's fishmonger" : "Langganan dapur para koki Jakarta"} />
     </>
   );

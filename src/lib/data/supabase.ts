@@ -13,6 +13,8 @@ import type {
   Product,
   Promo,
   Settings,
+  StandingOrder,
+  StandingOrderRun,
   Variant,
 } from "../types";
 import type { OrderFilter, Repo, Result, SalesRow } from "./repo";
@@ -495,4 +497,82 @@ export const supabaseRepo: Repo = {
     if (error) return fail(msg(error));
     return ok({ ...(data as object), capacity: num((data as Row).capacity), sort: num((data as Row).sort) } as DeliverySlot);
   },
+
+  async listStandingOrders(filter) {
+    let q = sb().from("standing_orders").select("*").order("created_at");
+    if (filter?.accountId) q = q.eq("account_id", filter.accountId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map(mapStanding);
+  },
+  async saveStandingOrder(accountId, input) {
+    const row = {
+      account_id: accountId,
+      name: input.name.trim() || "Pesanan rutin",
+      weekdays: [...new Set(input.weekdays)].sort(),
+      slot_id: input.slot_id,
+      payment_method: input.payment_method,
+      lines: input.lines.filter((l) => l.qty > 0).map((l) => ({ variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id ?? null })),
+      note: input.note ?? null,
+      updated_at: new Date().toISOString(),
+    };
+    const res = input.id
+      ? await sb().from("standing_orders").update(row).eq("id", input.id).eq("account_id", accountId).select("*").single()
+      : await sb().from("standing_orders").insert({ ...row, id: newId("so") }).select("*").single();
+    if (res.error) return fail(msg(res.error));
+    return ok(mapStanding(res.data as Row));
+  },
+  async setStandingOrderStatus(id, status) {
+    const { data, error } = await sb().from("standing_orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id).select("*").single();
+    if (error) return fail(msg(error));
+    return ok(mapStanding(data as Row));
+  },
+  async setStandingSkip(id, date, skip) {
+    const { data: cur, error: e1 } = await sb().from("standing_orders").select("skip_dates").eq("id", id).single();
+    if (e1) return fail(msg(e1));
+    const set = new Set(((cur as Row).skip_dates as string[] | null ?? []).map((d) => String(d).slice(0, 10)));
+    if (skip) set.add(date); else set.delete(date);
+    const { data, error } = await sb().from("standing_orders").update({ skip_dates: [...set].sort(), updated_at: new Date().toISOString() }).eq("id", id).select("*").single();
+    if (error) return fail(msg(error));
+    return ok(mapStanding(data as Row));
+  },
+  async deleteStandingOrder(id) {
+    const { error } = await sb().from("standing_orders").delete().eq("id", id);
+    return error ? fail(msg(error)) : ok(undefined);
+  },
+  async listStandingRuns(filter) {
+    let q = sb().from("standing_order_runs").select("*").order("created_at", { ascending: false }).limit(filter?.limit ?? 100);
+    if (filter?.date) q = q.eq("delivery_date", filter.date);
+    if (filter?.standingOrderId) q = q.eq("standing_order_id", filter.standingOrderId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map(mapRun);
+  },
+  async claimStandingRun(standingOrderId, date) {
+    // The unique (standing_order_id, delivery_date) key makes this the lock: a second claim fails with 23505.
+    const { data, error } = await sb().from("standing_order_runs").insert({ id: newId("sr"), standing_order_id: standingOrderId, delivery_date: date }).select("*").single();
+    if (error) { if ((error as { code?: string }).code === "23505") return null; throw error; }
+    return mapRun(data as Row);
+  },
+  async finishStandingRun(runId, patch) {
+    const { error } = await sb().from("standing_order_runs").update({ order_id: patch.order_id ?? null, order_code: patch.order_code ?? null, error: patch.error ?? null }).eq("id", runId);
+    if (error) throw error;
+  },
 };
+
+function mapStanding(r: Row): StandingOrder {
+  return {
+    id: String(r.id), account_id: String(r.account_id), name: String(r.name), weekdays: (r.weekdays as number[]).map(Number),
+    slot_id: String(r.slot_id), payment_method: r.payment_method as StandingOrder["payment_method"],
+    lines: (r.lines as StandingOrder["lines"]).map((l) => ({ variant_id: l.variant_id, qty: Number(l.qty), prep_option_id: l.prep_option_id ?? null })),
+    status: r.status as StandingOrder["status"], skip_dates: ((r.skip_dates as string[] | null) ?? []).map((d) => String(d).slice(0, 10)),
+    note: (r.note as string | null) ?? null, created_at: String(r.created_at), updated_at: String(r.updated_at),
+  };
+}
+
+function mapRun(r: Row): StandingOrderRun {
+  return {
+    id: String(r.id), standing_order_id: String(r.standing_order_id), delivery_date: String(r.delivery_date).slice(0, 10),
+    order_id: (r.order_id as string | null) ?? null, order_code: (r.order_code as string | null) ?? null, error: (r.error as string | null) ?? null, created_at: String(r.created_at),
+  };
+}

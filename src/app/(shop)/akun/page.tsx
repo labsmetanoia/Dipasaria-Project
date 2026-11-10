@@ -9,6 +9,10 @@ import { ReorderButton } from "@/components/shop/ReorderPanel";
 import { businessLogoutAction } from "@/actions/shop";
 import { formatDate, rupiah, waLink, jamRange, qtyUnit } from "@/lib/format";
 import { StatusBadge, PaymentBadge, Badge } from "@/components/ui";
+import { StandingOrdersPanel } from "@/components/shop/StandingOrdersPanel";
+import { availableDates } from "@/lib/pricing";
+import { allowedPayments } from "@/lib/standing";
+import { nowJakarta } from "@/lib/format";
 
 export const metadata = { title: "Akun bisnis" };
 export const dynamic = "force-dynamic";
@@ -18,7 +22,11 @@ export default async function AccountPage() {
   const [account, { t, locale }] = await Promise.all([getCurrentAccount(), getT()]);
   const settings = await repo.getSettings();
   if (!account) return <div className="container-x max-w-lg space-y-4 py-10 md:py-16"><h1 className="text-[2.6rem] sm:text-[3.4rem]">{t.account.title}</h1><p className="font-sans text-sm text-mute">{t.account.sub}</p><BusinessLogin demoHint={repo.mode === "memory"} /></div>;
-  const [orders, slots] = await Promise.all([repo.getOrdersForAccount(account.id, 10), repo.getSlots()]);
+  const [orders, slots, standing, products] = await Promise.all([repo.getOrdersForAccount(account.id, 10), repo.getSlots(), repo.listStandingOrders({ accountId: account.id }), repo.getProducts()]);
+  const runs = (await Promise.all(standing.map((s) => repo.listStandingRuns({ standingOrderId: s.id, limit: 3 })))).flat();
+  const businessSlots = slots.filter((s) => s.segment !== "retail");
+  const firstDate = availableDates(settings, nowJakarta())[0];
+  const presets = orders.slice(0, 5).map((o) => ({ label: `${o.code} · ${formatDate(o.delivery_date, "short", locale)}`, lines: o.items.map((i) => ({ variant_id: i.variant_id, qty: i.qty_ordered, prep_option_id: i.prep_option_id })) }));
   const slot = slots.find((s) => s.id === account.preferred_slot_id);
   return (
     <div className="container-x max-w-4xl space-y-6 py-8 md:py-12">
@@ -36,6 +44,7 @@ export default async function AccountPage() {
         <p className="mt-4 text-xs text-white/50">{t.account.kitchenAddress}: {account.address}</p>
       </div>
       {orders[0] && <div className="card flex flex-wrap items-center justify-between gap-3 p-5"><div><p className="font-bold text-ocean-950">{fmt(t.account.reorderLike, { date: formatDate(orders[0].delivery_date, "short", locale) })}</p><p className="text-xs text-mute">{orders[0].items.map((i) => `${i.product_name} ${i.qty_ordered} ${i.unit}`).join(" · ")}</p></div><ReorderButton order={orders[0]} /></div>}
+      {account.status === "approved" && <StandingOrdersPanel initial={standing} runs={runs} products={products} slots={businessSlots} payments={allowedPayments(account)} account={account} firstDate={firstDate} presets={presets} />}
       <section>
         <h2 className="mb-3 font-bold text-ocean-950">{t.account.history}</h2>
         {orders.length === 0 ? <p className="text-sm text-mute">{t.account.noOrders} <Link href="/belanja" className="font-bold text-gold-ink">{t.common.shopNow}</Link>.</p> : (

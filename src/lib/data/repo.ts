@@ -13,6 +13,9 @@ import type {
   Product,
   Promo,
   Settings,
+  StandingOrder,
+  StandingOrderInput,
+  StandingOrderRun,
   Variant,
 } from "../types";
 
@@ -93,4 +96,15 @@ export interface Repo {
   updateSettings(patch: Partial<Settings>): Promise<Result<Settings>>;
   upsertArea(a: DeliveryArea): Promise<Result<DeliveryArea>>;
   upsertSlot(s: DeliverySlot): Promise<Result<DeliverySlot>>;
+
+  // Standing orders (restaurant recurring orders). Validation lives in src/lib/standing.ts.
+  listStandingOrders(filter?: { accountId?: string }): Promise<StandingOrder[]>;
+  saveStandingOrder(accountId: string, input: StandingOrderInput): Promise<Result<StandingOrder>>;
+  setStandingOrderStatus(id: string, status: StandingOrder["status"]): Promise<Result<StandingOrder>>;
+  setStandingSkip(id: string, date: string, skip: boolean): Promise<Result<StandingOrder>>;
+  deleteStandingOrder(id: string): Promise<Result<void>>;
+  listStandingRuns(filter?: { date?: string; standingOrderId?: string; limit?: number }): Promise<StandingOrderRun[]>;
+  /** Claim the (standing order, date) run; returns null if it was already claimed. */
+  claimStandingRun(standingOrderId: string, date: string): Promise<StandingOrderRun | null>;
+  finishStandingRun(runId: string, patch: { order_id?: string; order_code?: string; error?: string }): Promise<void>;
 }

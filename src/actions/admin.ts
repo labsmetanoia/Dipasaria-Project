@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { getRepo } from "@/lib/data";
 import { adminLogin, adminLogout, isAdmin } from "@/lib/auth";
 import type { BusinessAccount, DeliveryArea, DeliverySlot, OrderStatus, PaymentStatus, PrepOption, Product, Promo, Settings, Variant } from "@/lib/types";
+import { runStandingOrders, type RunOutcome } from "@/lib/standing";
+import type { StandingOrder } from "@/lib/types";
 
 export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -155,5 +157,23 @@ export async function upsertSlotAction(s: DeliverySlot) {
   await guard();
   const r = await (await getRepo()).upsertSlot(s);
   revalidatePath("/", "layout");
+  return wrap(r);
+}
+
+// ---------- Standing orders ----------
+
+export async function runStandingOrdersAction(date: string): Promise<ActionResult<RunOutcome[]>> {
+  await guard();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Tanggal tidak valid." };
+  const out = await runStandingOrders(await getRepo(), date);
+  revalidatePath("/admin/rutin");
+  revalidatePath("/admin/pesanan");
+  return { ok: true, data: out };
+}
+
+export async function adminSetStandingStatusAction(id: string, status: StandingOrder["status"]): Promise<ActionResult<StandingOrder>> {
+  await guard();
+  const r = await (await getRepo()).setStandingOrderStatus(id, status);
+  revalidatePath("/admin/rutin");
   return wrap(r);
 }

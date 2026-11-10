@@ -1,7 +1,8 @@
 /* Dipasaria service worker: app shell + offline fallback. Network-first for pages (prices change daily),
    cache-first for static assets. Never caches checkout, admin or API responses. */
-const VERSION = "dp-v1";
-const SHELL = ["/offline", "/icons/icon.svg", "/icons/icon-192.png"];
+// Bump VERSION whenever icons, brand files or photos change: activation deletes every older cache.
+const VERSION = "dp-2026-11-r9";
+const SHELL = ["/offline", "/icons/icon.svg?v=4", "/icons/icon-192.png?v=4"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

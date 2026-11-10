@@ -299,3 +299,39 @@ export interface AccountApplication {
   business_type: string;
   notes: string;
 }
+
+// ---------- Standing orders (restaurant recurring orders) ----------
+export interface StandingOrderLine {
+  variant_id: string;
+  qty: number;
+  prep_option_id: string | null;
+}
+
+export interface StandingOrder {
+  id: string;
+  account_id: string;
+  name: string;
+  /** ISO weekdays: 1 = Monday … 7 = Sunday */
+  weekdays: number[];
+  slot_id: string;
+  payment_method: PaymentMethod;
+  lines: StandingOrderLine[];
+  status: "active" | "paused";
+  /** delivery dates (YYYY-MM-DD) the customer chose to skip */
+  skip_dates: string[];
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StandingOrderRun {
+  id: string;
+  standing_order_id: string;
+  delivery_date: string;
+  order_id: string | null;
+  order_code: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+export type StandingOrderInput = Pick<StandingOrder, "name" | "weekdays" | "slot_id" | "payment_method" | "lines" | "note"> & { id?: string };

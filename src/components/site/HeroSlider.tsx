@@ -16,15 +16,15 @@ export function HeroSlider({ slides }: { slides: Slide[] }) {
  useEffect(() => { const id = setInterval(() => setI((x) => (x + 1) % slides.length), 7000); return () => clearInterval(id); }, [slides.length]);
  const s = slides[i];
  return (
-    <section className="relative isolate flex min-h-[clamp(540px,80svh,820px)] text-white" aria-roledescription="carousel">
+    <section className="relative isolate flex min-h-[clamp(560px,84svh,880px)] text-white" aria-roledescription="carousel">
       {slides.map((sl, k) => (
         <ImageSlot key={k} src={sl.image} alt={sl.title} icon={sl.icon} className={`absolute inset-0 -z-10 transition-opacity duration-700 ${k === i ? "opacity-100" : "opacity-0"}`}><div className="photo-fade absolute inset-0" /><div className="hero-scrim absolute inset-0" /></ImageSlot>
       ))}
       <Seal className="absolute bottom-20 right-[5%] hidden h-32 w-32 rotate-[-8deg] drop-shadow-[0_8px_24px_rgba(0,0,0,.45)] xl:block 2xl:h-36 2xl:w-36" />
-      <div className="container-x flex w-full flex-col justify-end pb-16 pt-24 md:pb-20">
-        <div key={i} className="max-w-[44rem]">
+      <div className="container-x flex w-full flex-col justify-end pb-16 pt-20 md:pb-20">
+        <div key={i} className="max-w-[min(62rem,100%)]">
           <p className="rise flex items-center gap-3 font-sans text-[11.5px] font-bold uppercase tracking-[0.24em] text-coral-500"><span className="h-px w-10 bg-coral-500" />{s.eyebrow}</p>
-          <h1 className="hero-title rise rise-2 mt-4">{s.title.split(/(?<=\.)\s+/).map((line, j) => <span key={j} className="block">{line}</span>)}</h1>
+          <h1 className="hero-title rise rise-2 mt-5">{s.title.split(/(?<=\.)\s+/).map((line, j) => <span key={j} className="block">{line}</span>)}</h1>
           {s.sub && <p className="rise rise-3 mt-5 max-w-xl font-sans text-[15px] leading-relaxed text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,.5)] sm:text-[16.5px]">{nobreak(s.sub)}</p>}
           <div className="rise rise-3 mt-7 flex flex-wrap gap-3">
             <Link href={s.cta.href} className="btn-accent">{s.cta.label}</Link>

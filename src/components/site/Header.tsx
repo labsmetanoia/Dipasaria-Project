@@ -24,6 +24,7 @@ export function Header({ categories, cutoff, accountName }: { categories: Catego
  useEffect(() => { setOpen(false); setMega(false); }, [pathname]);
  const n = mounted ? lines.length : 0;
  const links = [
+    { href: "/resep", label: t.nav.recipes },
     { href: "/restoran", label: t.nav.forRestaurants },
     { href: "/panduan", label: t.nav.guides },
     { href: "/tentang", label: t.nav.about },

@@ -6,6 +6,9 @@ import { getCurrentAccount, setBusinessSession, clearBusinessSession } from "@/l
 import type { AccountApplication, CartLine, Order, PlaceOrderInput, Promo, Quote } from "@/lib/types";
 import { quote } from "@/lib/pricing";
 import { nowJakarta } from "@/lib/format";
+import type { StandingOrder, StandingOrderInput } from "@/lib/types";
+import { validateStanding } from "@/lib/standing";
+import { revalidatePath } from "next/cache";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -79,4 +82,55 @@ export async function accountOrdersAction(): Promise<Order[]> {
   const account = await getCurrentAccount();
   if (!account) return [];
   return (await getRepo()).getOrdersForAccount(account.id, 10);
+}
+
+// ---------- Standing orders (business accounts only) ----------
+
+async function requireBusiness() {
+  const account = await getCurrentAccount();
+  if (!account || account.status !== "approved") return null;
+  return account;
+}
+
+async function ownStanding(id: string, accountId: string) {
+  const list = await (await getRepo()).listStandingOrders({ accountId });
+  return list.find((s) => s.id === id) ?? null;
+}
+
+export async function saveStandingOrderAction(input: StandingOrderInput): Promise<ActionResult<StandingOrder>> {
+  const account = await requireBusiness();
+  if (!account) return { ok: false, error: "Masuk dengan akun bisnis untuk membuat pesanan rutin." };
+  const repo = await getRepo();
+  if (input.id && !(await ownStanding(input.id, account.id))) return { ok: false, error: "Pesanan rutin tidak ditemukan." };
+  const [products, slots] = await Promise.all([repo.getProducts(), repo.getSlots()]);
+  const err = validateStanding(input, account, products, slots);
+  if (err) return { ok: false, error: err };
+  const r = await repo.saveStandingOrder(account.id, input);
+  revalidatePath("/akun");
+  return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
+}
+
+export async function setStandingStatusAction(id: string, status: StandingOrder["status"]): Promise<ActionResult<StandingOrder>> {
+  const account = await requireBusiness();
+  if (!account || !(await ownStanding(id, account.id))) return { ok: false, error: "Pesanan rutin tidak ditemukan." };
+  const r = await (await getRepo()).setStandingOrderStatus(id, status);
+  revalidatePath("/akun");
+  return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
+}
+
+export async function setStandingSkipAction(id: string, date: string, skip: boolean): Promise<ActionResult<StandingOrder>> {
+  const account = await requireBusiness();
+  if (!account || !(await ownStanding(id, account.id))) return { ok: false, error: "Pesanan rutin tidak ditemukan." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Tanggal tidak valid." };
+  const r = await (await getRepo()).setStandingSkip(id, date, skip);
+  revalidatePath("/akun");
+  return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
+}
+
+export async function deleteStandingOrderAction(id: string): Promise<ActionResult<null>> {
+  const account = await requireBusiness();
+  if (!account || !(await ownStanding(id, account.id))) return { ok: false, error: "Pesanan rutin tidak ditemukan." };
+  const r = await (await getRepo()).deleteStandingOrder(id);
+  revalidatePath("/akun");
+  return r.ok ? { ok: true, data: null } : { ok: false, error: r.error };
 }

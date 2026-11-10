@@ -129,5 +129,15 @@ begin
   if (select sum(orders) from sales_report(_date()::date, _date()::date)) <> 13 then raise exception 'sales report'; end if;
   if (select qty_with_buffer from buying_list(_date()::date) where product_name = 'Kembung') <> 10.5 then raise exception 'buffer'; end if;
 
+  -- 12. Standing orders: constraints and the idempotent run lock
+  insert into standing_orders (id, account_id, name, weekdays, slot_id, payment_method, lines)
+    values ('so_t1', oid, 'Tes rutin', array[1,3,5], 's_dapur', 'transfer', '[{"variant_id":"v_kakap_l","qty":2,"prep_option_id":null}]'::jsonb);
+  perform _expect_error($q$insert into standing_orders (id, account_id, weekdays, slot_id, payment_method, lines) select 'so_bad', account_id, array[0], 's_dapur', 'transfer', lines from standing_orders where id = 'so_t1'$q$, 'check constraint');
+  perform _expect_error($q$insert into standing_orders (id, account_id, weekdays, slot_id, payment_method, lines) select 'so_bad2', account_id, array[2], 's_dapur', 'transfer', '[]'::jsonb from standing_orders where id = 'so_t1'$q$, 'check constraint');
+  insert into standing_order_runs (id, standing_order_id, delivery_date) values ('sr_t1', 'so_t1', _date()::date);
+  perform _expect_error(format($q$insert into standing_order_runs (id, standing_order_id, delivery_date) values ('sr_t2', 'so_t1', '%s')$q$, _date()), 'duplicate key');
+  delete from standing_orders where id = 'so_t1';
+  if exists (select 1 from standing_order_runs where id = 'sr_t1') then raise exception 'standing run cascade'; end if;
+
   raise notice 'all assertions passed';
 end $$;

@@ -17,6 +17,8 @@ import type {
   Product,
   Promo,
   Settings,
+  StandingOrder,
+  StandingOrderRun,
   Variant,
 } from "../types";
 import type { OrderFilter, Repo, Result, SalesRow } from "./repo";
@@ -35,6 +37,8 @@ interface Store {
   accounts: BusinessAccount[];
   sessions: Map<string, { account_id: string; expires: number }>;
   orders: Order[];
+  standing: StandingOrder[];
+  standingRuns: StandingOrderRun[];
 }
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -50,8 +54,17 @@ function buildStore(): Store {
     accounts: clone(seedAccounts),
     sessions: new Map(),
     orders: [],
+    standing: [],
+    standingRuns: [],
   };
   seedDemoOrders(store);
+  // Demo standing order: the seafood restaurant's Monday / Wednesday / Friday kitchen order.
+  const now = new Date().toISOString();
+  store.standing.push({
+    id: "so_bahari", account_id: "ba_bahari", name: "Stok ikan Sen–Rab–Jum", weekdays: [1, 3, 5], slot_id: "s_dapur", payment_method: "terms",
+    lines: [{ variant_id: "v_kakap_l", qty: 5, prep_option_id: "pp_kakap_siangi" }, { variant_id: "v_udang_40", qty: 3, prep_option_id: null }, { variant_id: "v_telur_tray", qty: 2, prep_option_id: null }],
+    status: "active", skip_dates: [], note: null, created_at: now, updated_at: now,
+  });
   return store;
 }
 
@@ -635,5 +648,60 @@ export const memoryRepo: Repo = {
     const ex = store.slots.find((x) => x.id === s.id);
     if (ex) Object.assign(ex, s); else store.slots.push({ ...s, id: s.id || newId("s") });
     return ok(clone(s));
+  },
+
+  async listStandingOrders(filter) {
+    const list = getStore().standing.filter((s) => !filter?.accountId || s.account_id === filter.accountId);
+    return clone(list).sort((a, b) => a.created_at.localeCompare(b.created_at));
+  },
+  async saveStandingOrder(accountId, input) {
+    const store = getStore();
+    const now = new Date().toISOString();
+    const lines = input.lines.filter((l) => l.qty > 0).map((l) => ({ variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id ?? null }));
+    const weekdays = [...new Set(input.weekdays)].sort();
+    const name = input.name.trim() || "Pesanan rutin";
+    if (input.id) {
+      const ex = store.standing.find((s) => s.id === input.id && s.account_id === accountId);
+      if (!ex) return fail("Pesanan rutin tidak ditemukan.");
+      Object.assign(ex, { name, weekdays, slot_id: input.slot_id, payment_method: input.payment_method, lines, note: input.note ?? null, updated_at: now });
+      return ok(clone(ex));
+    }
+    const so: StandingOrder = { id: newId("so"), account_id: accountId, name, weekdays, slot_id: input.slot_id, payment_method: input.payment_method, lines, status: "active", skip_dates: [], note: input.note ?? null, created_at: now, updated_at: now };
+    store.standing.push(so);
+    return ok(clone(so));
+  },
+  async setStandingOrderStatus(id, status) {
+    const so = getStore().standing.find((s) => s.id === id);
+    if (!so) return fail("Pesanan rutin tidak ditemukan.");
+    so.status = status; so.updated_at = new Date().toISOString();
+    return ok(clone(so));
+  },
+  async setStandingSkip(id, date, skip) {
+    const so = getStore().standing.find((s) => s.id === id);
+    if (!so) return fail("Pesanan rutin tidak ditemukan.");
+    so.skip_dates = skip ? [...new Set([...so.skip_dates, date])].sort() : so.skip_dates.filter((d) => d !== date);
+    so.updated_at = new Date().toISOString();
+    return ok(clone(so));
+  },
+  async deleteStandingOrder(id) {
+    const store = getStore();
+    store.standing = store.standing.filter((s) => s.id !== id);
+    store.standingRuns = store.standingRuns.filter((r) => r.standing_order_id !== id);
+    return ok(undefined);
+  },
+  async listStandingRuns(filter) {
+    const runs = getStore().standingRuns.filter((r) => (!filter?.date || r.delivery_date === filter.date) && (!filter?.standingOrderId || r.standing_order_id === filter.standingOrderId));
+    return clone(runs).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, filter?.limit ?? 100);
+  },
+  async claimStandingRun(standingOrderId, date) {
+    const store = getStore();
+    if (store.standingRuns.some((r) => r.standing_order_id === standingOrderId && r.delivery_date === date)) return null;
+    const run: StandingOrderRun = { id: newId("sr"), standing_order_id: standingOrderId, delivery_date: date, order_id: null, order_code: null, error: null, created_at: new Date().toISOString() };
+    store.standingRuns.push(run);
+    return clone(run);
+  },
+  async finishStandingRun(runId, patch) {
+    const run = getStore().standingRuns.find((r) => r.id === runId);
+    if (run) Object.assign(run, { order_id: patch.order_id ?? null, order_code: patch.order_code ?? null, error: patch.error ?? null });
   },
 };

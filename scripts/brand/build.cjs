@@ -213,6 +213,7 @@ const icon = (pad, rx, small = false) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="${rx}" fill="${C.black}"/><g transform="translate(${r2(32 - 60 * s)} ${r2(pad)}) scale(${r2(s)})">${emblemSvgInner(VARIANTS.reversed, small)}</g></svg>\n`;
 };
 write("public/icons/icon.svg", icon(9, 13, true));
+write("public/icons/favicon.svg", icon(3, 12, true)); // tab icon: tight padding so the mark fills 16 px
 write("public/brand/icon-maskable.svg", icon(15, 0));
 write("public/brand/icon-large.svg", icon(9, 13));
 

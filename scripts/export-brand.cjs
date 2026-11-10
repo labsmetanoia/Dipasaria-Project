@@ -10,6 +10,7 @@ const dataUrl = (rel, type) => `data:${type};base64,${fs.readFileSync(path.join(
 const sized = (svg, w, h) => svg.replace(/width="[\d.]+" height="[\d.]+"/, `width="${w}" height="${h}"`);
 const icon = read("icons/icon.svg").replace("<svg ", '<svg width="W" height="W" ');
 const sq = (n) => icon.replace(/width="W" height="W"/, `width="${n}" height="${n}"`);
+const fav = (n) => read("icons/favicon.svg").replace("<svg ", `<svg width="${n}" height="${n}" `);
 const maskable = read("brand/icon-maskable.svg").replace("<svg ", '<svg width="512" height="512" ');
 const apple = read("brand/icon-maskable.svg").replace("<svg ", '<svg width="180" height="180" ');
 const pattern = dataUrl("brand/pattern-sisik.svg", "image/svg+xml");
@@ -50,5 +51,18 @@ const jobs = [
     await p.close();
     console.log("wrote", j.out);
   }
+  // favicon.ico with 16, 32 and 48 px PNG frames (browsers that ask for /favicon.ico get the current mark)
+  const frames = [];
+  for (const n of [16, 32, 48]) {
+    const p = await b.newPage({ viewport: { width: n, height: n } });
+    await p.setContent(`<html><body style="margin:0">${fav(n)}</body></html>`);
+    frames.push({ n, png: await p.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: n, height: n } }) });
+    await p.close();
+  }
+  const header = Buffer.alloc(6); header.writeUInt16LE(0, 0); header.writeUInt16LE(1, 2); header.writeUInt16LE(frames.length, 4);
+  let offset = 6 + 16 * frames.length;
+  const dir = frames.map(({ n, png }) => { const e = Buffer.alloc(16); e.writeUInt8(n, 0); e.writeUInt8(n, 1); e.writeUInt16LE(1, 4); e.writeUInt16LE(32, 6); e.writeUInt32LE(png.length, 8); e.writeUInt32LE(offset, 12); offset += png.length; return e; });
+  fs.writeFileSync(path.join(pub, "favicon.ico"), Buffer.concat([header, ...dir, ...frames.map((f) => f.png)]));
+  console.log("wrote favicon.ico");
   await b.close();
 })();
