@@ -9,6 +9,7 @@ import { confirmPaymentAction } from "@/actions/shop";
 import { msgCustomerAsk, msgCustomerPaid } from "@/lib/wa";
 import { PaymentBadge } from "@/components/ui";
 import { ReorderButton } from "./ReorderPanel";
+import { Emblem } from "@/components/Logo";
 
 const STEPS: Order["status"][] = ["new", "confirmed", "packing", "delivering", "completed"];
 
@@ -26,7 +27,7 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
 
  return (
     <div className="space-y-5">
-      {isNew && <div className=" bg-success-50 px-5 py-4 text-success-600"><p className="font-bold">{t.tracking.received}</p><p className="mt-0.5 text-sm">{fmt(t.tracking.receivedBody, { what: order.has_catch_weight ? t.tracking.receivedCatch : t.tracking.receivedStatus, phone: order.phone })}</p></div>}
+      {isNew && <div className="relative flex items-center gap-4 overflow-hidden border-b-4 border-coral-500 bg-ocean-950 px-5 py-5 text-sand-50"><div aria-hidden className="absolute inset-0 opacity-10" style={{ backgroundImage: "url(/brand/pattern-sisik.svg)", backgroundSize: "48px 24px" }} /><Emblem variant="reversed" className="relative h-14 w-14 flex-none" /><div className="relative"><p className="font-display text-[1.6rem] font-bold uppercase leading-none">{t.tracking.received}</p><p className="mt-1.5 text-sm text-sand-50/80">{fmt(t.tracking.receivedBody, { what: order.has_catch_weight ? t.tracking.receivedCatch : t.tracking.receivedStatus, phone: order.phone })}</p></div></div>}
       <div className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><p className="eyebrow">{t.tracking.orderNo}</p><p className="text-2xl font-bold text-ocean-950">{order.code}</p><p className="mt-1 text-sm text-mute">{formatDate(order.delivery_date, "long", locale)} · {order.slot_label}</p></div>

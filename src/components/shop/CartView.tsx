@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
+import { Emblem } from "@/components/Logo";
 import { useEffect, useState } from "react";
-import { Trash2, ArrowRight, ShoppingBag } from "lucide-react";
+import { Trash2, ArrowRight } from "lucide-react";
 import type { BusinessAccount, DeliveryArea, Product, Settings } from "@/lib/types";
 import { quote } from "@/lib/pricing";
 import { nowJakarta, rupiah } from "@/lib/format";
@@ -36,7 +37,7 @@ export function CartView({ products, settings, areas, account }: { products: Pro
  if (!mounted) return <div className="h-40 animate-pulse bg-sand-100" />;
  const q = quote({ settings, products, areas, promos: [], account, now: nowJakarta() }, { lines });
  if (!lines.length) {
- return <Empty title={t.cart.empty} icon={<ShoppingBag className="h-8 w-8" />}><Link href="/belanja" className="btn-primary mt-4">{t.cart.emptyCta}</Link></Empty>;
+ return <Empty title={t.cart.empty} icon={<Emblem className="h-20 w-20" />}><Link href="/belanja" className="btn-primary mt-4">{t.cart.emptyCta}</Link></Empty>;
   }
  return (
     <div className="grid gap-6 lg:grid-cols-12">

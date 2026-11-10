@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { X, Trash2, ArrowRight, ShoppingBag } from "lucide-react";
+import { X, Trash2, ArrowRight } from "lucide-react";
 import type { BusinessAccount, DeliveryArea, Product, Settings } from "@/lib/types";
 import { quote } from "@/lib/pricing";
 import { nowJakarta, rupiah } from "@/lib/format";
@@ -13,6 +13,7 @@ import { useCart } from "@/store/cart";
 import { QtyStepper } from "./QtyStepper";
 import { ProductArt } from "@/components/ProductArt";
 import { MinOrderBar } from "./CartView";
+import { Emblem } from "@/components/Logo";
 
 export function CartDrawer({ products, settings, areas, account }: { products: Product[]; settings: Settings; areas: DeliveryArea[]; account: BusinessAccount | null }) {
  const { t, locale } = useT();
@@ -38,7 +39,7 @@ export function CartDrawer({ products, settings, areas, account }: { products: P
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {lines.length === 0 ? (
-            <div className="flex flex-col items-center py-16 text-center"><ShoppingBag className="h-8 w-8 text-coral-500" /><p className="mt-3 font-display text-2xl font-bold uppercase">{t.cart.empty}</p><Link href="/belanja" onClick={closeDrawer} className="btn-accent mt-5">{t.cart.emptyCta}</Link></div>
+            <div className="flex flex-col items-center py-16 text-center"><Emblem className="h-20 w-20" /><p className="mt-4 font-display text-2xl font-bold uppercase">{t.cart.empty}</p><Link href="/belanja" onClick={closeDrawer} className="btn-accent mt-5">{t.cart.emptyCta}</Link></div>
           ) : (
             <ul className="divide-y divide-line">
               {lines.map((l) => {

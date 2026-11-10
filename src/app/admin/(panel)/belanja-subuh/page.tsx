@@ -22,7 +22,7 @@ export default async function BuyingListPage({ searchParams }: { searchParams: P
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="eyebrow">Belanja subuh</p><h1 className="text-2xl font-semibold text-ocean-900">Daftar beli · {formatDate(date, "weekday")}</h1><p className="text-xs text-mute">Buffer ikan segar {settings.catch_weight_buffer_pct}% untuk memilih ekor yang pas dan susut pembersihan.</p></div>
+        <div><p className="eyebrow">Belanja subuh</p><h1 className="text-2xl text-ocean-900">Daftar beli · {formatDate(date, "weekday")}</h1><p className="text-xs text-mute">Buffer ikan segar {settings.catch_weight_buffer_pct}% untuk memilih ekor yang pas dan susut pembersihan.</p></div>
         <div className="flex gap-2"><DateSelector date={date} /><PrintButton /></div>
       </div>
       {lines.length === 0 ? <Empty title="Belum ada pesanan untuk tanggal ini" /> : GROUPS.map((g) => {
@@ -30,7 +30,7 @@ export default async function BuyingListPage({ searchParams }: { searchParams: P
         if (!rows.length) return null;
         return (
           <section key={g.key} className="card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-line bg-sand-100 px-4 py-2.5"><h2 className="font-semibold text-ocean-900">{g.title} <span className="ml-1 text-xs font-normal text-mute">{STORAGE_LABEL[g.key]}</span></h2><span className="text-xs text-mute">{rows.length} baris</span></div>
+            <div className="flex items-center justify-between border-b border-line bg-sand-100 px-4 py-2.5"><h2 className="text-ocean-900">{g.title} <span className="ml-1 text-xs font-normal text-mute">{STORAGE_LABEL[g.key]}</span></h2><span className="text-xs text-mute">{rows.length} baris</span></div>
             <p className="px-4 pt-2 text-xs text-mute">{g.hint}</p>
             <div className="divide-y divide-line">
               {rows.map((l) => (

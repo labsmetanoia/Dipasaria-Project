@@ -21,7 +21,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="eyebrow">Ringkasan harian</p><h1 className="text-2xl font-semibold text-ocean-900">Pengiriman</h1></div>
+        <div><p className="eyebrow">Ringkasan harian</p><h1 className="text-2xl text-ocean-900">Pengiriman</h1></div>
         <DateSelector date={date} />
       </div>
 
@@ -46,7 +46,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card p-5">
-          <h2 className="font-semibold text-ocean-900">Status pesanan hari ini</h2>
+          <h2 className="text-ocean-900">Status pesanan hari ini</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {(Object.keys(summary.by_status) as Array<keyof typeof summary.by_status>).map((s) => (
               <Link key={s} href={`/admin/pesanan?date=${date}&status=${s}`} className="chip">{STATUS_LABEL[s]} <b className="ml-1">{summary.by_status[s]}</b></Link>
@@ -58,7 +58,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
           </div>
         </div>
         <div className="card p-5">
-          <div className="flex items-center justify-between"><h2 className="font-semibold text-ocean-900">Pendaftaran akun bisnis</h2><Link href="/admin/pelanggan" className="text-sm font-semibold text-tide-600">Semua</Link></div>
+          <div className="flex items-center justify-between"><h2 className="text-ocean-900">Pendaftaran akun bisnis</h2><Link href="/admin/pelanggan" className="text-sm font-semibold text-tide-600">Semua</Link></div>
           {pendingAccounts.length === 0 ? <p className="mt-3 text-sm text-mute">Tidak ada pendaftaran menunggu.</p> : (
             <ul className="mt-3 divide-y divide-line text-sm">
               {pendingAccounts.map((a) => (

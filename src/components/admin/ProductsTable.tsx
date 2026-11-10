@@ -26,7 +26,7 @@ function MoneyCell({ value, onSave, disabled }: { value: number; onSave: (n: num
   };
   return (
     <span className="relative inline-block">
-      <input disabled={disabled} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} inputMode="numeric" className="w-24 rounded-lg border border-transparent bg-transparent px-2 py-1 text-right text-sm tabular-nums hover:border-line focus:border-tide-500 focus:bg-white focus:outline-none disabled:text-mute" />
+      <input disabled={disabled} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} inputMode="numeric" className="w-24 border border-transparent bg-transparent px-2 py-1 text-right text-sm tabular-nums hover:border-line focus:border-tide-500 focus:bg-white focus:outline-none disabled:text-mute" />
       {state !== "idle" && <span className="absolute -right-1 -top-1 text-tide-600">{state === "saving" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}</span>}
     </span>
   );

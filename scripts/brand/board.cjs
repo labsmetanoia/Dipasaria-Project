@@ -36,9 +36,9 @@ ul{margin:8px 0 0 42px;padding:0;list-style:none;font-size:13.5px;line-height:1.
 <div class="side">
   <div style="width:300px">${horiz}</div>
   <div><div class="h">${ico('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>')}Tentang merek</div>
-  <p class="p">Dipasaria adalah pedagang prinsipal seafood dan protein pilihan dari lantai lelang Muara Baru. Logo menggabungkan ikan yang melompat dari keranjang lelang dan senyum emas di bawahnya: kesegaran langsung dari pasar, disajikan dengan layanan yang tepercaya.</p></div>
+  <p class="p">Dipasaria adalah pedagang prinsipal seafood dan protein pilihan dari lantai lelang Muara Baru. Logonya menampilkan ikan yang melompat dari keranjang lelang dengan senyum emas di bawahnya: kesegaran langsung dari pasar, disajikan dengan layanan yang tepercaya.</p></div>
   <div><div class="h">${ico('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>')}Sistem identitas</div>
-  <ul><li>Emblem, logo horizontal dan bertumpuk</li><li>Segel mutu dan pola "sisik"</li><li>Palet warna dan tipografi</li><li>Kemasan, papan nama dan alat tulis</li><li>Situs, toko daring dan aplikasi</li></ul></div>
+  <ul><li>Emblem, logo horizontal dan bertumpuk</li><li>Segel mutu, lencana dan pola "sisik"</li><li>Palet warna dan tipografi</li><li>Kemasan, papan nama dan alat tulis</li><li>Situs, toko daring dan aplikasi</li></ul></div>
   <div><div class="h">${ico('<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21a3 3 0 0 1 0-6h1"/>')}Palet warna</div>
   <div class="sw"><div><i style="background:#000"></i><b>#000000</b></div><div><i style="background:#EAB200"></i><b>#EAB200</b></div><div><i style="background:#C09200"></i><b>#C09200</b></div><div><i style="background:#EEE7DA"></i><b>#EEE7DA</b></div><div><i style="background:#FAF8F4"></i><b>#FAF8F4</b></div></div></div>
   <div style="margin-left:42px;display:flex;gap:26px;align-items:flex-end"><div><div style="font:800 34px 'Plus Jakarta Sans';letter-spacing:-.02em">Aa</div><div style="font-size:10.5px;font-weight:700">Plus Jakarta Sans<br><span style="font-weight:500;color:#5c5c5c">logo, teks, antarmuka</span></div></div>
@@ -53,7 +53,7 @@ ul{margin:8px 0 0 42px;padding:0;list-style:none;font-size:13.5px;line-height:1.
     <div class="cap capd">Papan nama gerai</div>
   </div>
   <div class="row">
-    <div class="tile" style="background:#000"><div class="pat" style="background-image:url('${sisik}');opacity:.12"></div><div style="width:250px;position:relative">${stackedRev}</div><div class="cap capd">Logo pada hitam</div></div>
+    <div class="tile" style="background:#EAB200"><div class="pat" style="background-image:url('${sisikInk}');opacity:.08"></div><div style="width:200px;position:relative;filter:drop-shadow(0 18px 30px rgba(0,0,0,.3))">${read("brand/badge-arch.svg")}</div><div class="cap">Lencana kemasan</div></div>
     <div class="tile" style="background:#EEE7DA">
       <div style="position:relative;width:196px;height:270px;margin-top:40px">
         <div style="position:absolute;left:52px;top:-52px;width:92px;height:80px;border:7px solid #000;border-bottom:none;border-radius:46px 46px 0 0"></div>

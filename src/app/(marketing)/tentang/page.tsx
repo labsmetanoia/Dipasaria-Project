@@ -97,7 +97,7 @@ export default async function TentangPage() {
       <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="fish" image={IMAGES.story ?? settings.about_image_url} />
       <Band>
         <div className="grid gap-10 lg:grid-cols-12">
-          <div className="lg:col-span-5"><p className="eyebrow">{c.storyEyebrow}</p><h2 className="mt-2 text-[2.6rem] sm:text-[3.4rem]">{c.storyTitle}</h2></div>
+          <div className="lg:col-span-5"><p className="eyebrow">{c.storyEyebrow}</p><h2 className="mt-2 text-[2.6rem] sm:text-[3.4rem]">{c.storyTitle}</h2>{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/brand/badge-arch.svg" alt="Dipasaria · Segar & terpilih · Muara Baru, Jakarta" className="mt-8 hidden w-44 drop-shadow-[0_16px_30px_rgba(0,0,0,.18)] lg:block" /></div>
           <div className="space-y-5 font-sans text-[15px] leading-relaxed text-ink/80 lg:col-span-7">{c.story.map((x) => <p key={x}>{x}</p>)}</div>
         </div>
       </Band>

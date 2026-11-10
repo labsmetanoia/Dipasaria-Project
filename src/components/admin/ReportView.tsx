@@ -20,14 +20,14 @@ export function ReportView({ rows, from, to }: { rows: SalesRow[]; from: string;
         ))}
       </div>
       <div className="card p-5">
-        <div className="flex items-center justify-between"><h2 className="font-semibold text-ocean-900">Penjualan per hari pengiriman</h2><button onClick={csv} className="btn-secondary px-3 py-1.5 text-xs"><Download className="h-3.5 w-3.5" /> CSV untuk akuntan</button></div>
+        <div className="flex items-center justify-between"><h2 className="text-ocean-900">Penjualan per hari pengiriman</h2><button onClick={csv} className="btn-secondary px-3 py-1.5 text-xs"><Download className="h-3.5 w-3.5" /> CSV untuk akuntan</button></div>
         {rows.length === 0 ? <p className="mt-4 text-sm text-mute">Belum ada pesanan pada rentang ini.</p> : (
           <>
             <div className="mt-4 flex h-40 items-end gap-1">
               {rows.map((r) => (
                 <div key={r.date} className="group relative flex-1">
                   <div className="w-full rounded-t bg-tide-500 transition group-hover:bg-ocean-900" style={{ height: `${Math.max(2, (r.sales / max) * 150)}px` }} />
-                  <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2 py-1 text-[10px] text-white group-hover:block">{formatDate(r.date, "short")}: {rupiah(r.sales)}</div>
+                  <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap  bg-ink px-2 py-1 text-[10px] text-white group-hover:block">{formatDate(r.date, "short")}: {rupiah(r.sales)}</div>
                 </div>
               ))}
             </div>

@@ -24,14 +24,15 @@ Premium here means *precise and calm*, not luxurious. We earn it with clear fact
 A snapper leaping out of a market basket, with a gold arc beneath.
 
 - **The basket (keranjang)** is the auction crate at Muara Baru, and the "pasar" in Di*pasar*ia: we are traders who buy at the market so you don't have to.
-- **The leaping fish** is freshness: just landed, still moving. Its gill and eye make it unmistakably a fish, not a leaf or a bird.
-- **The gold arc (senyum)** is both the sea and the smile of good service: reliability and trust.
+- **The leaping fish** is freshness: just landed, still moving. A curved body, tapered gill, fine lateral line and single eye make it unmistakably a snapper.
+- **The gold crescent (senyum)** tapers to fine points: both the sea and the smile of good service, reliability and trust.
+- **Craft details:** five slim slots and a fine line inside the rim. At 32 px and below the small version (`<Emblem small />`, favicon, seal) drops the lateral and rim lines and uses four slots so it stays crisp.
 
 Built on a 120 × 123 grid. Geometry lives in `scripts/brand/build.cjs` and is generated into `src/components/brand/paths.ts`; never redraw it by hand.
 
 ### Wordmark and tagline
 
-- **Wordmark:** "Dipasaria" in Plus Jakarta Sans ExtraBold (800), mixed case, tracking −2%, converted to outlines. Two tones: **Dipa** in black (cream on dark) and **saria** in deep gold `#C09200` (gold `#EAB200` on dark).
+- **Wordmark:** "Dipasaria" in Plus Jakarta Sans Bold (700), mixed case, tracking −1.6%, converted to outlines. Two tones: **Dipa** in black (cream on dark) and **saria** in deep gold `#C09200` (gold `#EAB200` on dark). The square dot of the "i" in Dipa is set in gold: the one accent that ties the two halves together.
 - **Tagline:** "— SEGAR & TERPILIH —" in Plus Jakarta Sans Bold, uppercase, tracking 0.34 em, between two gold rules.
 
 ### Lockups
@@ -44,6 +45,7 @@ Built on a 120 × 123 grid. Geometry lives in `scripts/brand/build.cjs` and is g
 | Emblem | Avatars, stickers, small spaces | `<Emblem />` · `emblem.svg` |
 | App tile | App icon, favicon | `<LogoMark />` · `icons/icon.svg` |
 | Seal "DIPASARIA · SEGAR & TERPILIH · MUARA BARU · JAKARTA" | Quality stamp on packaging, hero, footer | `<Seal />` · `seal.svg`, `seal-black.svg` |
+| Arch badge | Premium plaque for packaging lids, signage, the story page | `badge-arch.svg` |
 
 Add `dark` to any component for black backgrounds.
 

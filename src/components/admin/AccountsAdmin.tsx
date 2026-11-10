@@ -18,12 +18,12 @@ export function AccountsAdmin({ accounts: initial, slots, settings, focusId }: {
     <div className="space-y-6">
       {pending.length > 0 && (
         <section>
-          <h2 className="mb-2 font-semibold text-gold-ink">Menunggu persetujuan ({pending.length})</h2>
+          <h2 className="mb-2 text-gold-ink">Menunggu persetujuan ({pending.length})</h2>
           <div className="space-y-3">{pending.map((a) => <AccountCard key={a.id} a={a} slots={slots} settings={settings} open={open === a.id} onToggle={() => setOpen(open === a.id ? null : a.id)} onChange={update} />)}</div>
         </section>
       )}
       <section>
-        <h2 className="mb-2 font-semibold text-ocean-900">Akun bisnis ({active.length})</h2>
+        <h2 className="mb-2 text-ocean-900">Akun bisnis ({active.length})</h2>
         <div className="space-y-3">{active.map((a) => <AccountCard key={a.id} a={a} slots={slots} settings={settings} open={open === a.id} onToggle={() => setOpen(open === a.id ? null : a.id)} onChange={update} />)}</div>
       </section>
     </div>
@@ -53,7 +53,7 @@ function AccountCard({ a, slots, settings, open, onToggle, onChange }: { a: Busi
       </button>
       {open && (
         <div className="border-t border-line p-4">
-          {a.notes && a.status === "pending" && <p className="mb-3 rounded-lg bg-sand-100 px-3 py-2 text-sm">Catatan pendaftar: “{a.notes}”</p>}
+          {a.notes && a.status === "pending" && <p className="mb-3 bg-sand-100 px-3 py-2 text-sm">Catatan pendaftar: “{a.notes}”</p>}
           <div className="grid gap-3 sm:grid-cols-4">
             <Field label="Diskon akun (%)"><input type="number" step="0.5" min="0" max="20" className="input" value={form.discount_pct} onChange={(e) => setForm({ ...form, discount_pct: Number(e.target.value) })} /></Field>
             <Field label="Tempo pembayaran"><select className="input" value={form.payment_terms} onChange={(e) => setForm({ ...form, payment_terms: e.target.value as BusinessAccount["payment_terms"] })}>{Object.entries(TERMS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
@@ -73,7 +73,7 @@ function AccountCard({ a, slots, settings, open, onToggle, onChange }: { a: Busi
             )}
           </div>
           {a.access_code && a.status !== "pending" && (
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-ocean-900 p-4 text-white">
+            <div className="mt-4 flex flex-wrap items-center gap-3 bg-ocean-900 p-4 text-white">
               <KeyRound className="h-5 w-5 text-tide-400" />
               <div><p className="text-xs text-white/60">Kode akses</p><p className="font-display text-2xl font-semibold tracking-[0.25em]">{a.access_code}</p></div>
               <div className="ml-auto flex flex-wrap gap-2">

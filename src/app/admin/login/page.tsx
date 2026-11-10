@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
       <Sisik />
       <form action={action} className="relative w-full max-w-sm border-t-4 border-coral-500 bg-white p-7 shadow-float">
         <Logo size="md" />
-        <h1 className="mt-6 text-2xl font-semibold text-ocean-900">Panel pengelola</h1>
+        <h1 className="mt-6 text-2xl text-ocean-900">Panel pengelola</h1>
         <p className="mt-1 text-sm text-mute">Masuk untuk mengelola pesanan, produk dan pelanggan.</p>
         <div className="mt-6 space-y-4">
           <Field label="Email"><input name="email" type="email" className="input" autoComplete="username" placeholder="pemilik@dipasaria.id" /></Field>

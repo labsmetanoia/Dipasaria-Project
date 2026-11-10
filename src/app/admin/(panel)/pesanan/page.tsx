@@ -21,7 +21,7 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-ocean-900">Pesanan</h1>
+        <h1 className="text-2xl text-ocean-900">Pesanan</h1>
         <DateSelector date={date} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -45,7 +45,7 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
                 <tr key={o.id} className="hover:bg-sand-50">
                   <td className="px-4 py-3">
                     <Link href={`/admin/pesanan/${o.id}`} className="block">
-                      <p className="font-semibold text-ocean-900">{o.customer_name} <span className="ml-1 rounded bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{o.segment === "business" ? "B2B" : "RT"}</span></p>
+                      <p className="font-semibold text-ocean-900">{o.customer_name} <span className="ml-1  bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{o.segment === "business" ? "B2B" : "RT"}</span></p>
                       <p className="text-xs text-mute">{o.code} · {formatDateTime(o.created_at)}{sp.all ? ` · kirim ${o.delivery_date}` : ""}</p>
                     </Link>
                   </td>

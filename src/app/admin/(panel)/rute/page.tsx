@@ -18,7 +18,7 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="eyebrow">Rute dan pengemasan</p><h1 className="text-2xl font-semibold text-ocean-900">{formatDate(date, "weekday")} · {live.length} drop</h1></div>
+        <div><p className="eyebrow">Rute dan pengemasan</p><h1 className="text-2xl text-ocean-900">{formatDate(date, "weekday")} · {live.length} drop</h1></div>
         <div className="flex gap-2"><DateSelector date={date} /><PrintButton /></div>
       </div>
       {live.length === 0 ? <Empty title="Tidak ada pengiriman untuk tanggal ini" /> : slots.map((s) => {
@@ -27,7 +27,7 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
         const byArea = [...new Set(list.map((o) => o.area_name))];
         return (
           <section key={s.id}>
-            <h2 className="mb-2 font-semibold text-ocean-900">{jamRange(s.start_time, s.end_time)} {s.label} <span className="text-sm font-normal text-mute">· {list.length}/{s.capacity} drop</span></h2>
+            <h2 className="mb-2 text-ocean-900">{jamRange(s.start_time, s.end_time)} {s.label} <span className="text-sm font-normal text-mute">· {list.length}/{s.capacity} drop</span></h2>
             <div className="space-y-3">
               {byArea.map((area) => (
                 <div key={area}>
@@ -58,7 +58,7 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
                             <p className={`text-xs ${collect ? "font-semibold text-gold-ink" : "text-mute"}`}>{collect ? `Tagih di tempat ${rupiah(o.total_final ?? o.total_est)}` : `${PAYMENT_LABEL[o.payment_method]} · ${rupiah(o.total_final ?? o.total_est)}`}</p>
                             <a className="no-print btn-secondary px-2.5 py-1 text-xs" target="_blank" rel="noreferrer" href={waTo(o.phone, msgOutForDelivery(o, settings))}><MessageCircle className="h-3.5 w-3.5" /> WA: dalam pengiriman</a>
                           </div>
-                          {o.customer_note && <p className="mt-2 rounded bg-warn-50 px-2 py-1 text-xs text-warn-600">“{o.customer_note}”</p>}
+                          {o.customer_note && <p className="mt-2  bg-warn-50 px-2 py-1 text-xs text-warn-600">“{o.customer_note}”</p>}
                         </div>
                       );
                     })}

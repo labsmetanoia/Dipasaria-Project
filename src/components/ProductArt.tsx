@@ -11,8 +11,10 @@ export function ProductArt({ icon, storage, image, alt, className = "" }: { icon
   }
   return (
     <div className={`relative flex h-full w-full items-center justify-center overflow-hidden tile-bg ${TINT[storage]} ${className}`} aria-label={alt} role="img">
-      <div className="absolute h-[58%] w-[58%] rounded-full bg-white/70 blur-2xl" />
-      <ProductIcon name={icon} className="relative h-[46%] w-[46%] opacity-90 drop-shadow-[0_10px_14px_rgba(0,0,0,0.12)]" strokeWidth={1.7} />
+      {/* Branded placeholder until the product's own photo arrives: "sisik" pattern + line icon */}
+      <div aria-hidden className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "url(/brand/pattern-sisik-ink.svg)", backgroundSize: "44px 22px" }} />
+      <div className="absolute h-[58%] w-[58%] rounded-full bg-sand-50/80 blur-2xl" />
+      <ProductIcon name={icon} className="relative h-[42%] w-[42%] text-ocean-950" strokeWidth={1.4} />
     </div>
   );
 }

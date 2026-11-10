@@ -27,12 +27,12 @@ export function AdminShell({ children, demo }: { children: React.ReactNode; demo
         <div className="px-5 py-5"><Logo size="sm" /><p className="mt-2 pl-[2px] font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">Panel pengelola</p></div>
         <nav className="flex-1 space-y-0.5 px-3">
           {NAV.map(({ href, label, Icon, exact }) => (
-            <Link key={href} href={href} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${active(href, exact) ? "bg-ocean-900 text-white" : "text-ink/70 hover:bg-sand-100"}`}><Icon className="h-4 w-4" />{label}</Link>
+            <Link key={href} href={href} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium ${active(href, exact) ? "bg-ocean-900 text-white" : "text-ink/70 hover:bg-sand-100"}`}><Icon className="h-4 w-4" />{label}</Link>
           ))}
         </nav>
         <div className="space-y-1 border-t border-line p-3">
-          <Link href="/belanja" target="_blank" className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/70 hover:bg-sand-100"><ExternalLink className="h-4 w-4" />Lihat toko</Link>
-          <form action={adminLogoutAction}><button className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/70 hover:bg-sand-100"><LogOut className="h-4 w-4" />Keluar</button></form>
+          <Link href="/belanja" target="_blank" className="flex items-center gap-3 px-3 py-2 text-sm text-ink/70 hover:bg-sand-100"><ExternalLink className="h-4 w-4" />Lihat toko</Link>
+          <form action={adminLogoutAction}><button className="flex w-full items-center gap-3 px-3 py-2 text-sm text-ink/70 hover:bg-sand-100"><LogOut className="h-4 w-4" />Keluar</button></form>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">

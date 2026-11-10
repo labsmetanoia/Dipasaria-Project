@@ -39,7 +39,7 @@ export function PromosAdmin({ promos: initial }: { promos: Promo[] }) {
       </div>
       {edit && (
         <div className="card space-y-3 p-5">
-          <h2 className="font-semibold text-ocean-900">{edit.id ? `Ubah ${edit.code}` : "Promo baru"}</h2>
+          <h2 className="text-ocean-900">{edit.id ? `Ubah ${edit.code}` : "Promo baru"}</h2>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Kode"><input className="input uppercase" value={edit.code} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></Field>
             <Field label="Jenis"><select className="input" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value as Promo["type"] })}><option value="percent">Persen</option><option value="fixed">Potongan tetap</option><option value="free_delivery">Gratis ongkos kirim</option></select></Field>

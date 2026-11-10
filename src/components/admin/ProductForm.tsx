@@ -34,7 +34,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
   return (
     <div className="grid gap-5 lg:grid-cols-3">
       <div className="card space-y-4 p-5 lg:col-span-2">
-        <h2 className="font-semibold text-ocean-900">Informasi produk</h2>
+        <h2 className="text-ocean-900">Informasi produk</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nama (Indonesia)"><input className="input" value={p.name} onChange={(e) => set("name", e.target.value)} /></Field>
           <Field label="Nama Inggris"><input className="input" value={p.name_en ?? ""} onChange={(e) => set("name_en", e.target.value)} /></Field>
@@ -67,7 +67,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
       {product && (
         <div className="space-y-5">
           <div className="card p-5">
-            <h2 className="font-semibold text-ocean-900">Varian & harga</h2>
+            <h2 className="text-ocean-900">Varian & harga</h2>
             <p className="text-xs text-mute">Harga dan stok juga bisa diubah langsung di tabel Produk & stok.</p>
             <ul className="mt-3 divide-y divide-line text-sm">
               {variants.map((v) => (
@@ -83,14 +83,14 @@ export function ProductForm({ product, categories }: { product: Product | null; 
             <NewVariant productId={product.id} onCreated={(v) => setVariants([...variants, v])} />
           </div>
           <div className="card p-5">
-            <h2 className="font-semibold text-ocean-900">Opsi penyiapan</h2>
+            <h2 className="text-ocean-900">Opsi penyiapan</h2>
             <p className="text-xs text-mute">Biaya tambahan per unit; muncul di daftar kerja mitra pembersih.</p>
             <ul className="mt-3 space-y-2 text-sm">
               {preps.map((o) => (
                 <li key={o.id} className="flex items-center gap-2">
                   <input className="input py-1 text-sm" value={o.label} onChange={(e) => setPreps(preps.map((x) => (x.id === o.id ? { ...x, label: e.target.value } : x)))} onBlur={() => upsertPrepOptionAction(o)} />
                   <input className="input w-24 py-1 text-right text-sm" type="number" value={o.surcharge} onChange={(e) => setPreps(preps.map((x) => (x.id === o.id ? { ...x, surcharge: Number(e.target.value) } : x)))} onBlur={() => upsertPrepOptionAction(o)} />
-                  <button onClick={() => { deletePrepOptionAction(o.id); setPreps(preps.filter((x) => x.id !== o.id)); }} className="rounded-lg p-1.5 text-mute hover:text-gold-ink" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={() => { deletePrepOptionAction(o.id); setPreps(preps.filter((x) => x.id !== o.id)); }} className="p-1.5 text-mute hover:text-gold-ink" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
                 </li>
               ))}
             </ul>
@@ -108,7 +108,7 @@ function NewVariant({ productId, onCreated }: { productId: string; onCreated: (v
   const [v, setV] = useState<Omit<Variant, "id">>({ product_id: productId, label: "", label_en: null, unit: "kg", min_qty: 0.5, step_qty: 0.5, price_retail: 0, price_business: 0, cost: 0, stock_qty: null, business_only: false, is_active: true, sort: 99 });
   if (!open) return <button onClick={() => setOpen(true)} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah varian</button>;
   return (
-    <div className="mt-3 space-y-2 rounded-xl bg-sand-100 p-3 text-sm">
+    <div className="mt-3 space-y-2 bg-sand-100 p-3 text-sm">
       <input className="input py-1.5" placeholder="Label, mis. 1–2 kg/ekor" value={v.label} onChange={(e) => setV({ ...v, label: e.target.value })} />
       <div className="grid grid-cols-3 gap-2">
         <select className="input py-1.5" value={v.unit} onChange={(e) => setV({ ...v, unit: e.target.value as Variant["unit"] })}>{Object.entries(UNIT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>

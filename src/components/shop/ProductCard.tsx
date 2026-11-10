@@ -36,7 +36,8 @@ export function ProductCard({ p, segment, discountPct = 0, locale = "id", quickA
   const name = en && p.name_en ? p.name_en : p.name;
   const sub = en ? p.name : p.name_en;
   const variants = p.variants.filter((x) => x.is_active && (segment === "business" || !x.business_only));
-  const preps = p.prep_options.map((o) => pick(locale, o.label, o.label_en).split(/[ (]/)[0]).slice(0, 2);
+  const prepCount = p.prep_options.length;
+  const preps = prepCount === 0 ? [] : prepCount === 1 ? [pick(locale, p.prep_options[0].label, p.prep_options[0].label_en).split(" (")[0]] : [en ? `${prepCount} preparations` : `${prepCount} cara penyiapan`];
   const spec = [variants.length > 1 ? `${variants.length} ${en ? "sizes" : "pilihan ukuran"}` : pick(locale, v.label, v.label_en), ...preps, ...(p.is_catch_weight ? [en ? "weighed" : "ditimbang"] : [])].join(" · ");
   // One badge at most, in priority order: availability first, then access, then merchandising.
   const badge: { text: string; tone: "dark" | "gold" | "light" } | null = off

@@ -32,13 +32,13 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/admin/pesanan" className="inline-flex items-center gap-1 text-sm text-mute hover:text-ocean-900"><ArrowLeft className="h-4 w-4" /> Pesanan</Link>
-          <h1 className="mt-1 font-display text-2xl font-semibold text-ocean-900">{order.code}</h1>
+          <h1 className="mt-1 font-display text-2xl text-ocean-900">{order.code}</h1>
           <p className="text-sm text-mute">{formatDate(order.delivery_date)} · {order.slot_label} · dibuat {formatDateTime(order.created_at)}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2"><StatusBadge status={order.status} /><PaymentBadge status={order.payment_status} /><span className="rounded bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{order.segment === "business" ? "B2B" : "Rumah tangga"}</span></div>
+        <div className="flex flex-wrap items-center gap-2"><StatusBadge status={order.status} /><PaymentBadge status={order.payment_status} /><span className="bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{order.segment === "business" ? "B2B" : "Rumah tangga"}</span></div>
       </div>
 
-      {err && <div className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-gold-ink">{err}</div>}
+      {err && <div className="bg-coral-50 px-4 py-3 text-sm text-gold-ink">{err}</div>}
 
       {/* Status actions */}
       <div className="card p-4">
@@ -64,14 +64,14 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
         {/* Items & weighing */}
         <div className="card p-4 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-ocean-900">Item{order.has_catch_weight && <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-mute"><Scale className="h-3.5 w-3.5" />{order.weighed_at ? `ditimbang ${formatDateTime(order.weighed_at)}` : "belum ditimbang"}</span>}</h2>
+            <h2 className="text-ocean-900">Item{order.has_catch_weight && <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-mute"><Scale className="h-3.5 w-3.5" />{order.weighed_at ? `ditimbang ${formatDateTime(order.weighed_at)}` : "belum ditimbang"}</span>}</h2>
           </div>
           <table className="mt-3 w-full text-sm">
             <thead className="text-xs text-mute"><tr><th className="pb-1 text-left font-medium">Produk</th><th className="pb-1 text-right font-medium">Dipesan</th>{order.has_catch_weight && <th className="pb-1 text-right font-medium">Timbang</th>}<th className="pb-1 text-right font-medium">Total</th></tr></thead>
             <tbody className="divide-y divide-line">
               {order.items.map((i) => (
                 <tr key={i.id}>
-                  <td className="py-2"><p className="font-medium">{i.product_name} <span className="text-mute">{i.variant_label}</span></p><p className="flex flex-wrap items-center gap-1 text-xs text-mute">{i.prep_label && <span className="rounded bg-warn-50 px-1.5 py-0.5 font-semibold text-warn-600">{i.prep_label}</span>}<StorageBadge storage={i.storage_class} /> {rupiah(i.unit_price)}/{UNIT_LABEL[i.unit]} · modal {rupiah(i.unit_cost)}</p></td>
+                  <td className="py-2"><p className="font-medium">{i.product_name} <span className="text-mute">{i.variant_label}</span></p><p className="flex flex-wrap items-center gap-1 text-xs text-mute">{i.prep_label && <span className="bg-warn-50 px-1.5 py-0.5 font-semibold text-warn-600">{i.prep_label}</span>}<StorageBadge storage={i.storage_class} /> {rupiah(i.unit_price)}/{UNIT_LABEL[i.unit]} · modal {rupiah(i.unit_cost)}</p></td>
                   <td className="py-2 text-right">{i.qty_ordered} {UNIT_LABEL[i.unit]}</td>
                   {order.has_catch_weight && (
                     <td className="py-2 text-right">
@@ -86,7 +86,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
             </tbody>
           </table>
           {order.has_catch_weight && order.status !== "cancelled" && (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sand-100 px-4 py-3">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 bg-sand-100 px-4 py-3">
               <p className="text-xs text-mute">Isi berat hasil timbangan (kg). Harga, promo dan ongkos kirim akan dihitung ulang oleh sistem.</p>
               <button disabled={pending} onClick={() => run(() => weighOrderAction(order.id, Object.entries(weights).map(([item_id, v]) => ({ item_id, qty_final: Number(v) }))))} className="btn-primary"><Scale className="h-4 w-4" /> Simpan timbangan dan hitung ulang</button>
             </div>
@@ -103,17 +103,17 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
         {/* Customer & payment */}
         <div className="space-y-4">
           <div className="card p-4">
-            <h2 className="font-semibold text-ocean-900">Pelanggan</h2>
+            <h2 className="text-ocean-900">Pelanggan</h2>
             <p className="mt-2 font-medium">{order.customer_name}</p>
             <a href={`https://wa.me/${order.phone}`} target="_blank" rel="noreferrer" className="text-sm text-tide-600">+{order.phone}</a>
             <p className="mt-2 text-sm text-ink/80">{order.address}</p>
             <p className="text-xs text-mute">{order.area_name}</p>
             {order.maps_url && <a href={order.maps_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-tide-600">Buka Maps <ExternalLink className="h-3 w-3" /></a>}
-            {order.customer_note && <p className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-600">“{order.customer_note}”</p>}
+            {order.customer_note && <p className="mt-3 bg-warn-50 px-3 py-2 text-sm text-warn-600">“{order.customer_note}”</p>}
             {accountTerms && <p className="mt-2 text-xs text-mute">Akun: {accountTerms}</p>}
           </div>
           <div className="card p-4">
-            <h2 className="font-semibold text-ocean-900">Pembayaran</h2>
+            <h2 className="text-ocean-900">Pembayaran</h2>
             <p className="mt-1 text-sm">{PAYMENT_LABEL[order.payment_method]} · <PaymentBadge status={order.payment_status} /></p>
             <div className="mt-3 flex flex-wrap gap-2">
               {order.payment_status !== "paid" && order.status !== "cancelled" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "paid"))} className="btn-primary"><Check className="h-4 w-4" /> Tandai lunas</button>}
@@ -122,7 +122,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
             <p className="mt-2 text-xs text-mute">Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar.</p>
           </div>
           <div className="card p-4">
-            <h2 className="font-semibold text-ocean-900">Catatan internal</h2>
+            <h2 className="text-ocean-900">Catatan internal</h2>
             <textarea className="input mt-2" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Hanya terlihat di panel pengelola" />
             <button disabled={pending} onClick={() => run(() => updateInternalNoteAction(order.id, note))} className="btn-secondary mt-2 text-sm"><Save className="h-4 w-4" /> Simpan</button>
           </div>

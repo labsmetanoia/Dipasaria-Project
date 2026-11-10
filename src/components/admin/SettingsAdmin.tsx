@@ -26,7 +26,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="card space-y-4 p-5">
-        <h2 className="font-semibold text-ocean-900">Toko & pembayaran</h2>
+        <h2 className="text-ocean-900">Toko & pembayaran</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Nama toko"><input className="input" value={s.store_name} onChange={(e) => set("store_name", e.target.value)} /></Field>
           <Field label="Nomor WhatsApp bisnis" hint="Format 62…"><input className="input" value={s.whatsapp_number} onChange={(e) => set("whatsapp_number", e.target.value)} /></Field>
@@ -40,7 +40,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
         <Field label="Pengumuman di toko (opsional)"><input className="input" value={s.announcement ?? ""} onChange={(e) => set("announcement", e.target.value || null)} placeholder="Misal: Libur Lebaran 30 Mar–2 Apr, pesanan dibuka lagi 3 Apr." /></Field>
       </div>
       <div className="card space-y-4 p-5">
-        <h2 className="font-semibold text-ocean-900">Aturan pesanan</h2>
+        <h2 className="text-ocean-900">Aturan pesanan</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Batas pemesanan (WIB)"><input className="input" value={s.cutoff_time} onChange={(e) => set("cutoff_time", e.target.value)} placeholder="20:00" /></Field>
           <Field label="Maks. hari ke depan"><input className="input" type="number" value={s.max_days_ahead} onChange={(e) => set("max_days_ahead", Number(e.target.value))} /></Field>
@@ -55,7 +55,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
       </div>
 
       <div className="card p-5">
-        <h2 className="font-semibold text-ocean-900">Area pengiriman</h2>
+        <h2 className="text-ocean-900">Area pengiriman</h2>
         <p className="text-xs text-mute">Tiga sampai lima wilayah dengan ongkos kirim tetap lebih mudah dipahami pelanggan daripada tarif per km.</p>
         <ul className="mt-3 space-y-2">
           {areas.map((a) => (
@@ -69,7 +69,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
         <button onClick={() => { const a: DeliveryArea = { id: `a_${Date.now().toString(36)}`, name: "Wilayah baru", fee: 25000, is_active: false, sort: areas.length + 1 }; setAreas([...areas, a]); saveArea(a); }} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah wilayah</button>
       </div>
       <div className="card p-5">
-        <h2 className="font-semibold text-ocean-900">Slot pengiriman</h2>
+        <h2 className="text-ocean-900">Slot pengiriman</h2>
         <p className="text-xs text-mute">Kapasitas = jumlah drop maksimum yang bisa diantar satu kendaraan dalam slot itu.</p>
         <ul className="mt-3 space-y-2">
           {slots.map((sl) => (

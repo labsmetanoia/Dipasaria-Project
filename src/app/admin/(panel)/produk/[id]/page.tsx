@@ -10,7 +10,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   if (!product) notFound();
   return (
     <div className="space-y-4">
-      <div><p className="eyebrow">Katalog</p><h1 className="text-2xl font-semibold text-ocean-900">{product.name}</h1></div>
+      <div><p className="eyebrow">Katalog</p><h1 className="text-2xl text-ocean-900">{product.name}</h1></div>
       <ProductForm product={product} categories={categories} />
     </div>
   );
