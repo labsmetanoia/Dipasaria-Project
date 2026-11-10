@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ClipboardList, CalendarDays, Fish, Truck, Check } from "lucide-react";
+import { ArrowRight, ClipboardList, CalendarDays, Fish, Truck, Check, Snowflake, BadgeCheck, ShieldCheck } from "lucide-react";
 import { getRepo } from "@/lib/data";
 import { getCurrentAccount } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
@@ -71,6 +71,7 @@ export default async function BelanjaPage() {
   const repo = await getRepo();
   const [account, { locale, t }] = await Promise.all([getCurrentAccount(), getT()]);
   const c = copy[locale];
+  const en = locale === "en";
   const segment = segmentOf(account);
   const [settings, categories, products, orders] = await Promise.all([repo.getSettings(), repo.getCategories(), repo.getProducts(), account ? repo.getOrdersForAccount(account.id, 3) : Promise.resolve([])]);
   const seafood = new Set(categories.filter((x) => x.is_seafood).map((x) => x.id));
@@ -97,11 +98,18 @@ export default async function BelanjaPage() {
         </div>
       )}
 
+      {/* Trust bar */}
+      <div className="border-b border-line bg-white">
+        <div className="container-x grid grid-cols-2 gap-y-4 py-5 md:grid-cols-4">
+          {[[Fish, en ? "Auctioned at Muara Baru, 3 a.m." : "Dilelang di Muara Baru, 03.00"], [Snowflake, en ? "Cold chain 0–4 °C to your door" : "Rantai dingin 0–4 °C sampai pintu"], [BadgeCheck, en ? "Halal-certified chicken, per lot" : "Ayam bersertifikat halal, per lot"], [ShieldCheck, en ? "Replace or refund within 2 hours" : "Ganti atau refund dalam 2 jam"]].map(([I, l]) => { const Icon = I as typeof Fish; return <div key={l as string} className="flex items-center gap-3"><span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-ocean-950 text-coral-500"><Icon className="h-4 w-4" /></span><span className="font-sans text-[12px] font-bold uppercase leading-tight tracking-[0.1em]">{l as string}</span></div>; })}
+        </div>
+      </div>
+
       {/* Shop by category */}
       <Band tone="cream">
         <SectionHead eyebrow={c.catsEyebrow} title={c.catsTitle} action={{ href: "/belanja/semua", label: t.shop.allProducts }} />
         <div className="-mx-5 mt-8 flex gap-3 overflow-x-auto px-5 pb-2 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0 lg:grid-cols-4">
-          {categories.map((cat) => <div key={cat.id} className="w-[72vw] flex-none sm:w-auto"><CategoryTile href={`/belanja/kategori/${cat.slug}`} title={pick(locale, cat.name, cat.name_en)} image={IMAGES.category[cat.slug] ?? cat.image_url} icon={cat.icon} cta={c.explore} /></div>)}
+          {categories.map((cat) => <div key={cat.id} className="w-[72vw] flex-none sm:w-auto"><CategoryTile href={`/belanja/kategori/${cat.slug}`} title={pick(locale, cat.name, cat.name_en)} image={IMAGES.category[cat.slug] ?? cat.image_url} icon={cat.icon} cta={c.explore} count={products.filter((p) => p.category_id === cat.id).length} countLabel={en ? "products" : "produk"} /></div>)}
         </div>
       </Band>
 
@@ -159,7 +167,7 @@ export default async function BelanjaPage() {
       {/* Specials */}
       <Band tone="cream">
         <SectionHead eyebrow={c.specialsEyebrow} title={c.specialsTitle} sub={c.specialsSub} action={{ href: "/belanja/semua", label: c.specialsCta }} />
-        <div className={`mt-8 ${grid}`}>{featured.slice(0, 5).map((p) => <ProductCard key={p.id} p={p} segment={segment} discountPct={account?.discount_pct} locale={locale} />)}</div>
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">{featured.slice(0, 8).map((p) => <ProductCard key={p.id} p={p} segment={segment} discountPct={account?.discount_pct} locale={locale} size="lg" />)}</div>
         <div className="mt-14 flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">{t.shop.fillFreezer}</p><h2 className="mt-2 text-[2rem] sm:text-[2.6rem]">{c.freezerTitle}</h2><p className="mt-2 font-sans text-[13.5px] text-mute">{c.freezerSub}</p></div><Link href="/belanja/kategori/seafood-beku" className="btn-link">{t.common.viewAll} <ArrowRight className="h-4 w-4" /></Link></div>
         <div className={`mt-6 ${grid}`}>{freezer.map((p) => <ProductCard key={p.id} p={p} segment={segment} discountPct={account?.discount_pct} locale={locale} />)}</div>
       </Band>

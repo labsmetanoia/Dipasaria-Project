@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/config";
 import { getT } from "@/lib/i18n/server";
+import { IMAGES } from "@/lib/content/images";
 import { PageHero } from "@/components/site/Sections";
 
 export const metadata: Metadata = { title: "Kebijakan privasi" };
@@ -35,7 +36,7 @@ export default async function PrivasiPage() {
   const c = copy[locale];
   return (
     <>
-      <PageHero eyebrow={c.eyebrow} title={c.title} icon="snow" />
+      <PageHero eyebrow={c.eyebrow} title={c.title} icon="snow" image={IMAGES.standards} compact />
       <section className="container-x py-16"><div className="mx-auto max-w-2xl space-y-5 font-sans text-[16px] leading-[1.75] text-ink/85">{c.body.map((p, i) => <p key={i}>{p}</p>)}</div></section>
     </>
   );

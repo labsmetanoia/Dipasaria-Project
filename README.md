@@ -53,7 +53,7 @@ Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette 
 
 **Belanja is the primary landing and conversion page** (`/` redirects to `/belanja`): hero carousel, shop-by-category tiles, "find your next order" cards, how it works, standards split with today's catch, story band, most-reordered and freezer sections, and a closing image band. Category pages are collection pages; the product page carries trust icons, "often bought together", related products and an FAQ.
 
-Every image is a slot: product photos on each product (`image_url`), page photos in `src/lib/content/images.ts`. Until a URL is set, a designed black-and-gold placeholder renders. The shot list is in `docs/photo-brief.md`.
+**Photography (round 4).** Every product, category, hero and story section now carries a real photo: 47 temporary Pexels-licensed images, self-hosted under `public/images` (about 10 MB) and credited in `docs/photo-credits.md`. Product cards are photo-led with category, species, size and preparation summary and a from-price; product pages have a four-image gallery and a details table; collection pages have photographic headers. Cumi Segar and Otak-otak Tenggiri keep the illustrated placeholder until own photos exist. Replace any photo through the product's "URL foto" field in the back-office or in `src/lib/content/images.ts`; the shot list for your own photography is `docs/photo-brief.md`.
 
 ## What is built
 

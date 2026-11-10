@@ -7,6 +7,8 @@ import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/dict";
 import { ProductArt } from "@/components/ProductArt";
+import { ProductGallery } from "@/components/shop/ProductGallery";
+import { IMAGES } from "@/lib/content/images";
 import { ProductSheet } from "@/components/shop/ProductSheet";
 import { ProductCard, defaultVariant } from "@/components/shop/ProductCard";
 import { QuickAdd } from "@/components/shop/QuickAdd";
@@ -38,15 +40,24 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const catName = cat ? pick(locale, cat.name, cat.name_en) : "";
   const en = locale === "en";
   const name = en && product.name_en ? product.name_en : product.name;
+  const context = product.storage_class === "frozen" ? IMAGES.box : product.category_id === "c_ayam" ? IMAGES.category.ayam : product.storage_class === "ambient" ? IMAGES.category["bumbu-dapur"] : IMAGES.standards;
+  const gallery = [product.image_url, cat ? IMAGES.category[cat.slug] ?? cat.image_url : null, context, product.storage_class === "chilled" && product.category_id !== "c_ayam" ? IMAGES.display : IMAGES.kitchen].filter((x, i, a): x is string => Boolean(x) && a.indexOf(x) === i);
+  const specs: Array<[string, string]> = [
+    [en ? "Species" : "Spesies", product.scientific_name ? `${en ? product.name : product.name_en ?? ""} (${product.scientific_name})` : (en ? product.name : product.name_en ?? product.name)],
+    [en ? "Origin" : "Asal", pick(locale, product.origin, product.origin_en)],
+    [en ? "Storage" : "Penyimpanan", `${t.storage[product.storage_class]} · ${pick(locale, product.storage_note, product.storage_note_en)}`],
+    [en ? "Sizes" : "Ukuran", product.variants.filter((v) => v.is_active).map((v) => pick(locale, v.label, v.label_en)).join(" · ")],
+    ...(product.prep_options.length ? [[en ? "Preparation" : "Penyiapan", product.prep_options.map((o) => pick(locale, o.label, o.label_en)).join(" · ")] as [string, string]] : []),
+    [en ? "Pricing" : "Harga", product.is_catch_weight ? (en ? "Per kg, weighed after preparation" : "Per kg, ditimbang setelah disiapkan") : (en ? "Fixed price per pack" : "Harga tetap per kemasan")],
+  ];
   const stepIcons = [<ClipboardList key="a" className="h-5 w-5" />, <CalendarDays key="b" className="h-5 w-5" />, <Fish key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
   const steps = en ? ["Choose products, sizes and preparation", "Pick a delivery day and slot", "We auction, weigh and prepare at dawn", "Delivered cold to your door"] : ["Pilih produk, ukuran dan cara penyiapannya", "Pilih hari dan slot pengiriman", "Kami lelang, timbang dan siapkan subuh", "Diantar dingin ke pintu Anda"];
   return (
     <>
       <section className="bg-white">
         <div className="grid lg:grid-cols-2">
-          <div className="relative aspect-square lg:aspect-auto lg:min-h-[640px]">
-            <div className="absolute inset-0"><ProductArt icon={product.icon} storage={product.storage_class} image={product.image_url} alt={name} /></div>
-            {product.is_catch_weight && <span className="absolute left-5 top-5 bg-ocean-950 px-3 py-1.5 font-sans text-[11px] font-bold uppercase tracking-[0.16em] text-coral-500">± {t.shop.weighed}</span>}
+          <div className="lg:sticky lg:top-[104px] lg:self-start">
+            <ProductGallery images={gallery} icon={product.icon} storage={product.storage_class} alt={name} badge={product.is_catch_weight ? `± ${t.shop.weighed}` : undefined} />
           </div>
           <div className="px-5 py-8 sm:px-10 lg:px-14 lg:py-14">
             <nav className="font-sans text-[10.5px] font-bold uppercase tracking-[0.18em] text-mute"><Link href="/belanja" className="hover:text-coral-600">{t.common.shop}</Link> / {cat && <Link href={`/belanja/kategori/${cat.slug}`} className="hover:text-coral-600">{catName}</Link>}</nav>
@@ -66,6 +77,12 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 </ul>
               </div>
             )}
+            <div className="mt-8">
+              <p className="eyebrow">{en ? "Product details" : "Detail produk"}</p>
+              <dl className="mt-3 divide-y divide-line border-y border-line">
+                {specs.map(([k, v]) => <div key={k} className="grid grid-cols-3 gap-3 py-2.5"><dt className="font-sans text-[11px] font-bold uppercase tracking-[0.14em] text-mute">{k}</dt><dd className="col-span-2 font-sans text-[13px] text-ink/85">{v}</dd></div>)}
+              </dl>
+            </div>
           </div>
         </div>
       </section>

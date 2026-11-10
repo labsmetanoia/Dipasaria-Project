@@ -5,6 +5,7 @@ import { getGuide, guides } from "@/lib/content/guides";
 import { getT } from "@/lib/i18n/server";
 import { PageHero } from "@/components/site/Sections";
 import { formatDate } from "@/lib/format";
+import { IMAGES } from "@/lib/content/images";
 
 export async function generateStaticParams() {
   return guides.map((g) => ({ slug: g.slug }));
@@ -25,7 +26,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const others = guides.filter((x) => x.slug !== g.slug).slice(0, 3);
   return (
     <>
-      <PageHero eyebrow={`${g.tag[locale]} · ${formatDate(g.date, "long", locale)}`} title={body.title} sub={body.excerpt} icon={g.icon} />
+      <PageHero eyebrow={`${g.tag[locale]} · ${formatDate(g.date, "long", locale)}`} title={body.title} sub={body.excerpt} icon={g.icon} image={IMAGES.guides[g.slug]} />
       <article className="container-x py-16">
         <div className="mx-auto max-w-2xl">
           <Link href="/panduan" className="btn-link"><ArrowLeft className="h-3.5 w-3.5" /> {locale === "en" ? "All guides" : "Semua panduan"}</Link>

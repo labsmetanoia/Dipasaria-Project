@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { MessageCircle, Instagram, MapPin, Clock } from "lucide-react";
 import { getRepo } from "@/lib/data";
 import { getT } from "@/lib/i18n/server";
+import { IMAGES } from "@/lib/content/images";
 import { PageHero, Band } from "@/components/site/Sections";
 import { ContactForm } from "@/components/site/ContactForm";
 import { waLink } from "@/lib/format";
@@ -17,7 +18,7 @@ export default async function KontakPage() {
     : { eyebrow: "Kontak", title: "WhatsApp adalah meja depan kami.", sub: "Pesanan sebaiknya melalui katalog supaya harga, berat dan slot tercatat; untuk pertanyaan, komplain dan kerja sama pemasok, hubungi kami di sini.", base: "Basis operasi", baseSub: "Pengiriman ke Jakarta dan Tangerang.", hours: "Jam layanan", hoursSub: `Pesanan diterima 24 jam; batas pesan ${settings.cutoff_time} WIB. Balasan WhatsApp 08.00–21.00.`, form: "Kirim pesan" };
   return (
     <>
-      <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="squid" />
+      <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="squid" image={IMAGES.market} />
       <Band>
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="grid gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">

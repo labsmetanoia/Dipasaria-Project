@@ -13,7 +13,7 @@ export function HeroSlider({ slides }: { slides: Slide[] }) {
  return (
     <section className="relative isolate h-[72svh] min-h-[480px] max-h-[760px] text-white">
       {slides.map((sl, k) => (
-        <ImageSlot key={k} src={sl.image} alt={sl.title} icon={sl.icon} className={`absolute inset-0 -z-10 transition-opacity duration-700 ${k === i ? "opacity-100" : "opacity-0"}`}><div className="photo-fade absolute inset-0" /></ImageSlot>
+        <ImageSlot key={k} src={sl.image} alt={sl.title} icon={sl.icon} className={`absolute inset-0 -z-10 transition-opacity duration-700 ${k === i ? "opacity-100" : "opacity-0"}`}><div className="photo-fade absolute inset-0" /><div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" /></ImageSlot>
       ))}
       <div className="container-x flex h-full flex-col justify-end pb-14 md:pb-20">
         <div key={i} className="max-w-3xl">

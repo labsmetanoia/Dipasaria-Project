@@ -39,14 +39,14 @@ export const seedSettings: Settings = {
 };
 
 export const seedCategories: Category[] = [
-  { id: "c_ikan", slug: "ikan-segar", name: "Ikan Segar", name_en: "Fresh Fish", description: "Dilelang di Muara Baru sebelum subuh, dinamai spesiesnya, digrade ukurannya.", description_en: "Auctioned at Muara Baru before dawn, named by species, graded by size.", sort: 1, icon: "fish", image_url: null, is_seafood: true },
-  { id: "c_udang", slug: "udang-cumi", name: "Udang & Cumi", name_en: "Shrimp & Squid", description: "Udang vaname berukuran dan cumi segar, siap dikupas atau dibersihkan.", description_en: "Sized vannamei shrimp and fresh squid, ready to peel or clean.", sort: 2, icon: "shrimp", image_url: null, is_seafood: true },
-  { id: "c_beku", slug: "seafood-beku", name: "Seafood Beku", name_en: "Frozen Seafood", description: "Fillet dan portion beku untuk stok freezer, tanpa risiko basi.", description_en: "Fillets and portions for the freezer, no spoilage risk.", sort: 3, icon: "snow", image_url: null, is_seafood: true },
-  { id: "c_ayam", slug: "ayam", name: "Ayam", name_en: "Chicken", description: "Ayam potong dari RPHU bersertifikat halal, beku atau segar untuk akun bisnis.", description_en: "Cut chicken from halal-certified slaughterhouses, frozen or fresh for business accounts.", sort: 4, icon: "chicken", image_url: null, is_seafood: false },
-  { id: "c_olahan", slug: "frozen-food", name: "Frozen Food", name_en: "Frozen Food", description: "Nugget, sosis dan bakso ikan dari merek ber-BPOM dan berlogo halal.", description_en: "Nuggets, sausages and fish balls from BPOM-registered, halal-labelled brands.", sort: 5, icon: "box", image_url: null, is_seafood: false },
-  { id: "c_telur", slug: "telur", name: "Telur", name_en: "Eggs", description: "Telur ayam segar per tray, atau per peti untuk restoran.", description_en: "Fresh chicken eggs by the tray, or by the crate for restaurants.", sort: 6, icon: "egg", image_url: null, is_seafood: false },
-  { id: "c_paket", slug: "paket-hemat", name: "Paket Hemat", name_en: "Value Boxes", description: "Kotak siap isi freezer dengan harga di bawah membeli satuan.", description_en: "Freezer-ready boxes priced below buying the items separately.", sort: 8, icon: "box", image_url: null, is_seafood: false },
-  { id: "c_bumbu", slug: "bumbu-dapur", name: "Bumbu & Dapur", name_en: "Pantry & Condiments", description: "Kebutuhan dapur yang Anda beli setiap minggu, ikut dalam pengiriman yang sama.", description_en: "The kitchen staples you buy every week, in the same delivery.", sort: 7, icon: "bottle", image_url: null, is_seafood: false },
+  { id: "c_ikan", slug: "ikan-segar", name: "Ikan Segar", name_en: "Fresh Fish", description: "Dilelang di Muara Baru sebelum subuh, dinamai spesiesnya, digrade ukurannya.", description_en: "Auctioned at Muara Baru before dawn, named by species, graded by size.", sort: 1, icon: "fish", image_url: "/images/site/cat-ikan-segar.jpg", is_seafood: true },
+  { id: "c_udang", slug: "udang-cumi", name: "Udang & Cumi", name_en: "Shrimp & Squid", description: "Udang vaname berukuran dan cumi segar, siap dikupas atau dibersihkan.", description_en: "Sized vannamei shrimp and fresh squid, ready to peel or clean.", sort: 2, icon: "shrimp", image_url: "/images/site/cat-udang-cumi.jpg", is_seafood: true },
+  { id: "c_beku", slug: "seafood-beku", name: "Seafood Beku", name_en: "Frozen Seafood", description: "Fillet dan portion beku untuk stok freezer, tanpa risiko basi.", description_en: "Fillets and portions for the freezer, no spoilage risk.", sort: 3, icon: "snow", image_url: "/images/site/cat-seafood-beku.jpg", is_seafood: true },
+  { id: "c_ayam", slug: "ayam", name: "Ayam", name_en: "Chicken", description: "Ayam potong dari RPHU bersertifikat halal, beku atau segar untuk akun bisnis.", description_en: "Cut chicken from halal-certified slaughterhouses, frozen or fresh for business accounts.", sort: 4, icon: "chicken", image_url: "/images/site/cat-ayam.jpg", is_seafood: false },
+  { id: "c_olahan", slug: "frozen-food", name: "Frozen Food", name_en: "Frozen Food", description: "Nugget, sosis dan bakso ikan dari merek ber-BPOM dan berlogo halal.", description_en: "Nuggets, sausages and fish balls from BPOM-registered, halal-labelled brands.", sort: 5, icon: "box", image_url: "/images/site/cat-frozen-food.jpg", is_seafood: false },
+  { id: "c_telur", slug: "telur", name: "Telur", name_en: "Eggs", description: "Telur ayam segar per tray, atau per peti untuk restoran.", description_en: "Fresh chicken eggs by the tray, or by the crate for restaurants.", sort: 6, icon: "egg", image_url: "/images/site/cat-telur.jpg", is_seafood: false },
+  { id: "c_paket", slug: "paket-hemat", name: "Paket Hemat", name_en: "Value Boxes", description: "Kotak siap isi freezer dengan harga di bawah membeli satuan.", description_en: "Freezer-ready boxes priced below buying the items separately.", sort: 8, icon: "box", image_url: "/images/products/kotak-freezer-keluarga.jpg", is_seafood: false },
+  { id: "c_bumbu", slug: "bumbu-dapur", name: "Bumbu & Dapur", name_en: "Pantry & Condiments", description: "Kebutuhan dapur yang Anda beli setiap minggu, ikut dalam pengiriman yang sama.", description_en: "The kitchen staples you buy every week, in the same delivery.", sort: 7, icon: "bottle", image_url: "/images/site/cat-bumbu-dapur.jpg", is_seafood: false },
 ];
 
 type V = Omit<Variant, "id" | "product_id" | "is_active" | "sort" | "label_en"> & { id?: string; label_en?: string };
@@ -389,13 +389,21 @@ const STORAGE_EN: Record<string, string> = {
   [AMBIENT]: "Store in a cool, dry place.",
 };
 
+// Temporary photography (Pexels licence, see docs/photo-credits.md). Replace with own photos via the back-office.
+const PHOTO_SLUGS = new Set([
+  "kakap-merah", "kerapu", "kembung", "tongkol", "bandeng", "baronang", "bawal-putih", "nila-merah", "udang-vaname",
+  "udang-kupas-beku", "dori-fillet", "tuna-saku", "salmon-fillet", "tenggiri-steak", "sayap-ayam-beku", "paha-ayam-beku",
+  "dada-fillet-ayam", "ayam-potong-segar", "nugget-ayam", "sosis-ayam", "bakso-ikan", "telur-ayam", "minyak-goreng",
+  "kecap-manis", "sambal-bawang", "bawang-putih-kupas", "tepung-bumbu", "kotak-freezer-keluarga", "kotak-seafood-weekend",
+]);
+
 export const seedProducts: Product[] = productSeeds.map((p, pi) => ({
   ...p,
   description_en: p.description_en ?? null,
   origin_en: p.origin_en ?? null,
   storage_note_en: p.storage_note_en ?? STORAGE_EN[p.storage_note] ?? null,
   is_active: true,
-  image_url: null,
+  image_url: PHOTO_SLUGS.has(p.slug) ? `/images/products/${p.slug}.jpg` : null,
   sort: pi + 1,
   variants: p.variants.map((x, i) => ({
     ...x,

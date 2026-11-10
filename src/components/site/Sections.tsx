@@ -21,7 +21,7 @@ export function SectionHead({ eyebrow, title, sub, action, dark = false, center 
 export function PageHero({ eyebrow, title, sub, icon = "fish", image, children, compact = false }: { eyebrow: string; title: string; sub?: string; icon?: string; image?: string | null; children?: ReactNode; compact?: boolean }) {
  return (
     <section className="relative isolate text-white">
-      <ImageSlot src={image} alt={title} icon={icon} className="absolute inset-0 -z-10"><div className="photo-fade absolute inset-0" /></ImageSlot>
+      <ImageSlot src={image} alt={title} icon={icon} className="absolute inset-0 -z-10"><div className="photo-fade absolute inset-0" /><div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-black/10" /></ImageSlot>
       <div className={`container-x ${compact ? "py-16 md:py-20" : "py-20 md:py-28"}`}>
         <p className="eyebrow rise text-coral-500">{eyebrow}</p>
         <h1 className="rise rise-2 mt-3 max-w-4xl text-[2.6rem] sm:text-[4rem] lg:text-[5rem]">{title}</h1>
@@ -57,10 +57,11 @@ export function StepsStrip({ title, steps }: { title: string; steps: Array<{ ico
 }
 
 /** Dark photo tile with uppercase label and small gold button (shop-by-category). */
-export function CategoryTile({ href, title, image, icon, cta }: { href: string; title: string; image?: string | null; icon: string; cta: string }) {
+export function CategoryTile({ href, title, image, icon, cta, count, countLabel }: { href: string; title: string; image?: string | null; icon: string; cta: string; count?: number; countLabel?: string }) {
  return (
     <Link href={href} className="group relative block aspect-square overflow-hidden bg-ocean-950 text-white">
       <ImageSlot src={image} alt={title} icon={icon} className="absolute inset-0 transition duration-700 group-hover:scale-[1.04]"><div className="photo-fade absolute inset-0" /></ImageSlot>
+      {count !== undefined && <span className="absolute right-3 top-3 bg-black/45 px-2 py-0.5 font-sans text-[10px] font-bold uppercase tracking-[0.14em] text-white backdrop-blur">{count} {countLabel}</span>}
       <div className="absolute inset-x-0 bottom-0 p-5">
         <p className="font-display text-[1.7rem] font-bold uppercase leading-none sm:text-[2rem]">{title}</p>
         <span className="mt-3 inline-block bg-coral-500 px-3 py-1.5 font-sans text-[10.5px] font-bold uppercase tracking-[0.16em] text-ocean-950 group-hover:bg-white">{cta}</span>

@@ -127,7 +127,7 @@ export default async function TentangPage() {
           </div>
         </div>
       </Band>
-      <ImageSlot src={IMAGES.kitchen} alt="" icon="shrimp" className="h-48 md:h-64" />
+      <ImageSlot src={IMAGES.fishermen} alt="" icon="shrimp" className="h-56 md:h-80" />
     </>
   );
 }

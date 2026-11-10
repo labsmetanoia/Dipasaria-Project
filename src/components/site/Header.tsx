@@ -56,11 +56,18 @@ export function Header({ categories, cutoff, accountName }: { categories: Catego
                       ))}
                       <Link href="/belanja/semua" className="col-span-2 mt-2 px-2 font-sans text-[11.5px] font-bold uppercase tracking-[0.14em] text-coral-500 hover:text-white">{t.shop.allProducts} →</Link>
                     </div>
-                    <div className="col-span-5 space-y-1 border-l border-white/10 bg-ocean-900 p-5">
-                      <p className="mb-2 font-sans text-[10.5px] font-bold uppercase tracking-[0.22em] text-coral-500">{locale === "en" ? "Quick links" : "Tautan cepat"}</p>
-                      {[["/belanja/kategori/ikan-segar", t.shop.todaysCatch], ["/belanja/kategori/paket-hemat", locale === "en" ? "Value boxes" : "Paket hemat"], ["/akun", t.nav.businessAccount], ["/pesanan", t.nav.track]].map(([h, l]) => (
-                        <Link key={h} href={h} className="block px-2 py-2 font-display text-[17px] font-bold uppercase leading-none text-white/85 hover:text-coral-500">{l}</Link>
-                      ))}
+                    <div className="col-span-5 flex flex-col border-l border-white/10 bg-ocean-900">
+                      <Link href="/belanja/kategori/ikan-segar" className="group relative block h-40 overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/images/site/cat-ikan-segar.jpg" alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                        <div className="absolute bottom-3 left-4"><p className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-coral-500">{t.shop.todaysCatch}</p><p className="font-display text-[20px] font-bold uppercase leading-none">{locale === "en" ? "Auctioned at dawn" : "Dilelang subuh"} →</p></div>
+                      </Link>
+                      <div className="space-y-1 p-5">
+                        {[["/belanja/kategori/paket-hemat", locale === "en" ? "Value boxes" : "Paket hemat"], ["/akun", t.nav.businessAccount], ["/pesanan", t.nav.track]].map(([h, l]) => (
+                          <Link key={h} href={h} className="block px-2 py-1.5 font-display text-[17px] font-bold uppercase leading-none text-white/85 hover:text-coral-500">{l}</Link>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
