@@ -1,6 +1,6 @@
 // Prepared WhatsApp messages. The owner taps a button in the back-office, WhatsApp opens with the text filled in.
 import type { Order, Settings, BusinessAccount } from "./types";
-import { rupiah, formatDate, waLink } from "./format";
+import { rupiah, formatDate, waLink, qtyUnit } from "./format";
 import { SITE_URL } from "./config";
 
 export function trackingUrl(o: Order): string {
@@ -13,7 +13,7 @@ function itemLines(o: Order, final = false): string {
       const q = final && i.qty_final !== null ? i.qty_final : i.qty_ordered;
       const prep = i.prep_label ? ` (${i.prep_label.toLowerCase()})` : "";
       const total = final && i.line_total_final !== null ? i.line_total_final : i.line_total_est;
-      return `• ${i.product_name} ${i.variant_label}${prep}: ${q} ${i.unit} — ${rupiah(total)}`;
+      return `• ${i.product_name} ${i.variant_label}${prep}: ${qtyUnit(q, i.unit)} — ${rupiah(total)}`;
     })
     .join("\n");
 }
@@ -37,7 +37,7 @@ export function msgOrderConfirmed(o: Order, s: Settings): string {
 export function msgFinalInvoice(o: Order, s: Settings): string {
   const total = o.total_final ?? o.total_est;
   const pay =
-    o.payment_method === "qris" ? `Pembayaran QRIS atas nama ${s.bank_holder}. Pindai kode QR di halaman pesanan, lalu tekan "Saya sudah membayar".`
+    o.payment_method === "qris" ? `Pembayaran QRIS atas nama ${s.bank_holder}. Pindai kode QR di halaman pesanan, lalu tekan “Saya sudah membayar”.`
     : o.payment_method === "transfer" ? `Transfer ke ${s.bank_name} ${s.bank_account} atas nama ${s.bank_holder}.`
     : o.payment_method === "cod" ? `Pembayaran dilakukan saat pesanan diterima (COD).`
     : `Ditagihkan sesuai ketentuan tempo akun Anda.`;
@@ -57,7 +57,7 @@ export function msgFinalInvoice(o: Order, s: Settings): string {
 }
 
 export function msgOutForDelivery(o: Order, s: Settings): string {
-  return `Halo ${o.customer_name}, pesanan *${o.code}* dari ${s.store_name} sedang dalam perjalanan sesuai jadwal ${o.slot_label}. Mohon pastikan ada yang menerima di: ${o.address}. Terima kasih! 🐟`;
+  return `Halo ${o.customer_name}, pesanan *${o.code}* dari ${s.store_name} sedang dalam perjalanan (jadwal ${o.slot_label}). Mohon pastikan ada yang dapat menerima pesanan di ${o.address}. Terima kasih! 🐟`;
 }
 
 export function msgAccessCode(a: BusinessAccount, s: Settings): string {
@@ -68,7 +68,7 @@ export function msgAccessCode(a: BusinessAccount, s: Settings): string {
     `• Nomor WhatsApp: ${a.phone}`,
     `• Kode akses: *${a.access_code}*`,
     ``,
-    `Setelah masuk, Anda dapat melihat harga grosir, memilih pengiriman dapur pukul 05.00–08.00, dan menggunakan "Pesan lagi" dari pesanan sebelumnya. Batas pemesanan untuk pengiriman besok: pukul 20.00 WIB.`,
+    `Setelah masuk, Anda dapat melihat harga grosir, memilih pengiriman dapur pukul 05.00–08.00, dan menggunakan “Pesan lagi” dari pesanan sebelumnya. Batas pemesanan untuk pengiriman besok: pukul 20.00 WIB.`,
   ].join("\n");
 }
 
@@ -77,7 +77,7 @@ export function waTo(phone: string, text: string): string {
 }
 
 export function msgCustomerPaid(o: Order, s: Settings): string {
-  return `Halo ${s.store_name}, saya sudah membayar pesanan *${o.code}* sebesar ${rupiah(o.total_final ?? o.total_est)}. Mohon dicek. Terima kasih.`;
+  return `Halo ${s.store_name}, saya sudah membayar pesanan *${o.code}* sebesar ${rupiah(o.total_final ?? o.total_est)}. Bukti pembayaran saya lampirkan. Mohon diperiksa. Terima kasih.`;
 }
 
 export function msgCustomerAsk(code: string, s: Settings): string {

@@ -15,7 +15,7 @@ export function defaultVariant(p: Product, segment: Segment) {
 
 const CAT_LABEL: Record<string, { id: string; en: string }> = {
   c_ikan: { id: "Ikan segar", en: "Fresh fish" },
-  c_udang: { id: "Udang & cumi", en: "Shrimp & squid" },
+  c_udang: { id: "Udang dan cumi", en: "Shrimp & squid" },
   c_beku: { id: "Seafood beku", en: "Frozen seafood" },
   c_ayam: { id: "Ayam halal", en: "Halal chicken" },
   c_olahan: { id: "Olahan beku", en: "Frozen food" },
@@ -45,7 +45,7 @@ export function ProductCard({ p, segment, discountPct = 0, locale = "id", quickA
     : v.business_only
       ? { text: t.shop.businessOnly, tone: "dark" }
       : p.is_featured
-        ? { text: en ? "Best seller" : "Terlaris", tone: "gold" }
+        ? { text: en ? "Kitchen pick" : "Pilihan dapur", tone: "gold" }
         : null;
   const tone = { dark: "bg-ocean-950 text-coral-500", gold: "bg-coral-500 text-ocean-950", light: "bg-white text-ink" };
   return (

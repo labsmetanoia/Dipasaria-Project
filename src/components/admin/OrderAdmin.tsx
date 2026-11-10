@@ -35,7 +35,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
           <h1 className="mt-1 font-display text-2xl text-ocean-900">{order.code}</h1>
           <p className="text-sm text-mute">{formatDate(order.delivery_date)} · {order.slot_label} · dibuat {formatDateTime(order.created_at)}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2"><StatusBadge status={order.status} /><PaymentBadge status={order.payment_status} /><span className="bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{order.segment === "business" ? "B2B" : "Rumah tangga"}</span></div>
+        <div className="flex flex-wrap items-center gap-2"><StatusBadge status={order.status} /><PaymentBadge status={order.payment_status} /><span className="bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{order.segment === "business" ? "Bisnis" : "Rumah tangga"}</span></div>
       </div>
 
       {err && <div className="bg-coral-50 px-4 py-3 text-sm text-gold-ink">{err}</div>}
@@ -67,7 +67,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
             <h2 className="text-ocean-900">Item{order.has_catch_weight && <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-mute"><Scale className="h-3.5 w-3.5" />{order.weighed_at ? `ditimbang ${formatDateTime(order.weighed_at)}` : "belum ditimbang"}</span>}</h2>
           </div>
           <table className="mt-3 w-full text-sm">
-            <thead className="text-xs text-mute"><tr><th className="pb-1 text-left font-medium">Produk</th><th className="pb-1 text-right font-medium">Dipesan</th>{order.has_catch_weight && <th className="pb-1 text-right font-medium">Timbang</th>}<th className="pb-1 text-right font-medium">Total</th></tr></thead>
+            <thead className="text-xs text-mute"><tr><th className="pb-1 text-left font-medium">Produk</th><th className="pb-1 text-right font-medium">Dipesan</th>{order.has_catch_weight && <th className="pb-1 text-right font-medium">Ditimbang</th>}<th className="pb-1 text-right font-medium">Total</th></tr></thead>
             <tbody className="divide-y divide-line">
               {order.items.map((i) => (
                 <tr key={i.id}>
@@ -87,8 +87,8 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
           </table>
           {order.has_catch_weight && order.status !== "cancelled" && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 bg-sand-100 px-4 py-3">
-              <p className="text-xs text-mute">Isi berat hasil timbangan (kg). Harga, promo dan ongkos kirim akan dihitung ulang oleh sistem.</p>
-              <button disabled={pending} onClick={() => run(() => weighOrderAction(order.id, Object.entries(weights).map(([item_id, v]) => ({ item_id, qty_final: Number(v) }))))} className="btn-primary"><Scale className="h-4 w-4" /> Simpan timbangan dan hitung ulang</button>
+              <p className="text-xs text-mute">Isi berat hasil timbangan (kg). Harga, promo, dan ongkos kirim akan dihitung ulang oleh sistem.</p>
+              <button disabled={pending} onClick={() => run(() => weighOrderAction(order.id, Object.entries(weights).map(([item_id, v]) => ({ item_id, qty_final: Number(v) }))))} className="btn-primary"><Scale className="h-4 w-4" /> Simpan berat dan hitung ulang</button>
             </div>
           )}
           <dl className="mt-4 space-y-1 border-t border-line pt-3 text-sm">
@@ -96,7 +96,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
             {order.discount > 0 && <div className="flex justify-between text-success-600"><dt>Promo {order.promo_code}</dt><dd>−{rupiah(order.discount)}</dd></div>}
             <div className="flex justify-between"><dt className="text-mute">Ongkos kirim</dt><dd>{order.delivery_fee ? rupiah(order.delivery_fee) : "Gratis"}</dd></div>
             <div className="flex justify-between text-base"><dt className="font-semibold">Total</dt><dd className="font-display text-xl font-semibold text-ocean-900">{rupiah(order.total_final ?? order.total_est)}</dd></div>
-            <div className="flex justify-between text-xs text-mute"><dt>Est. laba kotor</dt><dd>{rupiah(order.items.reduce((s, i) => s + (i.line_total_final ?? i.line_total_est) - i.unit_cost * (i.qty_final ?? i.qty_ordered), 0) - order.discount)}</dd></div>
+            <div className="flex justify-between text-xs text-mute"><dt>Perkiraan laba kotor</dt><dd>{rupiah(order.items.reduce((s, i) => s + (i.line_total_final ?? i.line_total_est) - i.unit_cost * (i.qty_final ?? i.qty_ordered), 0) - order.discount)}</dd></div>
           </dl>
         </div>
 
@@ -117,7 +117,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
             <p className="mt-1 text-sm">{PAYMENT_LABEL[order.payment_method]} · <PaymentBadge status={order.payment_status} /></p>
             <div className="mt-3 flex flex-wrap gap-2">
               {order.payment_status !== "paid" && order.status !== "cancelled" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "paid"))} className="btn-primary"><Check className="h-4 w-4" /> Tandai lunas</button>}
-              {order.payment_status === "paid" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "unpaid"))} className="btn-secondary">Batalkan lunas</button>}
+              {order.payment_status === "paid" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "unpaid"))} className="btn-secondary">Batalkan status lunas</button>}
             </div>
             <p className="mt-2 text-xs text-mute">Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar.</p>
           </div>

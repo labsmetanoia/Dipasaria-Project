@@ -26,7 +26,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="card space-y-4 p-5">
-        <h2 className="text-ocean-900">Toko & pembayaran</h2>
+        <h2 className="text-ocean-900">Toko dan pembayaran</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Nama toko"><input className="input" value={s.store_name} onChange={(e) => set("store_name", e.target.value)} /></Field>
           <Field label="Nomor WhatsApp bisnis" hint="Format 62…"><input className="input" value={s.whatsapp_number} onChange={(e) => set("whatsapp_number", e.target.value)} /></Field>
@@ -37,25 +37,25 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
           <Field label="Instagram"><input className="input" value={s.instagram} onChange={(e) => set("instagram", e.target.value)} /></Field>
           <Field label="Alamat singkat"><input className="input" value={s.address_line} onChange={(e) => set("address_line", e.target.value)} /></Field>
         </div>
-        <Field label="Pengumuman di toko (opsional)"><input className="input" value={s.announcement ?? ""} onChange={(e) => set("announcement", e.target.value || null)} placeholder="Misal: Libur Lebaran 30 Mar–2 Apr, pesanan dibuka lagi 3 Apr." /></Field>
+        <Field label="Pengumuman di toko (opsional)"><input className="input" value={s.announcement ?? ""} onChange={(e) => set("announcement", e.target.value || null)} placeholder="Contoh: Libur Lebaran 30 Maret–2 April; pemesanan dibuka kembali 3 April." /></Field>
       </div>
       <div className="card space-y-4 p-5">
         <h2 className="text-ocean-900">Aturan pesanan</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Batas pemesanan (WIB)"><input className="input" value={s.cutoff_time} onChange={(e) => set("cutoff_time", e.target.value)} placeholder="20:00" /></Field>
-          <Field label="Maks. hari ke depan"><input className="input" type="number" value={s.max_days_ahead} onChange={(e) => set("max_days_ahead", Number(e.target.value))} /></Field>
-          <Field label="Min. pesanan rumah tangga"><input className="input" value={s.min_order_retail} onChange={(e) => set("min_order_retail", num(e.target.value))} /></Field>
-          <Field label="Min. pesanan bisnis"><input className="input" value={s.min_order_business} onChange={(e) => set("min_order_business", num(e.target.value))} /></Field>
+          <Field label="Maksimal hari pemesanan ke depan"><input className="input" type="number" value={s.max_days_ahead} onChange={(e) => set("max_days_ahead", Number(e.target.value))} /></Field>
+          <Field label="Minimal pesanan rumah tangga"><input className="input" value={s.min_order_retail} onChange={(e) => set("min_order_retail", num(e.target.value))} /></Field>
+          <Field label="Minimal pesanan bisnis"><input className="input" value={s.min_order_business} onChange={(e) => set("min_order_business", num(e.target.value))} /></Field>
           <Field label="Gratis ongkos kirim rumah tangga mulai"><input className="input" value={s.free_delivery_retail} onChange={(e) => set("free_delivery_retail", num(e.target.value))} /></Field>
           <Field label="Gratis ongkos kirim bisnis mulai"><input className="input" value={s.free_delivery_business} onChange={(e) => set("free_delivery_business", num(e.target.value))} /></Field>
-          <Field label="Buffer beli ikan segar (%)" hint="Rencana bisnis: mulai 5%, sesuaikan dengan data susut Gate A."><input className="input" type="number" value={s.catch_weight_buffer_pct} onChange={(e) => set("catch_weight_buffer_pct", Number(e.target.value))} /></Field>
+          <Field label="Cadangan pembelian ikan segar (%)" hint="Rencana bisnis: mulai 5%, sesuaikan dengan data susut Gate A."><input className="input" type="number" value={s.catch_weight_buffer_pct} onChange={(e) => set("catch_weight_buffer_pct", Number(e.target.value))} /></Field>
         </div>
         {err && <p className="text-sm text-gold-ink">{err}</p>}
         <button onClick={save} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <><Check className="h-4 w-4" /> Tersimpan</> : "Simpan pengaturan"}</button>
       </div>
 
       <div className="card p-5">
-        <h2 className="text-ocean-900">Area pengiriman</h2>
+        <h2 className="text-ocean-900">Wilayah pengiriman</h2>
         <p className="text-xs text-mute">Tiga sampai lima wilayah dengan ongkos kirim tetap lebih mudah dipahami pelanggan daripada tarif per km.</p>
         <ul className="mt-3 space-y-2">
           {areas.map((a) => (
@@ -69,8 +69,8 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
         <button onClick={() => { const a: DeliveryArea = { id: `a_${Date.now().toString(36)}`, name: "Wilayah baru", fee: 25000, is_active: false, sort: areas.length + 1 }; setAreas([...areas, a]); saveArea(a); }} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah wilayah</button>
       </div>
       <div className="card p-5">
-        <h2 className="text-ocean-900">Slot pengiriman</h2>
-        <p className="text-xs text-mute">Kapasitas = jumlah drop maksimum yang bisa diantar satu kendaraan dalam slot itu.</p>
+        <h2 className="text-ocean-900">Jam pengiriman</h2>
+        <p className="text-xs text-mute">Kapasitas adalah jumlah titik antar maksimal yang dapat dilayani satu kendaraan pada jam pengiriman ini.</p>
         <ul className="mt-3 space-y-2">
           {slots.map((sl) => (
             <li key={sl.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2 text-sm">

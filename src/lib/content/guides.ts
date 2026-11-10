@@ -20,7 +20,7 @@ export const guides: Guide[] = [
       title: "Cara membedakan kakap merah asli dari ikan yang hanya mirip",
       excerpt: "Di pasar, tiga jenis ikan yang berbeda dijual dengan nama “kakap merah”. Hanya satu yang benar-benar Lutjanus malabaricus.",
       body: [
-        "Nama dagang “kakap merah” digunakan secara longgar di pasar Jakarta. Yang paling sering tertukar adalah Red Bass (Lutjanus bohar), ikan karang yang di beberapa perairan berisiko mengandung racun ciguatera, serta bambangan (Lutjanus gibbus) yang lebih kecil dan dagingnya lebih lembek. Kakap merah yang kami jual adalah Malabar snapper, Lutjanus malabaricus.",
+        "Nama dagang “kakap merah” digunakan secara longgar di pasar Jakarta. Yang paling sering tertukar adalah Red Bass (Lutjanus bohar), ikan karang yang di beberapa perairan berisiko mengandung racun ciguatera, serta humpback red snapper (Lutjanus gibbus) yang lebih kecil dan dagingnya lebih lembek. Kakap merah yang kami jual adalah Malabar snapper, Lutjanus malabaricus.",
         "Ciri-cirinya: tubuh memanjang dengan punggung merah muda cerah yang memudar ke arah perut keperakan, sirip ekor merah tanpa tepi hitam, dan mata berukuran sedang. Red Bass berwarna lebih gelap, sirip ekornya bertepi hitam, dan kepalanya lebih tumpul.",
         "Di lelang pukul tiga pagi, kami memeriksa empat hal pada setiap lot: mata cembung dan jernih, insang merah segar tanpa lendir, daging kenyal yang kembali saat ditekan, serta aroma laut, bukan bau amonia. Suhu inti diukur dengan termometer tusuk; lot dengan suhu di atas 4 °C kami tolak.",
         "Pada tagihan Anda, setiap jenis ikan dicantumkan dengan nama ilmiahnya. Itu bukan sekadar gaya, melainkan cara Anda memastikan kami menjual persis apa yang kami janjikan.",
@@ -30,7 +30,7 @@ export const guides: Guide[] = [
       title: "How to tell real red snapper from the fish that only looks like it",
       excerpt: "Three different species are sold as “kakap merah” at the market. Only one is actually Lutjanus malabaricus.",
       body: [
-        "The trade name “kakap merah” is used loosely in Jakarta. The usual stand-ins are Red Bass (Lutjanus bohar), a reef fish that carries ciguatera risk in some waters, and Bambangan (Lutjanus gibbus), which is smaller with softer flesh. The red snapper we sell is Malabar Snapper, Lutjanus malabaricus.",
+        "The trade name “kakap merah” is used loosely in Jakarta. The usual stand-ins are Red Bass (Lutjanus bohar), a reef fish that carries ciguatera risk in some waters, and the humpback red snapper (Lutjanus gibbus), which is smaller with softer flesh. The red snapper we sell is Malabar Snapper, Lutjanus malabaricus.",
         "Look for an elongated body with a bright pink back fading to a silvery belly, a red tail without a black edge, and medium-sized eyes. Red Bass is darker, has a black-edged tail and a blunter head.",
         "At the 3 a.m. auction we check four things per lot: convex, clear eyes; fresh red gills without slime; flesh that springs back when pressed; and a smell of the sea, not ammonia. Core temperature is probed; above 4 °C the lot is rejected.",
         "Your invoice names the species scientifically. That isn't decoration: it is how you hold us to what we sell.",
@@ -49,7 +49,7 @@ export const guides: Guide[] = [
         "Udang vaname dijual berdasarkan ukuran, yaitu jumlah ekor dalam satu kilogram. Ukuran 40–50 berarti 40 hingga 50 ekor per kg, atau sekitar 20–25 gram per ekor. Ukuran 60–70 lebih kecil, sekitar 14–17 gram per ekor, dan lebih murah per kilogramnya.",
         "Untuk tumisan dan udang goreng tepung di rumah, ukuran 60–70 lebih ekonomis dan cepat matang. Restoran yang menyajikan udang bakar atau udang saus Padang biasanya memilih ukuran 40–50 agar tampilannya lebih penuh di piring.",
         "Waspadai udang yang terlalu berat untuk ukurannya: sebagian pedagang merendam udang dalam larutan fosfat agar menyerap air. Udang kami tidak direndam, sehingga berat yang Anda bayar adalah berat udang itu sendiri, dan dagingnya tidak berair saat dimasak.",
-        "Udang dengan pilihan dikupas ditimbang sebelum dikupas, karena kulit dan kepala mencapai 35–40% dari beratnya. Harga per kg yang Anda bayar tetap mengacu pada udang utuh, ditambah biaya kupas per kg.",
+        "Udang yang dipesan dalam keadaan dikupas ditimbang sebelum dikupas, karena kulit dan kepala mencapai 35–40% dari beratnya. Harga per kg yang Anda bayar tetap mengacu pada udang utuh, ditambah biaya kupas per kg.",
       ],
     },
     en: {
@@ -73,7 +73,7 @@ export const guides: Guide[] = [
       excerpt: "Ikan yang tiba pada suhu 0–4 °C masih layak dimasak dalam 24 jam, atau dapat dibekukan dengan benar hingga 2–3 bulan.",
       body: [
         "Begitu kotak tiba, pindahkan ikan ke bagian kulkas yang paling dingin, biasanya rak bawah bagian belakang, dalam wadah tertutup berisi es gel atau es batu dalam kantong. Suhu idealnya 0–4 °C, sedangkan kulkas rumah rata-rata bersuhu 5–7 °C, sehingga es tambahan sangat membantu.",
-        "Jika tidak dimasak hari itu, segera bekukan; jangan menunggu hingga besok. Keringkan permukaan ikan dengan tisu, bungkus rapat dengan plastik wrap hingga tidak ada udara, lalu masukkan ke kantong ziplock. Penyebab freezer burn adalah udara, bukan suhu dinginnya.",
+        "Jika tidak dimasak hari itu, segera bekukan; jangan menunggu hingga besok. Keringkan permukaan ikan dengan tisu, bungkus rapat dengan plastik pembungkus makanan hingga tidak ada udara, lalu masukkan ke kantong plastik berpengunci. Penyebab freezer burn (permukaan beku yang kering dan pucat) adalah udara, bukan suhu dinginnya.",
         "Cairkan semalaman di rak bawah kulkas, bukan pada suhu ruang dan bukan dengan air panas. Pencairan yang lambat menjaga tekstur dan mencegah bakteri berkembang di permukaan selagi bagian dalamnya masih beku.",
         "Ikan yang sudah kami siangi atau fillet lebih mudah disimpan, karena isi perut, sumber bau yang paling cepat muncul, sudah dibuang di meja pengolahan kami.",
       ],
@@ -99,8 +99,8 @@ export const guides: Guide[] = [
       excerpt: "Dua dokumen yang membedakan ayam yang dapat Anda pertanggungjawabkan dari ayam yang sekadar murah.",
       body: [
         "RPHU adalah Rumah Potong Hewan Unggas. Sertifikat halal dari BPJPH memastikan tata cara penyembelihan sesuai syariat dan rantai penanganannya terjaga, sedangkan NKV (Nomor Kontrol Veteriner) membuktikan bahwa unit usaha tersebut memenuhi standar higiene dan sanitasi dari Kementerian Pertanian.",
-        "Kewajiban sertifikasi halal bagi usaha mikro dan kecil memang ditunda hingga 17 Oktober 2028, tetapi pelanggan Anda tidak akan menunggu. Restoran yang ditanya tamunya “ayamnya halal?” perlu dapat menjawab dengan dokumen, bukan sekadar keyakinan.",
-        "Kami hanya membeli ayam beku dan ayam potong segar dari RPHU yang memiliki kedua dokumen tersebut, menyimpan salinannya untuk setiap pemasok, dan dapat menunjukkannya per lot bila akun bisnis Anda memintanya.",
+        "Kewajiban sertifikasi halal diberlakukan secara bertahap, termasuk bagi usaha mikro dan kecil, tetapi pelanggan Anda tidak menunggu tenggat itu. Restoran yang ditanya tamunya “Ayamnya halal?” perlu dapat menjawab dengan dokumen, bukan sekadar keyakinan.",
+        "Kami hanya membeli ayam beku dan ayam potong segar dari RPHU yang memiliki kedua dokumen tersebut, menyimpan salinannya untuk setiap pemasok, dan dapat menunjukkannya per lot bila Anda memintanya sebagai pemilik akun bisnis.",
         "Saat pengiriman, ayam dikemas dalam kantong tertutup dan ditempatkan terpisah dari ikan, tidak pernah dalam es yang sama. Hal ini penting untuk keamanan pangan, sekaligus agar dapur Anda bebas dari bau yang tercampur.",
       ],
     },
@@ -109,7 +109,7 @@ export const guides: Guide[] = [
       excerpt: "Two documents that separate chicken you can vouch for from chicken that is merely cheap.",
       body: [
         "RPHU is a poultry slaughterhouse. A BPJPH halal certificate confirms slaughter according to Islamic law with an unbroken handling chain; NKV, the Veterinary Control Number, proves the unit meets the Ministry of Agriculture's hygiene and sanitation standards.",
-        "Mandatory halal certification for micro and small businesses was postponed to 17 October 2028, but your customers aren't waiting. A restaurant asked “is the chicken halal?” needs to answer with documents, not conviction.",
+        "Mandatory halal certification is being phased in, including for micro and small businesses, but your customers aren't waiting for the deadline. A restaurant asked “is the chicken halal?” needs to answer with documents, not conviction.",
         "We buy frozen and fresh cut chicken only from slaughterhouses holding both documents, keep copies per supplier, and can show them per lot if your business account asks.",
         "In delivery, chicken travels in sealed liners placed apart from fish, never in the same ice. That is food safety and, just as much, the smell in your kitchen.",
       ],
@@ -122,12 +122,12 @@ export const guides: Guide[] = [
     tag: { id: "Untuk restoran", en: "For restaurants" },
     id: {
       title: "Harga per kg bukan harga sebenarnya: menghitung biaya ikan untuk restoran",
-      excerpt: "Ikan yang 5% lebih murah di pasar bisa 10% lebih mahal di piring setelah barang tidak layak, susut dan jam kerja ikut dihitung.",
+      excerpt: "Ikan yang 5% lebih murah di pasar bisa 10% lebih mahal di piring setelah barang tidak layak, susut, dan jam kerja ikut dihitung.",
       body: [
         "Pemilik restoran biasanya membandingkan harga per kilogram. Padahal, yang menentukan margin menu adalah biaya per porsi yang tersaji, dan di antara keduanya ada tiga faktor pengurang: ikan yang ditolak saat tiba, susut saat dibersihkan, dan waktu kerja staf.",
         "Barang tidak layak di pasar tradisional berkisar 5–8% bagi pembeli yang tidak memeriksa setiap ekor. Ukuran yang tidak konsisten menambah susut: kakap 700 g dan 1,4 kg yang sama-sama dijual sebagai “kakap 1 kg” menghasilkan fillet dengan jumlah yang berbeda.",
-        "Kemudian soal waktu: perjalanan ke Muara Baru pukul tiga pagi menyita 2–3 jam seorang kepala dapur atau pemilik, setiap hari. Dengan standar upah di kota, nilainya Rp80–120 ribu per hari, belum termasuk bensin dan parkir.",
-        "Cara kami: ukuran dicantumkan tertulis, produk ditimbang setelah disiapkan, tagihan mencantumkan jenis ikan, dan pesanan diantar pukul 05.00–08.00. Harga per kg kami memang 5–10% di atas pasar, tetapi biaya per porsinya biasanya lebih rendah. Minta sampel dan hitung sendiri berdasarkan menu Anda.",
+        "Kemudian soal waktu: perjalanan ke Muara Baru pukul tiga pagi menyita 2–3 jam seorang kepala dapur atau pemilik, setiap hari. Dengan standar upah di kota, nilainya Rp80.000–120.000 per hari, belum termasuk bensin dan parkir.",
+        "Cara kami: ukuran tertulis jelas, produk ditimbang setelah disiapkan, tagihan mencantumkan jenis ikan, dan pesanan diantar pukul 05.00–08.00. Harga per kg kami memang 5–10% di atas pasar, tetapi biaya per porsinya biasanya lebih rendah. Minta sampel dan hitung sendiri berdasarkan menu Anda.",
       ],
     },
     en: {
@@ -148,17 +148,17 @@ export const guides: Guide[] = [
     tag: { id: "Dapur rumah", en: "Home kitchen" },
     id: {
       title: "Mengisi freezer untuk seminggu: lima protein, lima malam, satu pesanan",
-      excerpt: "Udang kupas, fillet dori, dada ayam, nugget dan sayap ayam: rencana makan malam yang tidak bergantung pada belanja harian.",
+      excerpt: "Udang kupas, fillet dori, dada ayam, sosis, dan sayap ayam: rencana makan malam yang tidak bergantung pada belanja harian.",
       body: [
         "Keluarga yang sibuk bekerja jarang kekurangan niat untuk memasak; yang sering kurang adalah bahan yang siap diolah pukul enam sore. Freezer yang diisi dengan tepat menutup celah itu.",
         "Senin: udang kupas ditumis dengan bawang putih dan kecap, hanya 12 menit dari freezer ke meja makan bila sudah dicairkan di kulkas sejak pagi. Selasa: fillet dori goreng tepung atau panggang dengan perasan jeruk nipis. Rabu: fillet dada ayam untuk ayam katsu atau ayam geprek. Kamis: sosis dan telur untuk nasi goreng kilat. Jumat: sayap ayam panggang kecap.",
         "Aturannya hanya satu: cairkan di rak bawah kulkas, bukan di meja dapur. Keluarkan bahan untuk esok hari sambil Anda merapikan dapur malam ini.",
-        "Kotak Freezer Keluarga kami berisi empat dari lima bahan tersebut dengan harga lebih hemat daripada membeli satuan, dan dikirim dalam kantong berinsulasi terpisah agar tetap beku sampai ke pintu rumah Anda.",
+        "Kotak Freezer Keluarga kami berisi empat dari lima bahan tersebut dengan harga lebih murah daripada membeli satuan, dan dikirim dalam kantong berinsulasi terpisah agar tetap beku sampai ke pintu rumah Anda.",
       ],
     },
     en: {
       title: "Stocking the freezer for a week: five proteins, five dinners, one order",
-      excerpt: "Peeled shrimp, dori fillet, chicken breast, nuggets and wings: a dinner plan that doesn't depend on daily shopping.",
+      excerpt: "Peeled shrimp, dori fillet, chicken breast, sausages and wings: a dinner plan that doesn't depend on daily shopping.",
       body: [
         "Working families rarely lack the will to cook; what's missing is an ingredient ready at six in the evening. A properly stocked freezer closes that gap.",
         "Monday: peeled and deveined shrimp stir-fried with garlic and sweet soy, 12 minutes from freezer to table if thawed in the fridge since morning. Tuesday: dori fillet, battered or baked with lime. Wednesday: breast fillet for katsu or geprek. Thursday: sausages and eggs for a quick fried rice. Friday: soy-glazed roasted wings.",

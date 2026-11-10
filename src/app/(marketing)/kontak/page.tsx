@@ -15,7 +15,7 @@ export default async function KontakPage() {
   const { locale, t } = await getT();
   const c = locale === "en"
     ? { eyebrow: "Contact", title: "WhatsApp is our front desk.", sub: "Orders are best placed through the catalogue so price, weight and slot are recorded; for questions, complaints and supplier partnerships, reach us here.", base: "Operations base", baseSub: "Deliveries across Jakarta and Tangerang.", hours: "Service hours", hoursSub: `Orders accepted 24 hours; cut-off ${settings.cutoff_time} WIB. WhatsApp replies 08:00–21:00.`, form: "Send a message" }
-    : { eyebrow: "Kontak", title: "WhatsApp adalah layanan pelanggan kami.", sub: "Pesanan sebaiknya dibuat melalui katalog agar harga, berat dan jam pengiriman tercatat. Untuk pertanyaan, keluhan atau kerja sama pemasok, silakan hubungi kami di sini.", base: "Pusat operasional", baseSub: "Melayani pengiriman ke Jakarta dan Tangerang.", hours: "Jam layanan", hoursSub: `Pesanan diterima 24 jam, dengan batas pemesanan pukul ${jam(settings.cutoff_time)} WIB. WhatsApp dibalas pukul 08.00–21.00.`, form: "Kirim pesan" };
+    : { eyebrow: "Kontak", title: "Satu nomor WhatsApp untuk pertanyaan, keluhan, dan kerja sama.", sub: "Pesanan sebaiknya dibuat melalui katalog agar harga, berat, dan jam pengiriman tercatat. Untuk pertanyaan, keluhan atau kerja sama pemasok, silakan hubungi kami di sini.", base: "Pusat operasional", baseSub: "Melayani pengiriman ke Jakarta dan Tangerang.", hours: "Jam layanan", hoursSub: `Pesanan diterima 24 jam, dengan batas pemesanan pukul ${jam(settings.cutoff_time)} WIB. Pesan WhatsApp kami balas pukul 08.00–21.00 WIB.`, form: "Kirim pesan" };
   return (
     <>
       <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="squid" image={IMAGES.market} />

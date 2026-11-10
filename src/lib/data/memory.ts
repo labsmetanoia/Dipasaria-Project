@@ -233,13 +233,13 @@ export const memoryRepo: Repo = {
       { lines: input.lines, area_id: input.area_id, promo_code: input.promo_code },
     );
     if (q.errors.length) return fail(q.errors[0]);
-    if (!q.min_order_met) return fail(`Minimal pesanan Rp${q.min_order.toLocaleString("id-ID")}.`);
+    if (!q.min_order_met) return fail(`Pesanan belum mencapai minimal pesanan Rp${q.min_order.toLocaleString("id-ID")}.`);
     if (input.promo_code && q.promo_error) return fail(q.promo_error);
     const area = store.areas.find((a) => a.id === input.area_id && a.is_active);
     if (!area) return fail("Wilayah pengiriman tidak valid.");
     if (!availableDates(store.settings, now).includes(input.delivery_date)) return fail(`Tanggal pengiriman tidak tersedia. Batas pemesanan untuk pengiriman besok pukul ${jam(store.settings.cutoff_time)} WIB.`);
     const slot = slotsForSegment(store.slots, segment).find((s) => s.id === input.slot_id);
-    if (!slot) return fail("Jam pengiriman tidak tersedia untuk akun ini.");
+    if (!slot) return fail("Jam pengiriman ini tidak tersedia untuk pesanan Anda.");
     const used = (await this.getSlotUsage([input.delivery_date]))[`${input.delivery_date}|${slot.id}`] ?? 0;
     if (used >= slot.capacity) return fail("Kuota jam pengiriman ini sudah penuh. Silakan pilih jam lain.");
     const pm = input.payment_method;
@@ -419,7 +419,7 @@ export const memoryRepo: Repo = {
     for (const w of items) {
       const it = o.items.find((i) => i.id === w.item_id);
       if (!it) return fail("Baris pesanan tidak ditemukan.");
-      if (!(w.qty_final >= 0)) return fail("Berat harus berupa angka positif.");
+      if (!(w.qty_final >= 0)) return fail("Berat tidak boleh negatif.");
       it.qty_final = w.qty_final;
       it.line_total_final = Math.round(it.unit_price * w.qty_final);
     }

@@ -9,7 +9,7 @@ export function ContactForm({ whatsapp, storeName }: { whatsapp: string; storeNa
  const { locale } = useT();
  const c = locale === "en"
     ? { name: "Full name", phone: "WhatsApp number", subject: "Subject", message: "Your question", send: "Send via WhatsApp", subjects: ["Business account & wholesale prices", "Household order", "Supplier partnership", "Complaint or replacement", "Other"], hint: "The message opens in WhatsApp on your device; nothing is sent until you press send there." }
-    : { name: "Nama lengkap", phone: "Nomor WhatsApp", subject: "Perihal", message: "Pesan Anda", send: "Kirim melalui WhatsApp", subjects: ["Akun bisnis dan harga grosir", "Pesanan rumah tangga", "Kerja sama pemasok", "Keluhan atau penggantian produk", "Lainnya"], hint: "Pesan akan terbuka di aplikasi WhatsApp Anda, dan baru terkirim setelah Anda menekan tombol kirim di sana." };
+    : { name: "Nama lengkap", phone: "Nomor WhatsApp", subject: "Perihal", message: "Pesan Anda", send: "Kirim melalui WhatsApp", subjects: ["Akun bisnis dan harga grosir", "Pesanan rumah tangga", "Kerja sama pemasok", "Keluhan atau penggantian produk", "Lainnya"], hint: "Pesan akan terbuka di aplikasi WhatsApp Anda dan baru terkirim setelah Anda menekan tombol kirim di sana." };
  const [f, setF] = useState({ name: "", phone: "", subject: c.subjects[0], message: "" });
  const text = `${locale === "en" ? "Hello" : "Halo"} ${storeName},\n\n${c.subject}: ${f.subject}\n${c.name}: ${f.name}\n${c.phone}: ${f.phone}\n\n${f.message}`;
  return (

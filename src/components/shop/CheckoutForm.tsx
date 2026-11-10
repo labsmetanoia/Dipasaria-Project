@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Tag, ShieldCheck, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import type { BusinessAccount, DeliveryArea, DeliverySlot, PaymentMethod, Product, Promo, Settings } from "@/lib/types";
 import { availableDates, quote, segmentOf, slotsForSegment } from "@/lib/pricing";
-import { isValidPhone, nowJakarta, relativeDayLabel, rupiah, jam, jamRange } from "@/lib/format";
+import { isValidPhone, nowJakarta, relativeDayLabel, rupiah, jam, jamRange, qtyUnit } from "@/lib/format";
 import { pick } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/dict";
 import { useT } from "@/lib/i18n/client";
@@ -63,7 +63,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  if (!promoCode.trim()) return;
  startPromo(async () => {
  const r = await quoteCart({ lines, area_id: areaId, promo_code: promoCode, phone });
- if (r.promo) { setPromo(r.promo); setPromoMsg(null); } else { setPromo(null); setPromoMsg(r.promo_error ?? "Kode tidak valid."); }
+ if (r.promo) { setPromo(r.promo); setPromoMsg(null); } else { setPromo(null); setPromoMsg(r.promo_error ?? "Kode promo tidak ditemukan."); }
     });
   };
  const step1ok = Boolean(name.trim() && isValidPhone(phone) && address.trim() && areaId);
@@ -155,7 +155,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
             <section className="card p-5">
               <h2 className="text-lg text-ocean-950">{t.checkout.payment}</h2>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {payOptions.map((pm) => <label key={pm} className={`flex cursor-pointer items-center gap-2 border px-3.5 py-3 text-sm ${payment === pm ? "border-ocean-950 bg-ocean-950/5" : "border-line"}`}><input type="radio" name="pay" checked={payment === pm} onChange={() => setPayment(pm)} className="accent-ocean-950" />{t.paymentMethod[pm]}</label>)}
+                {payOptions.map((pm) => <label key={pm} className={`flex cursor-pointer items-center gap-2 border px-3.5 py-3 text-sm ${payment === pm ? "border-ocean-950 bg-ocean-950/5" : "border-line"}`}><input type="radio" name="pay" checked={payment === pm} onChange={() => setPayment(pm)} className="accent-ocean-950" />{pm === "terms" && account ? `${t.paymentMethod.terms} · ${t.terms[account.payment_terms]}` : t.paymentMethod[pm]}</label>)}
               </div>
               <p className="mt-3 text-xs leading-relaxed text-mute">{q.has_catch_weight ? t.checkout.payNoteCatch : t.checkout.payNote}</p>
               <div className="mt-5">
@@ -180,7 +180,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
           <ul className="mt-3 divide-y divide-line text-sm">
             {q.lines.map((l) => (
               <li key={l.key} className="flex justify-between gap-3 py-2">
-                <span className="min-w-0"><span className="block truncate font-semibold">{locale === "en" && l.product.name_en ? l.product.name_en : l.product.name} <span className="text-mute">{pick(locale, l.variant.label, l.variant.label_en)}</span></span><span className="text-xs text-mute">{l.qty} {t.unit[l.variant.unit]}{l.prep ? ` · ${pick(locale, l.prep.label, l.prep.label_en)}` : ""}{l.product.is_catch_weight ? " · ±" : ""}</span></span>
+                <span className="min-w-0"><span className="block truncate font-semibold">{locale === "en" && l.product.name_en ? l.product.name_en : l.product.name} <span className="text-mute">{pick(locale, l.variant.label, l.variant.label_en)}</span></span><span className="text-xs text-mute">{qtyUnit(l.qty, l.variant.unit, locale)}{l.prep ? ` · ${pick(locale, l.prep.label, l.prep.label_en)}` : ""}{l.product.is_catch_weight ? " · ±" : ""}</span></span>
                 <span className="whitespace-nowrap font-bold">{rupiah(l.line_total)}</span>
               </li>
             ))}

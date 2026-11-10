@@ -23,7 +23,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const list = products.filter((p) => p.category_id === cat.id);
   const storages = [...new Set(list.map((p) => p.storage_class))].length;
   const en = locale === "en";
-  const promo = slug === "paket-hemat" ? undefined : { eyebrow: en ? "Value boxes" : "Paket hemat", title: en ? "Stock the freezer in one order" : "Isi freezer sekali pesan", body: en ? "Freezer-ready boxes below the price of buying separately." : "Kotak siap kirim, lebih murah dari membeli satuan.", cta: en ? "Shop boxes" : "Lihat paket", href: "/belanja/kategori/paket-hemat", image: IMAGES.box };
+  const promo = slug === "paket-hemat" ? undefined : { eyebrow: en ? "Value boxes" : "Paket hemat", title: en ? "Stock the freezer in one order" : "Isi freezer dalam sekali pesan", body: en ? "Freezer-ready boxes below the price of buying separately." : "Paket beku siap simpan, lebih hemat daripada membeli satuan.", cta: en ? "Shop boxes" : "Lihat paket", href: "/belanja/kategori/paket-hemat", image: IMAGES.box };
   return (
     <>
       <section className="bg-sand-100">

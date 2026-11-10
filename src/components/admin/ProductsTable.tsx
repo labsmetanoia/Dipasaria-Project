@@ -57,11 +57,11 @@ export function ProductsTable({ products: initial, categories }: { products: Pro
         <select value={cat} onChange={(e) => setCat(e.target.value)} className="input w-auto py-2 text-sm"><option value="">Semua kategori</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <Link href="/admin/produk/baru" className="btn-primary ml-auto text-sm"><Plus className="h-4 w-4" /> Produk baru</Link>
       </div>
-      <p className="text-xs text-mute">Klik angka untuk mengubah; tersimpan otomatis saat Anda pindah sel. Margin merah = di bawah 10%, batas minimum rencana bisnis. Harga grosir mengikuti indeks pasar: perbarui sebelum 18.00.</p>
+      <p className="text-xs text-mute">Klik angka untuk mengubah; tersimpan otomatis saat Anda pindah sel. Margin merah berarti di bawah 10%, batas minimal dalam rencana bisnis. Harga grosir mengikuti indeks pasar; perbarui sebelum pukul 18.00.</p>
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-sand-100 text-left text-xs text-mute">
-            <tr><th className="px-3 py-2 font-medium">Ada hari ini</th><th className="px-3 py-2 font-medium">Produk / varian</th><th className="px-3 py-2 text-right font-medium">Modal</th><th className="px-3 py-2 text-right font-medium">Harga eceran</th><th className="px-3 py-2 text-right font-medium">Margin</th><th className="px-3 py-2 text-right font-medium">Harga grosir</th><th className="px-3 py-2 text-right font-medium">Margin</th><th className="px-3 py-2 text-right font-medium">Stok</th></tr>
+            <tr><th className="px-3 py-2 font-medium">Tersedia hari ini</th><th className="px-3 py-2 font-medium">Produk / varian</th><th className="px-3 py-2 text-right font-medium">Modal</th><th className="px-3 py-2 text-right font-medium">Harga eceran</th><th className="px-3 py-2 text-right font-medium">Margin</th><th className="px-3 py-2 text-right font-medium">Harga grosir</th><th className="px-3 py-2 text-right font-medium">Margin</th><th className="px-3 py-2 text-right font-medium">Stok</th></tr>
           </thead>
           <tbody className="divide-y divide-line">
             {list.map((p) => p.variants.map((v, vi) => {
@@ -69,10 +69,10 @@ export function ProductsTable({ products: initial, categories }: { products: Pro
               const flag = (m: number | null) => m === null ? "text-mute" : m < 10 ? "font-semibold text-gold-ink" : m < 12 ? "text-warn-600" : "text-success-600";
               return (
                 <tr key={v.id} className={`${!p.available_today ? "bg-sand-50/70 text-mute" : ""} ${vi > 0 ? "" : "border-t-2 border-sand-200"}`}>
-                  <td className="px-3 py-2">{vi === 0 && <button onClick={() => toggleAvail(p)} className={`relative h-6 w-11 rounded-full transition ${p.available_today ? "bg-success-600" : "bg-sand-300"}`} aria-label="Ada hari ini"><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${p.available_today ? "left-[22px]" : "left-0.5"}`} /></button>}</td>
+                  <td className="px-3 py-2">{vi === 0 && <button onClick={() => toggleAvail(p)} className={`relative h-6 w-11 rounded-full transition ${p.available_today ? "bg-success-600" : "bg-sand-300"}`} aria-label="Tersedia hari ini"><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${p.available_today ? "left-[22px]" : "left-0.5"}`} /></button>}</td>
                   <td className="px-3 py-2">
                     {vi === 0 ? <Link href={`/admin/produk/${p.id}`} className="font-semibold text-ocean-900 hover:underline">{p.name}</Link> : <span className="text-transparent select-none">{p.name}</span>}
-                    <span className="ml-2 text-xs text-mute">{v.label} · {UNIT_LABEL[v.unit]}{v.business_only ? " · B2B" : ""}{p.is_catch_weight && vi === 0 ? " · ditimbang" : ""}</span>
+                    <span className="ml-2 text-xs text-mute">{v.label} · {UNIT_LABEL[v.unit]}{v.business_only ? " · bisnis" : ""}{p.is_catch_weight && vi === 0 ? " · ditimbang" : ""}</span>
                     {vi === 0 && <span className="ml-2 align-middle"><StorageBadge storage={p.storage_class} /></span>}
                   </td>
                   <td className="px-3 py-1 text-right"><MoneyCell value={v.cost} onSave={(n) => patchVariant(v.id, { cost: n })} /></td>

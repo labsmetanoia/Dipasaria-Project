@@ -1,5 +1,21 @@
 const TZ = "Asia/Jakarta";
 
+const UNIT_LABEL = {
+  id: { kg: "kg", pack: "kemasan", tray: "rak", pcs: "buah", bottle: "botol", crate: "peti", box: "kotak" },
+  en: { kg: "kg", pack: "pack", tray: "tray", pcs: "pcs", bottle: "bottle", crate: "crate", box: "box" },
+} as const;
+
+/** Unit label for customer-facing text ("tray" → "rak"). */
+export function unitLabel(unit: string, locale: "id" | "en" = "id"): string {
+  return (UNIT_LABEL[locale] as Record<string, string>)[unit] ?? unit;
+}
+
+/** Quantity with decimal comma in Indonesian (1,5) and its unit label: "1,5 kg", "2 rak". */
+export function qtyUnit(n: number | null | undefined, unit: string, locale: "id" | "en" = "id"): string {
+  if (n === null || n === undefined) return "—";
+  return `${n.toLocaleString(locale === "en" ? "en-US" : "id-ID", { maximumFractionDigits: 2 })} ${unitLabel(unit, locale)}`;
+}
+
 /** Rupiah in EYD V style: no space after the symbol (Rp150.000). */
 export function rupiah(n: number | null | undefined, opts: { compact?: boolean } = {}): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";

@@ -28,8 +28,8 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Pesanan" value={summary.orders_total} sub={`${summary.orders_business} bisnis · ${summary.orders_retail} rumah tangga`} />
         <Stat label="Penjualan" value={rupiah(summary.sales, { compact: true })} sub={summary.to_weigh ? `${summary.to_weigh} belum ditimbang (perkiraan)` : "angka akhir"} />
-        <Stat label="Laba kotor (est.)" value={`${summary.margin_pct.toFixed(1)}%`} sub={rupiah(summary.est_gross_profit, { compact: true })} tone={marginTone} />
-        <Stat label="Non-seafood" value={`${summary.non_seafood_share_pct.toFixed(0)}%`} sub="target Gate B: 15–25%" tone={summary.non_seafood_share_pct >= 15 ? "good" : "neutral"} />
+        <Stat label="Laba kotor (perkiraan)" value={`${summary.margin_pct.toFixed(1)}%`} sub={rupiah(summary.est_gross_profit, { compact: true })} tone={marginTone} />
+        <Stat label="Nonseafood" value={`${summary.non_seafood_share_pct.toFixed(0)}%`} sub="target Gate B: 15–25%" tone={summary.non_seafood_share_pct >= 15 ? "good" : "neutral"} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -39,7 +39,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         <ActionCard title="Perlu ditimbang" count={toWeigh.length} href={`/admin/pesanan?date=${date}&weigh=1`} tone="warn" icon={<Scale className="h-4 w-4" />}>
           {toWeigh.slice(0, 4).map((o) => <Row key={o.id} o={o} />)}
         </ActionCard>
-        <ActionCard title="Belum lunas" count={orders.filter((o) => o.payment_status !== "paid" && o.status !== "cancelled").length} href={`/admin/pesanan?date=${date}&unpaid=1`} tone="neutral" sub={`${rupiah(summary.unpaid_amount, { compact: true })}${awaiting.length ? ` · ${awaiting.length} menunggu cek bank` : ""}`}>
+        <ActionCard title="Belum lunas" count={orders.filter((o) => o.payment_status !== "paid" && o.status !== "cancelled").length} href={`/admin/pesanan?date=${date}&unpaid=1`} tone="neutral" sub={`${rupiah(summary.unpaid_amount, { compact: true })}${awaiting.length ? ` · ${awaiting.length} menunggu pengecekan bank` : ""}`}>
           {awaiting.slice(0, 4).map((o) => <Row key={o.id} o={o} />)}
         </ActionCard>
       </div>
@@ -54,12 +54,12 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2 text-sm">
             <Link href={`/admin/belanja-subuh?date=${date}`} className="btn-secondary justify-between">Daftar belanja subuh <ArrowRight className="h-4 w-4" /></Link>
-            <Link href={`/admin/rute?date=${date}`} className="btn-secondary justify-between">Rute & packing <ArrowRight className="h-4 w-4" /></Link>
+            <Link href={`/admin/rute?date=${date}`} className="btn-secondary justify-between">Rute dan pengemasan <ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>
         <div className="card p-5">
           <div className="flex items-center justify-between"><h2 className="text-ocean-900">Pendaftaran akun bisnis</h2><Link href="/admin/pelanggan" className="text-sm font-semibold text-tide-600">Semua</Link></div>
-          {pendingAccounts.length === 0 ? <p className="mt-3 text-sm text-mute">Tidak ada pendaftaran menunggu.</p> : (
+          {pendingAccounts.length === 0 ? <p className="mt-3 text-sm text-mute">Tidak ada pendaftaran yang menunggu persetujuan.</p> : (
             <ul className="mt-3 divide-y divide-line text-sm">
               {pendingAccounts.map((a) => (
                 <li key={a.id} className="flex items-center justify-between py-2">

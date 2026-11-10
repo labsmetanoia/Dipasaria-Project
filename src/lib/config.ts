@@ -1,8 +1,8 @@
 export const BRAND = {
   name: "Dipasaria",
   legalName: "Dipasaria",
-  tagline: "Protein pilihan untuk dapur Jakarta",
-  promise: "Ikan pilihan dengan jenis dan ukuran yang jelas, bersama seluruh kebutuhan protein dapur Anda, dalam satu pengiriman.",
+  tagline: "Dari lelang subuh Muara Baru ke dapur Jakarta",
+  promise: "Ikan pilihan dengan jenis dan ukuran yang jelas, serta ayam halal dan telur untuk dapur Anda, dalam satu pengiriman.",
   city: "Jakarta",
   cutoffLabel: "20.00 WIB",
 };
@@ -17,12 +17,12 @@ export const STORAGE_LABEL: Record<string, string> = {
 
 export const UNIT_LABEL: Record<string, string> = {
   kg: "kg",
-  pack: "pack",
-  tray: "tray",
-  pcs: "pcs",
+  pack: "kemasan",
+  tray: "rak",
+  pcs: "buah",
   bottle: "botol",
   crate: "peti",
-  box: "box",
+  box: "kotak",
 };
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -38,7 +38,7 @@ export const PAYMENT_LABEL: Record<string, string> = {
   qris: "QRIS",
   transfer: "Transfer bank",
   cod: "Bayar di tempat (COD)",
-  terms: "Tempo mingguan",
+  terms: "Bayar tempo",
 };
 
 export const PAYMENT_STATUS_LABEL: Record<string, string> = {

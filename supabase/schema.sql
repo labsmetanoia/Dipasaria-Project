@@ -273,6 +273,12 @@ begin
 end $$;
 
 -- ---------- order placement ----------
+-- Indonesian unit labels for customer-facing error messages ("tray" -> "rak").
+create or replace function unit_label(u text) returns text language sql immutable as $$
+  select case u when 'pack' then 'kemasan' when 'tray' then 'rak' when 'pcs' then 'buah' when 'bottle' then 'botol'
+                when 'crate' then 'peti' when 'box' then 'kotak' else u end;
+$$;
+
 create or replace function place_order(p jsonb, p_account_id text default null)
 returns text
 language plpgsql security definer set search_path = public as $$
@@ -334,7 +340,7 @@ begin
   if not found then raise exception 'Wilayah pengiriman tidak valid.'; end if;
 
   select * into slot from delivery_slots where id = p->>'slot_id' and is_active and (segment = 'all' or segment = seg);
-  if not found then raise exception 'Jam pengiriman tidak tersedia untuk akun ini.'; end if;
+  if not found then raise exception 'Jam pengiriman ini tidak tersedia untuk pesanan Anda.'; end if;
   perform pg_advisory_xact_lock(hashtext(d::text || slot.id));
   select count(*) into used from orders where delivery_date = d and slot_id = slot.id and status <> 'cancelled';
   if used >= slot.capacity then raise exception 'Kuota jam pengiriman ini sudah penuh. Silakan pilih jam lain.'; end if;
@@ -365,9 +371,9 @@ begin
     if var.business_only and seg <> 'business' then raise exception '% (%) khusus untuk akun bisnis.', prod.name, var.label; end if;
 
     q := var.min_qty + greatest(0, round(((line->>'qty')::numeric - var.min_qty) / var.step_qty)) * var.step_qty;
-    if q < var.min_qty then raise exception '%: pembelian minimal % %.', prod.name, var.min_qty, var.unit; end if;
+    if q < var.min_qty then raise exception '%: pembelian minimal % %.', prod.name, replace(trim_scale(var.min_qty)::text, '.', ','), unit_label(var.unit); end if;
     if var.stock_qty is not null and q > var.stock_qty then
-      raise exception '% (%): stok tersisa % %.', prod.name, var.label, var.stock_qty, var.unit;
+      raise exception '% (%): stok tersisa % %.', prod.name, var.label, replace(trim_scale(var.stock_qty)::text, '.', ','), unit_label(var.unit);
     end if;
 
     has_prep := false;
@@ -399,7 +405,7 @@ begin
   end loop;
 
   min_order := case when seg = 'business' then s.min_order_business else s.min_order_retail end;
-  if v_subtotal < min_order then raise exception 'Minimal pesanan Rp%.', replace(to_char(min_order, 'FM999,999,999'), ',', '.'); end if;
+  if v_subtotal < min_order then raise exception 'Pesanan belum mencapai minimal pesanan Rp%.', replace(to_char(min_order, 'FM999,999,999'), ',', '.'); end if;
 
   threshold := case when seg = 'business' then s.free_delivery_business else s.free_delivery_retail end;
   v_fee := case when v_subtotal >= threshold then 0 else area.fee end;
@@ -457,7 +463,7 @@ begin
   select * into s from settings where id = 1;
 
   for it in select * from jsonb_array_elements(p_items) loop
-    if (it->>'qty_final')::numeric < 0 then raise exception 'Berat harus berupa angka positif.'; end if;
+    if (it->>'qty_final')::numeric < 0 then raise exception 'Berat tidak boleh negatif.'; end if;
     update order_items
        set qty_final = (it->>'qty_final')::numeric,
            line_total_final = round(unit_price * (it->>'qty_final')::numeric)

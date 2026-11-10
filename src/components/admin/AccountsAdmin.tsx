@@ -61,14 +61,14 @@ function AccountCard({ a, slots, settings, open, onToggle, onChange }: { a: Busi
             <label className="flex items-end gap-2 pb-3 text-sm"><input type="checkbox" checked={form.allow_cod} onChange={(e) => setForm({ ...form, allow_cod: e.target.checked })} className="accent-ocean-900" /> Boleh COD</label>
           </div>
           <Field label="Catatan internal"><textarea className="input" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Preferensi ukuran, hari pemesanan, kontak dapur…" /></Field>
-          <p className="mt-1 text-xs text-mute">Tangga tempo dari rencana bisnis: prabayar → 3 hari setelah 10 pesanan lancar → mingguan setelah 30 pesanan. Daftar {formatDateTime(a.applied_at)}.</p>
+          <p className="mt-1 text-xs text-mute">Jenjang tempo dari rencana bisnis: bayar di muka → 3 hari setelah 10 pesanan lancar → mingguan setelah 30 pesanan. Mendaftar {formatDateTime(a.applied_at)}.</p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {a.status === "pending" ? (
               <button onClick={approve} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Setujui dan buat kode akses</button>
             ) : (
               <>
                 <button onClick={saveNotes} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}</button>
-                <button onClick={toggleSuspend} disabled={pending} className="btn-secondary">{a.status === "suspended" ? "Aktifkan lagi" : "Tangguhkan (stop-ship)"}</button>
+                <button onClick={toggleSuspend} disabled={pending} className="btn-secondary">{a.status === "suspended" ? "Aktifkan lagi" : "Tangguhkan (hentikan pengiriman)"}</button>
               </>
             )}
           </div>

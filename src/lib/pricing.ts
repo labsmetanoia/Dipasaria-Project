@@ -15,7 +15,7 @@ import type {
   Settings,
   Variant,
 } from "./types";
-import { addDays, parseTime } from "./format";
+import { addDays, parseTime, qtyUnit } from "./format";
 
 export interface QuoteContext {
   settings: Settings;
@@ -121,11 +121,11 @@ export function quote(
     }
     const q = roundQty(l.qty, variant);
     if (q < variant.min_qty) {
-      errors.push(`${product.name}: pembelian minimal ${variant.min_qty} ${variant.unit}.`);
+      errors.push(`${product.name}: pembelian minimal ${qtyUnit(variant.min_qty, variant.unit)}.`);
       continue;
     }
     if (variant.stock_qty !== null && q > variant.stock_qty) {
-      errors.push(`${product.name} (${variant.label}): stok tersisa ${variant.stock_qty} ${variant.unit}.`);
+      errors.push(`${product.name} (${variant.label}): stok tersisa ${qtyUnit(variant.stock_qty, variant.unit)}.`);
       continue;
     }
     let prep: PrepOption | null = null;

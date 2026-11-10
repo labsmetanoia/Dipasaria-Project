@@ -36,10 +36,10 @@ export function ProductForm({ product, categories }: { product: Product | null; 
       <div className="card space-y-4 p-5 lg:col-span-2">
         <h2 className="text-ocean-900">Informasi produk</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nama (Indonesia)"><input className="input" value={p.name} onChange={(e) => set("name", e.target.value)} /></Field>
+          <Field label="Nama Indonesia"><input className="input" value={p.name} onChange={(e) => set("name", e.target.value)} /></Field>
           <Field label="Nama Inggris"><input className="input" value={p.name_en ?? ""} onChange={(e) => set("name_en", e.target.value)} /></Field>
           <Field label="Nama ilmiah"><input className="input italic" value={p.scientific_name ?? ""} onChange={(e) => set("scientific_name", e.target.value)} /></Field>
-          <Field label="Nama lain (pisahkan koma)" hint="Dipakai pencarian: bambangan, red snapper"><input className="input" value={p.aliases.join(", ")} onChange={(e) => set("aliases", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} /></Field>
+          <Field label="Nama lain (pisahkan dengan koma)" hint="Dipakai untuk pencarian, mis. bambangan, red snapper"><input className="input" value={p.aliases.join(", ")} onChange={(e) => set("aliases", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} /></Field>
           <Field label="Kategori"><select className="input" value={p.category_id} onChange={(e) => set("category_id", e.target.value)}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
           <Field label="Slug URL"><input className="input" value={p.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugify(p.name) || "otomatis"} /></Field>
           <Field label="Penyimpanan"><select className="input" value={p.storage_class} onChange={(e) => set("storage_class", e.target.value as Product["storage_class"])}><option value="chilled">Segar 0–4 °C</option><option value="frozen">Beku −18 °C</option><option value="ambient">Suhu ruang</option></select></Field>
@@ -67,8 +67,8 @@ export function ProductForm({ product, categories }: { product: Product | null; 
       {product && (
         <div className="space-y-5">
           <div className="card p-5">
-            <h2 className="text-ocean-900">Varian & harga</h2>
-            <p className="text-xs text-mute">Harga dan stok juga bisa diubah langsung di tabel Produk & stok.</p>
+            <h2 className="text-ocean-900">Varian dan harga</h2>
+            <p className="text-xs text-mute">Harga dan stok juga bisa diubah langsung di tabel Produk dan stok.</p>
             <ul className="mt-3 divide-y divide-line text-sm">
               {variants.map((v) => (
                 <li key={v.id} className="py-2">
@@ -76,7 +76,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
                     <input className="input py-1 text-sm" value={v.label} onChange={(e) => setVariants(variants.map((x) => (x.id === v.id ? { ...x, label: e.target.value } : x)))} onBlur={() => updateVariantAction(v.id, { label: v.label })} />
                     <label className="flex items-center gap-1 whitespace-nowrap text-xs"><input type="checkbox" checked={v.is_active} onChange={(e) => { const nv = { ...v, is_active: e.target.checked }; setVariants(variants.map((x) => (x.id === v.id ? nv : x))); updateVariantAction(v.id, { is_active: nv.is_active }); }} className="accent-ocean-900" /> aktif</label>
                   </div>
-                  <p className="mt-1 text-xs text-mute">{UNIT_LABEL[v.unit]} · min {v.min_qty} · kelipatan {v.step_qty}{v.business_only ? " · hanya B2B" : ""}</p>
+                  <p className="mt-1 text-xs text-mute">{UNIT_LABEL[v.unit]} · min {v.min_qty} · kelipatan {v.step_qty}{v.business_only ? " · khusus bisnis" : ""}</p>
                 </li>
               ))}
             </ul>
@@ -84,7 +84,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
           </div>
           <div className="card p-5">
             <h2 className="text-ocean-900">Opsi penyiapan</h2>
-            <p className="text-xs text-mute">Biaya tambahan per unit; muncul di daftar kerja mitra pembersih.</p>
+            <p className="text-xs text-mute">Biaya tambahan per unit; muncul di daftar kerja mitra pengolah.</p>
             <ul className="mt-3 space-y-2 text-sm">
               {preps.map((o) => (
                 <li key={o.id} className="flex items-center gap-2">
@@ -115,12 +115,12 @@ function NewVariant({ productId, onCreated }: { productId: string; onCreated: (v
         <input className="input py-1.5" type="number" step="0.5" placeholder="min" value={v.min_qty} onChange={(e) => setV({ ...v, min_qty: Number(e.target.value) })} />
         <input className="input py-1.5" type="number" step="0.5" placeholder="kelipatan" value={v.step_qty} onChange={(e) => setV({ ...v, step_qty: Number(e.target.value) })} />
         <input className="input py-1.5" type="number" placeholder="modal" value={v.cost} onChange={(e) => setV({ ...v, cost: Number(e.target.value) })} />
-        <input className="input py-1.5" type="number" placeholder="retail" value={v.price_retail} onChange={(e) => setV({ ...v, price_retail: Number(e.target.value) })} />
+        <input className="input py-1.5" type="number" placeholder="eceran" value={v.price_retail} onChange={(e) => setV({ ...v, price_retail: Number(e.target.value) })} />
         <input className="input py-1.5" type="number" placeholder="grosir" value={v.price_business} onChange={(e) => setV({ ...v, price_business: Number(e.target.value) })} />
       </div>
       <div className="flex flex-wrap gap-3 text-xs">
         <label className="flex items-center gap-1"><input type="checkbox" checked={v.stock_qty !== null} onChange={(e) => setV({ ...v, stock_qty: e.target.checked ? 0 : null })} /> lacak stok</label>
-        <label className="flex items-center gap-1"><input type="checkbox" checked={v.business_only} onChange={(e) => setV({ ...v, business_only: e.target.checked })} /> hanya B2B</label>
+        <label className="flex items-center gap-1"><input type="checkbox" checked={v.business_only} onChange={(e) => setV({ ...v, business_only: e.target.checked })} /> khusus bisnis</label>
       </div>
       <div className="flex gap-2"><button disabled={pending || !v.label} onClick={() => start(async () => { const r = await createVariantAction(v); if (r.ok) { onCreated(r.data); setOpen(false); } })} className="btn-primary py-1.5 text-sm">Simpan varian</button><button onClick={() => setOpen(false)} className="btn-ghost py-1.5 text-sm">Batal</button></div>
     </div>

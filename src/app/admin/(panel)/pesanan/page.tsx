@@ -38,14 +38,14 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-sand-100 text-left text-xs text-mute">
-              <tr><th className="px-4 py-2 font-medium">Pesanan</th><th className="hidden px-4 py-2 font-medium sm:table-cell">Slot</th><th className="hidden px-4 py-2 font-medium md:table-cell">Item</th><th className="px-4 py-2 text-right font-medium">Total</th><th className="px-4 py-2 font-medium">Status</th></tr>
+              <tr><th className="px-4 py-2 font-medium">Pesanan</th><th className="hidden px-4 py-2 font-medium sm:table-cell">Jam pengiriman</th><th className="hidden px-4 py-2 font-medium md:table-cell">Item</th><th className="px-4 py-2 text-right font-medium">Total</th><th className="px-4 py-2 font-medium">Status</th></tr>
             </thead>
             <tbody className="divide-y divide-line">
               {orders.map((o) => (
                 <tr key={o.id} className="hover:bg-sand-50">
                   <td className="px-4 py-3">
                     <Link href={`/admin/pesanan/${o.id}`} className="block">
-                      <p className="font-semibold text-ocean-900">{o.customer_name} <span className="ml-1  bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{o.segment === "business" ? "B2B" : "RT"}</span></p>
+                      <p className="font-semibold text-ocean-900">{o.customer_name} <span className="ml-1  bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{o.segment === "business" ? "Bisnis" : "Rumah tangga"}</span></p>
                       <p className="text-xs text-mute">{o.code} · {formatDateTime(o.created_at)}{sp.all ? ` · kirim ${o.delivery_date}` : ""}</p>
                     </Link>
                   </td>

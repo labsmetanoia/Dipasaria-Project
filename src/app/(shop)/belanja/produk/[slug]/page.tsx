@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 const FAQ = {
-  id: [["Bagaimana cara menyimpannya?", "Ikan segar disimpan pada suhu 0–4 °C dan sebaiknya dimasak dalam 24 jam atau segera dibekukan. Produk beku disimpan pada suhu −18 °C; cairkan semalaman di rak bawah kulkas, bukan pada suhu ruang."], ["Mengapa total pesanan masih berupa perkiraan?", "Produk bertanda “ditimbang” dijual per kg dan ditimbang setelah disiapkan. Tagihan akhir dikirim melalui WhatsApp sebelum pengiriman, dan Anda membayar sesuai berat akhirnya."], ["Bisakah saya memilih hari pengiriman?", "Bisa. Pesan sebelum pukul 20.00 WIB untuk pengiriman besok, atau pilih hingga 6 hari ke depan. Pengiriman pagi pukul 10.00–13.00, sore pukul 15.00–18.00, serta pukul 05.00–08.00 khusus untuk dapur akun bisnis."], ["Bagaimana jika produk kurang segar?", "Kirimkan foto melalui WhatsApp dalam 2 jam setelah pesanan diterima. Kami ganti pada pengiriman berikutnya atau kami kembalikan uang Anda."]],
+  id: [["Bagaimana cara menyimpannya?", "Ikan segar disimpan pada suhu 0–4 °C dan sebaiknya dimasak dalam 24 jam atau segera dibekukan. Produk beku disimpan pada suhu −18 °C; cairkan semalaman di rak bawah kulkas, bukan pada suhu ruang."], ["Mengapa total pesanan masih berupa perkiraan?", "Produk bertanda “ditimbang” dijual per kg dan ditimbang setelah disiapkan. Tagihan akhir dikirim melalui WhatsApp sebelum pengiriman, dan Anda membayar sesuai berat akhirnya."], ["Bisakah saya memilih hari pengiriman?", "Bisa. Pesan sebelum pukul 20.00 WIB untuk pengiriman besok, atau pilih hingga 6 hari ke depan. Pengiriman siang pukul 10.00–13.00, sore pukul 15.00–18.00, serta pukul 05.00–08.00 khusus untuk dapur akun bisnis."], ["Bagaimana jika produk kurang segar?", "Kirimkan foto melalui WhatsApp dalam 2 jam setelah pesanan diterima. Kami ganti pada pengiriman berikutnya atau kami kembalikan uang Anda."]],
   en: [["How should I store it?", "Fresh fish: 0–4 °C, cook within 24 hours or freeze right away. Frozen products: −18 °C, thaw overnight in the fridge, never at room temperature."], ["Why is my order total “estimated”?", "Weighed items are sold per kg and weighed after preparation. The final invoice is sent on WhatsApp before dispatch; you pay the final weight."], ["Can I choose my delivery day?", "Yes. Order before 20:00 WIB for tomorrow, or pick up to 6 days ahead. Morning 10:00–13:00, afternoon 15:00–18:00, and the 05:00–08:00 kitchen slot for business accounts."], ["What if it isn't fresh?", "Send a photo on WhatsApp within 2 hours of delivery. We replace on the next delivery or refund."]],
 };
 
@@ -51,7 +51,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     [en ? "Pricing" : "Harga", product.is_catch_weight ? (en ? "Per kg, weighed after preparation" : "Per kg, ditimbang setelah disiapkan") : (en ? "Fixed price per pack" : "Harga tetap per kemasan")],
   ];
   const stepIcons = [<ClipboardList key="a" className="h-5 w-5" />, <CalendarDays key="b" className="h-5 w-5" />, <Fish key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
-  const steps = en ? ["Choose products, sizes and preparation", "Pick a delivery day and slot", "We auction, weigh and prepare at dawn", "Delivered cold to your door"] : ["Pilih produk, ukuran dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, timbang dan siapkan saat subuh", "Diantar dingin sampai ke pintu Anda"];
+  const steps = en ? ["Choose products, sizes and preparation", "Pick a delivery day and slot", "We auction, weigh and prepare at dawn", "Delivered cold to your door"] : ["Pilih produk, ukuran, dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, siapkan, dan timbang saat subuh", "Diantar dingin sampai ke pintu Anda"];
   return (
     <>
       <section className="bg-white">
@@ -109,7 +109,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
       </Band>
-      <MarqueeBand text={en ? "The chef's fishmonger" : "Pemasok ikan pilihan para chef"} />
+      <MarqueeBand text={en ? "The chef's fishmonger" : "Langganan dapur para koki Jakarta"} />
     </>
   );
 }

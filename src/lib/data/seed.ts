@@ -39,14 +39,14 @@ export const seedSettings: Settings = {
 };
 
 export const seedCategories: Category[] = [
-  { id: "c_ikan", slug: "ikan-segar", name: "Ikan Segar", name_en: "Fresh Fish", description: "Dipilih dari lelang Muara Baru sebelum subuh, dengan jenis dan ukuran yang jelas.", description_en: "Auctioned at Muara Baru before dawn, named by species, graded by size.", sort: 1, icon: "fish", image_url: "/images/site/cat-ikan-segar.jpg", is_seafood: true },
-  { id: "c_udang", slug: "udang-cumi", name: "Udang & Cumi", name_en: "Shrimp & Squid", description: "Udang vaname dengan ukuran yang jelas dan cumi segar, siap dikupas atau dibersihkan sesuai pesanan.", description_en: "Sized vannamei shrimp and fresh squid, ready to peel or clean.", sort: 2, icon: "shrimp", image_url: "/images/site/cat-udang-cumi.jpg", is_seafood: true },
-  { id: "c_beku", slug: "seafood-beku", name: "Seafood Beku", name_en: "Frozen Seafood", description: "Fillet dan potongan beku untuk persediaan di freezer, tanpa risiko basi.", description_en: "Fillets and portions for the freezer, no spoilage risk.", sort: 3, icon: "snow", image_url: "/images/site/cat-seafood-beku.jpg", is_seafood: true },
-  { id: "c_ayam", slug: "ayam", name: "Ayam", name_en: "Chicken", description: "Ayam dari rumah potong bersertifikat halal, tersedia beku, dan segar untuk akun bisnis.", description_en: "Cut chicken from halal-certified slaughterhouses, frozen or fresh for business accounts.", sort: 4, icon: "chicken", image_url: "/images/site/cat-ayam.jpg", is_seafood: false },
-  { id: "c_olahan", slug: "frozen-food", name: "Olahan Beku", name_en: "Frozen Food", description: "Nugget, sosis, dan bakso ikan dari merek yang terdaftar di BPOM dan berlogo halal.", description_en: "Nuggets, sausages and fish balls from BPOM-registered, halal-labelled brands.", sort: 5, icon: "box", image_url: "/images/site/cat-frozen-food.jpg", is_seafood: false },
+  { id: "c_ikan", slug: "ikan-segar", name: "Ikan segar", name_en: "Fresh Fish", description: "Dipilih dari lelang Muara Baru sebelum subuh, dengan jenis dan ukuran yang jelas.", description_en: "Auctioned at Muara Baru before dawn, named by species, graded by size.", sort: 1, icon: "fish", image_url: "/images/site/cat-ikan-segar.jpg", is_seafood: true },
+  { id: "c_udang", slug: "udang-cumi", name: "Udang dan cumi", name_en: "Shrimp & Squid", description: "Udang vaname dengan ukuran yang jelas dan cumi segar, siap dikupas atau dibersihkan sesuai pesanan.", description_en: "Sized vannamei shrimp and fresh squid, ready to peel or clean.", sort: 2, icon: "shrimp", image_url: "/images/site/cat-udang-cumi.jpg", is_seafood: true },
+  { id: "c_beku", slug: "seafood-beku", name: "Seafood beku", name_en: "Frozen Seafood", description: "Fillet dan potongan beku untuk persediaan di freezer, tanpa risiko basi.", description_en: "Fillets and portions for the freezer, no spoilage risk.", sort: 3, icon: "snow", image_url: "/images/site/cat-seafood-beku.jpg", is_seafood: true },
+  { id: "c_ayam", slug: "ayam", name: "Ayam halal", name_en: "Halal Chicken", description: "Ayam dari rumah potong bersertifikat halal, tersedia beku, serta segar khusus untuk akun bisnis.", description_en: "Cut chicken from halal-certified slaughterhouses, frozen or fresh for business accounts.", sort: 4, icon: "chicken", image_url: "/images/site/cat-ayam.jpg", is_seafood: false },
+  { id: "c_olahan", slug: "frozen-food", name: "Olahan beku", name_en: "Frozen Food", description: "Nugget, sosis, dan bakso ikan dari merek yang terdaftar di BPOM dan berlogo halal.", description_en: "Nuggets, sausages and fish balls from BPOM-registered, halal-labelled brands.", sort: 5, icon: "box", image_url: "/images/site/cat-frozen-food.jpg", is_seafood: false },
   { id: "c_telur", slug: "telur", name: "Telur", name_en: "Eggs", description: "Telur ayam segar per rak, atau per peti untuk kebutuhan restoran.", description_en: "Fresh chicken eggs by the tray, or by the crate for restaurants.", sort: 6, icon: "egg", image_url: "/images/site/cat-telur.jpg", is_seafood: false },
-  { id: "c_paket", slug: "paket-hemat", name: "Paket Hemat", name_en: "Value Boxes", description: "Paket isi freezer dengan harga lebih hemat dibandingkan membeli satuan.", description_en: "Freezer-ready boxes priced below buying the items separately.", sort: 8, icon: "box", image_url: "/images/products/kotak-freezer-keluarga.jpg", is_seafood: false },
-  { id: "c_bumbu", slug: "bumbu-dapur", name: "Bumbu Dapur", name_en: "Pantry & Condiments", description: "Kebutuhan dapur yang rutin Anda beli setiap minggu, dikirim bersama pesanan yang sama.", description_en: "The kitchen staples you buy every week, in the same delivery.", sort: 7, icon: "bottle", image_url: "/images/site/cat-bumbu-dapur.jpg", is_seafood: false },
+  { id: "c_paket", slug: "paket-hemat", name: "Paket hemat", name_en: "Value Boxes", description: "Paket isi freezer yang lebih hemat daripada membeli satuan.", description_en: "Freezer-ready boxes priced below buying the items separately.", sort: 8, icon: "box", image_url: "/images/products/kotak-freezer-keluarga.jpg", is_seafood: false },
+  { id: "c_bumbu", slug: "bumbu-dapur", name: "Bumbu dapur", name_en: "Pantry & Condiments", description: "Kebutuhan dapur yang rutin Anda beli setiap minggu, dikirim dalam pengiriman yang sama.", description_en: "The kitchen staples you buy every week, in the same delivery.", sort: 7, icon: "bottle", image_url: "/images/site/cat-bumbu-dapur.jpg", is_seafood: false },
 ];
 
 type V = Omit<Variant, "id" | "product_id" | "is_active" | "sort" | "label_en"> & { id?: string; label_en?: string };
@@ -75,7 +75,7 @@ function v(label: string, unit: Variant["unit"], price_retail: number, price_bus
 }
 
 const CHILLED = "Simpan pada suhu 0–4 °C, lalu masak dalam 24 jam atau segera bekukan.";
-const FROZEN = "Simpan pada suhu −18 °C. Cairkan di bagian bawah kulkas, bukan di suhu ruang.";
+const FROZEN = "Simpan pada suhu −18 °C. Cairkan di bagian bawah kulkas, bukan pada suhu ruang.";
 const AMBIENT = "Simpan di tempat yang sejuk dan kering.";
 
 const productSeeds: ProductSeed[] = [
@@ -83,7 +83,7 @@ const productSeeds: ProductSeed[] = [
   {
     id: "p_kakap", slug: "kakap-merah", category_id: "c_ikan", name: "Kakap Merah", name_en: "Malabar Snapper",
     scientific_name: "Lutjanus malabaricus", aliases: ["bambangan", "red snapper", "kakap"],
-    description: "Kakap merah asli, bukan red bass yang kerap dijual dengan nama yang sama. Dagingnya putih dan padat, cocok dikukus, dibakar, atau digoreng.",
+    description: "Kakap merah asli, bukan Red Bass yang kerap dijual dengan nama yang sama. Dagingnya putih dan padat, cocok dikukus, dibakar, atau digoreng.",
     origin: "Muara Baru, didaratkan menjelang subuh", origin_en: "Muara Baru, landed at dawn", description_en: "The true red snapper, not the Red Bass often sold under that name. Firm white flesh for steaming, grilling or frying.", storage_class: "chilled", storage_note: CHILLED, is_catch_weight: true,
     available_today: true, is_featured: true, icon: "fish",
     variants: [
@@ -126,7 +126,7 @@ const productSeeds: ProductSeed[] = [
   {
     id: "p_bandeng", slug: "bandeng", category_id: "c_ikan", name: "Bandeng", name_en: "Milkfish",
     scientific_name: "Chanos chanos", aliases: ["milkfish", "bandeng presto"],
-    description: "Bandeng dari tambak Lampung, tersedia pilihan cabut duri untuk santapan keluarga.",
+    description: "Bandeng dari tambak Lampung, dengan pilihan cabut duri untuk santapan keluarga.",
     origin: "Tambak Lampung, melalui Muara Baru", origin_en: "Lampung ponds via Muara Baru", description_en: "Lampung pond milkfish, with a deboning option for families.", storage_class: "chilled", storage_note: CHILLED, is_catch_weight: true,
     available_today: true, is_featured: false, icon: "fish",
     variants: [v("400–600 g/ekor", "kg", 45000, 35000, 29000, { id: "v_bandeng" })],
@@ -147,7 +147,7 @@ const productSeeds: ProductSeed[] = [
   {
     id: "p_bawal", slug: "bawal-putih", category_id: "c_ikan", name: "Bawal Putih", name_en: "Silver Pomfret",
     scientific_name: "Pampus argenteus", aliases: ["pomfret", "bawal"],
-    description: "Bawal putih kualitas terbaik untuk hidangan kukus khas Tionghoa-Indonesia.",
+    description: "Bawal putih pilihan untuk hidangan kukus khas Tionghoa-Indonesia.",
     origin: "Muara Baru, didaratkan menjelang subuh", origin_en: "Muara Baru, landed at dawn", description_en: "Premium silver pomfret for Chinese-Indonesian steamed dishes.", storage_class: "chilled", storage_note: CHILLED, is_catch_weight: true,
     available_today: true, is_featured: false, icon: "fish",
     variants: [v("400–600 g/ekor", "kg", 150000, 125000, 105000, { id: "v_bawal" })],
@@ -173,8 +173,8 @@ const productSeeds: ProductSeed[] = [
     origin: "Tambak Lampung dan Indramayu", origin_en: "Lampung and Indramayu ponds", description_en: "Pond-raised vannamei, sold per kg (size = pieces per kg). No weight-adding soak.", storage_class: "chilled", storage_note: CHILLED, is_catch_weight: true,
     available_today: true, is_featured: true, icon: "shrimp",
     variants: [
-      v("Ukuran 40–50 ekor/kg", "kg", 118000, 96000, 84000, { id: "v_udang_40" }),
-      v("Ukuran 60–70 ekor/kg", "kg", 105000, 88000, 76000, { id: "v_udang_60" }),
+      v("40–50 ekor/kg", "kg", 118000, 96000, 84000, { id: "v_udang_40", label_en: "Size 40–50" }),
+      v("60–70 ekor/kg", "kg", 105000, 88000, 76000, { id: "v_udang_60", label_en: "Size 60–70" }),
     ],
     prep_options: [
       { id: "pp_udang_kupas", label_en: "Peeled", note_en: "Weighed before peeling", label: "Dikupas", surcharge: 12000, note: "Ditimbang sebelum dikupas" },
@@ -195,7 +195,7 @@ const productSeeds: ProductSeed[] = [
   },
   // ---- Seafood beku ----
   {
-    id: "p_udang_beku", slug: "udang-kupas-beku", category_id: "c_beku", name: "Udang Vaname Kupas PD Beku", name_en: "Peeled & Deveined Shrimp",
+    id: "p_udang_beku", slug: "udang-kupas-beku", category_id: "c_beku", name: "Udang Vaname Kupas Belah Punggung Beku", name_en: "Peeled & Deveined Shrimp",
     scientific_name: "Litopenaeus vannamei", aliases: ["udang beku", "frozen shrimp", "pd shrimp"],
     description: "Udang kupas belah punggung, dibekukan per ekor (IQF), siap ditumis. Andalan persediaan freezer di rumah.",
     origin: "Gudang pendingin di Lampung", origin_en: "Lampung cold storage", description_en: "Peeled, deveined, IQF shrimp ready to stir-fry. The household freezer staple.", storage_class: "frozen", storage_note: FROZEN, is_catch_weight: false,
@@ -203,7 +203,7 @@ const productSeeds: ProductSeed[] = [
     variants: [v("500 g", "pack", 72000, 62000, 54000, { id: "v_udang_beku", stock_qty: 40 })],
   },
   {
-    id: "p_dori", slug: "dori-fillet", category_id: "c_beku", name: "Dori Fillet Beku", name_en: "Pangasius Fillet",
+    id: "p_dori", slug: "dori-fillet", category_id: "c_beku", name: "Fillet Dori Beku", name_en: "Pangasius Fillet",
     scientific_name: "Pangasius hypophthalmus", aliases: ["dory", "patin fillet", "ikan dori"],
     description: "Fillet dori tanpa duri untuk fish and chips, menu kafe, dan menu anak.",
     origin: "Unit pengolahan di Lampung (bersertifikat SKP dan HACCP)", origin_en: "Lampung processor (SKP/HACCP)", description_en: "Boneless pangasius fillet for fish and chips, cafés and children's menus.", storage_class: "frozen", storage_note: FROZEN, is_catch_weight: false,
@@ -219,9 +219,9 @@ const productSeeds: ProductSeed[] = [
     variants: [v("250 g", "pack", 58000, 48000, 40000, { id: "v_tuna", stock_qty: 25 })],
   },
   {
-    id: "p_salmon", slug: "salmon-fillet", category_id: "c_beku", name: "Salmon Fillet Beku", name_en: "Atlantic Salmon Portion",
+    id: "p_salmon", slug: "salmon-fillet", category_id: "c_beku", name: "Fillet Salmon Beku", name_en: "Atlantic Salmon Portion",
     scientific_name: "Salmo salar", aliases: ["salmon", "salmon norway"],
-    description: "Potongan salmon impor dari importir berizin, 200 g per potong, siap dipanggang.",
+    description: "Potongan salmon Norwegia dari importir berizin, 200 g per potong, siap dipanggang.",
     origin: "Norwegia, melalui importir berizin di Jakarta", origin_en: "Norway, licensed Jakarta importer", description_en: "Imported salmon portions from a licensed importer, cut to 200 g ready to grill.", storage_class: "frozen", storage_note: FROZEN, is_catch_weight: false,
     available_today: true, is_featured: true, icon: "fillet",
     variants: [v("200 g", "pack", 95000, 82000, 70000, { id: "v_salmon", stock_qty: 20 })],
@@ -252,7 +252,7 @@ const productSeeds: ProductSeed[] = [
     variants: [v("1 kg", "pack", 44000, 38000, 34000, { id: "v_paha", stock_qty: 40 })],
   },
   {
-    id: "p_dada", slug: "dada-fillet-ayam", category_id: "c_ayam", name: "Dada Fillet Ayam Beku", name_en: "Boneless Chicken Breast",
+    id: "p_dada", slug: "dada-fillet-ayam", category_id: "c_ayam", name: "Fillet Dada Ayam Beku", name_en: "Boneless Chicken Breast",
     scientific_name: null, aliases: ["fillet ayam", "chicken breast", "dada ayam"],
     description: "Dada ayam tanpa tulang dan kulit, untuk ayam geprek, katsu, dan menu sehat.",
     origin: "Rumah potong bersertifikat halal di Jawa Barat", origin_en: "Halal-certified slaughterhouse, West Java", description_en: "Boneless, skinless breast for geprek, katsu and healthy menus.", storage_class: "frozen", storage_note: FROZEN, is_catch_weight: false,
@@ -262,8 +262,8 @@ const productSeeds: ProductSeed[] = [
   {
     id: "p_ayam_segar", slug: "ayam-potong-segar", category_id: "c_ayam", name: "Ayam Potong Segar", name_en: "Fresh Chicken, cut",
     scientific_name: null, aliases: ["ayam segar", "ayam potong 8", "broiler"],
-    description: "Ayam broiler segar dari rumah potong bersertifikat halal, dipotong 8 atau 12. Khusus akun restoran; harga mengikuti acuan pasar mingguan.",
-    origin: "Rumah potong bersertifikat halal di Bogor", origin_en: "Halal-certified slaughterhouse, Bogor", description_en: "Fresh broiler cut into 8 or 12 from a halal-certified slaughterhouse. Business accounts only; priced to the weekly market index.", storage_class: "chilled", storage_note: "Simpan 0–4 °C, dikemas terpisah dari ikan.", is_catch_weight: true,
+    description: "Ayam broiler segar dari rumah potong bersertifikat halal, dipotong 8 atau 12. Khusus akun bisnis; harga mengikuti acuan pasar mingguan.",
+    origin: "Rumah potong bersertifikat halal di Bogor", origin_en: "Halal-certified slaughterhouse, Bogor", description_en: "Fresh broiler cut into 8 or 12 from a halal-certified slaughterhouse. Business accounts only; priced to the weekly market index.", storage_class: "chilled", storage_note: "Simpan pada suhu 0–4 °C. Dikemas terpisah dari ikan.", is_catch_weight: true,
     available_today: true, is_featured: false, icon: "chicken",
     variants: [
       v("Potong 8, 0,9–1,0 kg/ekor", "kg", 0, 42000, 38000, { id: "v_ayam8", business_only: true, min_qty: 2, step_qty: 1, label_en: "Cut into 8, 0.9–1.0 kg/bird" }),
@@ -285,7 +285,7 @@ const productSeeds: ProductSeed[] = [
     description: "Sosis ayam premium untuk sarapan, bekal, dan menu kafe.",
     origin: "Distributor resmi", origin_en: "Authorised distributor", description_en: "Premium chicken sausages for breakfast, bento and café menus.", storage_class: "frozen", storage_note: FROZEN, is_catch_weight: false,
     available_today: true, is_featured: false, icon: "box",
-    variants: [v("500 g (12 pcs)", "pack", 38000, 32000, 27000, { id: "v_sosis", stock_qty: 30, label_en: "500 g (12 pcs)" })],
+    variants: [v("500 g (12 buah)", "pack", 38000, 32000, 27000, { id: "v_sosis", stock_qty: 30, label_en: "500 g (12 pcs)" })],
   },
   {
     id: "p_bakso", slug: "bakso-ikan", category_id: "c_olahan", name: "Bakso Ikan", name_en: "Fish Balls",
@@ -299,9 +299,9 @@ const productSeeds: ProductSeed[] = [
     id: "p_otak", slug: "otak-otak", category_id: "c_olahan", name: "Otak-otak Tenggiri", name_en: "Grilled Fish Cake",
     scientific_name: null, aliases: ["otak otak", "otak-otak bakar"],
     description: "Otak-otak tenggiri beku, cukup dibakar atau dikukus selama 10 menit.",
-    origin: "Produsen UMKM bersertifikat PIRT", origin_en: "PIRT-certified small producer", description_en: "Frozen Spanish-mackerel otak-otak; grill or steam for 10 minutes.", storage_class: "frozen", storage_note: FROZEN, is_catch_weight: false,
+    origin: "Produsen UMKM bersertifikat P-IRT", origin_en: "P-IRT-certified small producer", description_en: "Frozen Spanish-mackerel otak-otak; grill or steam for 10 minutes.", storage_class: "frozen", storage_note: FROZEN, is_catch_weight: false,
     available_today: true, is_featured: false, icon: "box",
-    variants: [v("10 pcs", "pack", 28000, 24000, 20000, { id: "v_otak", stock_qty: 24 })],
+    variants: [v("10 buah", "pack", 28000, 24000, 20000, { id: "v_otak", stock_qty: 24, label_en: "10 pcs" })],
   },
   // ---- Telur ----
   {
@@ -324,7 +324,7 @@ const productSeeds: ProductSeed[] = [
     available_today: true, is_featured: false, icon: "bottle",
     variants: [
       v("2 L", "bottle", 38000, 35000, 32000, { id: "v_minyak_2l", stock_qty: 24 }),
-      v("Jeriken 18 L", "box", 0, 305000, 285000, { id: "v_minyak_18l", business_only: true, stock_qty: 6 }),
+      v("Jeriken 18 L", "pcs", 0, 305000, 285000, { id: "v_minyak_18l", business_only: true, stock_qty: 6 }),
     ],
   },
   {
@@ -335,7 +335,7 @@ const productSeeds: ProductSeed[] = [
     available_today: true, is_featured: false, icon: "bottle",
     variants: [
       v("520 ml", "bottle", 22000, 19000, 17000, { id: "v_kecap_520", stock_qty: 24 }),
-      v("Jeriken 5 L", "box", 0, 125000, 112000, { id: "v_kecap_5l", business_only: true, stock_qty: 8 }),
+      v("Jeriken 5 L", "pcs", 0, 125000, 112000, { id: "v_kecap_5l", business_only: true, stock_qty: 8 }),
     ],
   },
   {
@@ -350,7 +350,7 @@ const productSeeds: ProductSeed[] = [
     id: "p_bawang", slug: "bawang-putih-kupas", category_id: "c_bumbu", name: "Bawang Putih Kupas", name_en: "Peeled Garlic",
     scientific_name: null, aliases: ["garlic", "bawang"],
     description: "Bawang putih kupas yang menghemat sekitar 30 menit pekerjaan dapur setiap hari.",
-    origin: "Pasar Induk Kramat Jati", origin_en: "Kramat Jati wholesale market", description_en: "Peeled garlic: saves 30 minutes of kitchen work every day.", storage_class: "chilled", storage_note: "Simpan 0–4 °C, gunakan dalam 5 hari.", is_catch_weight: false,
+    origin: "Pasar Induk Kramat Jati", origin_en: "Kramat Jati wholesale market", description_en: "Peeled garlic: saves 30 minutes of kitchen work every day.", storage_class: "chilled", storage_note: "Simpan pada suhu 0–4 °C; gunakan dalam 5 hari.", is_catch_weight: false,
     available_today: true, is_featured: false, icon: "bottle",
     variants: [v("500 g", "pack", 32000, 26000, 22000, { id: "v_bawang", stock_qty: 20 })],
   },
@@ -373,7 +373,7 @@ const productSeeds: ProductSeed[] = [
     variants: [v("1 kotak (4 produk)", "box", 219000, 199000, 168000, { id: "v_box_keluarga", stock_qty: 12, label_en: "1 box (4 items)" })],
   },
   {
-    id: "p_box_seafood", slug: "kotak-seafood-weekend", category_id: "c_paket", name: "Kotak Seafood Weekend", name_en: "Weekend Seafood Box",
+    id: "p_box_seafood", slug: "kotak-seafood-weekend", category_id: "c_paket", name: "Kotak Seafood Akhir Pekan", name_en: "Weekend Seafood Box",
     scientific_name: null, aliases: ["paket", "bundle", "salmon box", "kotak seafood"],
     description: "Fillet salmon 2 × 200 g, tuna saku 250 g, dan udang kupas belah punggung 500 g. Cukup untuk dua makan malam istimewa dan satu tumisan cepat, Rp21.000 lebih hemat daripada membeli satuan.",
     description_en: "Salmon fillet 2 × 200 g, tuna saku 250 g and peeled & deveined shrimp 500 g. Two special dinners and one quick stir-fry, Rp21,000 below buying separately.",
@@ -407,7 +407,7 @@ export const seedProducts: Product[] = productSeeds.map((p, pi) => ({
   sort: pi + 1,
   variants: p.variants.map((x, i) => ({
     ...x,
-    label_en: x.label_en ?? x.label.replace(/^Ukuran (\d+–\d+) ekor\/kg$/, "Size $1").replace("/ekor", "/fish").replace("ekor/kg", "pcs/kg").replace("butir", "eggs").replace("Jeriken", "Jerrycan").replace("Peti", "Crate").replace("Potong", "Cut").replace(" produk)", " items)"),
+    label_en: x.label_en ?? x.label.replace("/ekor", "/fish").replace("ekor/kg", "pcs/kg").replace("butir", "eggs").replace("Jeriken", "Jerrycan").replace("Peti", "Crate").replace("Potong", "Cut").replace(" produk)", " items)"),
     id: x.id ?? `${p.id}_v${i + 1}`,
     product_id: p.id,
     is_active: true,
@@ -427,20 +427,20 @@ export const seedAreas: DeliveryArea[] = [
   { id: "a_utara", name: "Jakarta Utara (Kelapa Gading, Sunter, Pluit, PIK)", fee: 15000, is_active: true, sort: 1 },
   { id: "a_pusat", name: "Jakarta Pusat", fee: 20000, is_active: true, sort: 2 },
   { id: "a_selatan", name: "Jakarta Selatan (Senopati, Kemang, Blok M)", fee: 25000, is_active: true, sort: 3 },
-  { id: "a_barat_timur", name: "Jakarta Barat & Timur", fee: 25000, is_active: true, sort: 4 },
-  { id: "a_tangerang", name: "Tangerang, BSD & Gading Serpong", fee: 35000, is_active: true, sort: 5 },
+  { id: "a_barat_timur", name: "Jakarta Barat dan Timur", fee: 25000, is_active: true, sort: 4 },
+  { id: "a_tangerang", name: "Tangerang, BSD, dan Gading Serpong", fee: 35000, is_active: true, sort: 5 },
 ];
 
 export const seedSlots: DeliverySlot[] = [
   { id: "s_dapur", label: "Pengiriman dapur", start_time: "05:00", end_time: "08:00", segment: "business", capacity: 15, is_active: true, sort: 1 },
-  { id: "s_pagi", label: "Pagi", start_time: "10:00", end_time: "13:00", segment: "all", capacity: 12, is_active: true, sort: 2 },
+  { id: "s_pagi", label: "Siang", start_time: "10:00", end_time: "13:00", segment: "all", capacity: 12, is_active: true, sort: 2 },
   { id: "s_sore", label: "Sore", start_time: "15:00", end_time: "18:00", segment: "retail", capacity: 12, is_active: true, sort: 3 },
 ];
 
 export const seedPromos: Promo[] = [
   { id: "pr_welcome", code: "SELAMATDATANG", type: "percent", value: 10, min_spend: 150000, segment: "retail", quota: 200, used_count: 0, first_order_only: true, starts_at: null, ends_at: null, is_active: true, description: "Diskon 10% untuk pesanan pertama rumah tangga" },
   { id: "pr_ongkir", code: "GRATISONGKIR", type: "free_delivery", value: 0, min_spend: 200000, segment: "retail", quota: null, used_count: 0, first_order_only: false, starts_at: null, ends_at: null, is_active: true, description: "Gratis ongkos kirim untuk belanja mulai Rp200.000" },
-  { id: "pr_mitra", code: "MITRA50", type: "fixed", value: 50000, min_spend: 1500000, segment: "business", quota: 50, used_count: 0, first_order_only: false, starts_at: null, ends_at: null, is_active: true, description: "Potongan Rp50.000 untuk pesanan restoran mulai Rp1.500.000" },
+  { id: "pr_mitra", code: "MITRA50", type: "fixed", value: 50000, min_spend: 1500000, segment: "business", quota: 50, used_count: 0, first_order_only: false, starts_at: null, ends_at: null, is_active: true, description: "Potongan Rp50.000 untuk pesanan akun bisnis mulai Rp1.500.000" },
 ];
 
 export const seedAccounts: BusinessAccount[] = [

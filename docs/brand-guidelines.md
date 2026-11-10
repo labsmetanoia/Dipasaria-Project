@@ -136,7 +136,8 @@ We sound like a trusted fishmonger who also keeps good books: knowledgeable, dir
 - Time: `pukul 20.00 WIB`, ranges `05.00–08.00` with an en dash. The database still stores `HH:MM`; format with `jam()` and `jamRange()` from `src/lib/format.ts`.
 - Decimals with a comma: `1,5%`, `0,5 kg`. Temperatures: `0–4 °C`, `−18 °C` (true minus sign).
 - Sentence case for headings, labels, buttons and menu items. The display typeface uppercases them visually; the source text stays in sentence case. Proper names keep capitals (Muara Baru, Kotak Freezer Keluarga).
-- Lists use "dan" before the last item, without a serial comma.
+- Lists of three or more items take a comma before the final "dan" or "atau" (EYD V): "ukuran, berat, dan suhu". Use "dan", not "&", in Indonesian headings and labels; "&" appears only in the brand line "Segar & terpilih".
+- Quantities use the unit labels from the dictionary (kg, kemasan, rak, buah, botol, peti, kotak) and a decimal comma: "1,5 kg", "2 rak". Use `qtyUnit()` from `src/lib/format.ts`; never print raw unit codes.
 - Foreign terms are fine where Indonesian kitchens use them (*seafood*, *fillet*, *freezer*, *QRIS*, *COD*). Italicise only scientific names.
 
 ### Glossary
@@ -164,14 +165,21 @@ We sound like a trusted fishmonger who also keeps good books: knowledgeable, dir
 | cloud kitchen | dapur daring | |
 | login | masuk | |
 | spesies (in headings) | jenis | "spesies" is acceptable in technical notes |
+| slot (admin) | jam pengiriman | |
+| drop | titik antar | |
+| buffer | cadangan | |
+| B2B / RT | Bisnis / Rumah tangga | |
+| Terlaris (unverified claim) | Pilihan dapur | |
+| prabayar | bayar di muka | |
+| detail | rincian | |
 
 ### Core lines
 
 - Brand line (logo tagline): **Segar & terpilih.**
-- Descriptive tagline (page titles, app name): **Protein pilihan untuk dapur Jakarta.**
+- Descriptive tagline (page titles, app name): **Dari lelang subuh Muara Baru ke dapur Jakarta.**
 - Hero: **Ikan pilihan. Jelas jenisnya. Tepat ukurannya.**
 - Sign-off: **Segar dari lelang subuh, siap untuk dapur Anda.**
-- Restaurant promise: **Pesan dalam 60 detik. Tiba di dapur pukul 07.00.**
+- Restaurant promise: **Pesan dalam 60 detik. Tiba di dapur sebelum pukul 08.00.**
 - Guarantee: **Ganti atau uang kembali dalam 2 jam.**
 
 ## 9. WhatsApp messages

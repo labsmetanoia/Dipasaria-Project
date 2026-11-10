@@ -6,7 +6,7 @@ export default async function ProductsAdmin() {
   const [products, categories] = await Promise.all([repo.getProducts({ includeInactive: true }), repo.getCategories()]);
   return (
     <div className="space-y-4">
-      <div><p className="eyebrow">Katalog</p><h1 className="text-2xl text-ocean-900">Produk & stok</h1></div>
+      <div><p className="eyebrow">Katalog</p><h1 className="text-2xl text-ocean-900">Produk dan stok</h1></div>
       <ProductsTable products={products} categories={categories} />
     </div>
   );

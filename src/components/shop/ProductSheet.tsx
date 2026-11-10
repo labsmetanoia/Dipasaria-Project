@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Check, Scale, Snowflake, MapPin, ShieldCheck, Fish, BadgeCheck, ShoppingBag } from "lucide-react";
+import { Check, Scale, Snowflake, MapPin, ShieldCheck, Fish, BadgeCheck, ShoppingBag, Package } from "lucide-react";
 import type { BusinessAccount, Product } from "@/lib/types";
 import { segmentOf, unitPrice } from "@/lib/pricing";
 import { rupiah } from "@/lib/format";
@@ -31,9 +31,9 @@ export function ProductSheet({ product, account }: { product: Product; account: 
  const retail = segment === "business" && variant.price_retail > 0 ? variant.price_retail + (prep?.surcharge ?? 0) : null;
  const desc = pick(locale, product.description, product.description_en);
  const trust = [
-    { Icon: Fish, label: locale === "en" ? "Auctioned at dawn" : "Dari lelang subuh" },
+    ...(["c_ikan", "c_udang", "c_beku"].includes(product.category_id) ? [{ Icon: Fish, label: locale === "en" ? "Auctioned at dawn" : "Dari lelang subuh" }] : [{ Icon: Package, label: locale === "en" ? "Packed to order" : "Dikemas sesuai pesanan" }]),
     { Icon: Snowflake, label: t.storage[product.storage_class] },
-    { Icon: BadgeCheck, label: product.category_id === "c_ayam" ? "Halal · NKV" : locale === "en" ? "Named species" : "Jenis tercantum jelas" },
+    { Icon: BadgeCheck, label: product.category_id === "c_ayam" ? "Halal · NKV" : locale === "en" ? "Named species" : "Nama jenis tercantum" },
     { Icon: ShieldCheck, label: locale === "en" ? "2-hour guarantee" : "Jaminan 2 jam" },
   ];
  const doAdd = () => { add({ product_id: product.id, variant_id: variant.id, qty, prep_option_id: prepId }); notify(locale === "en" && product.name_en ? product.name_en : product.name); setAdded(true); setTimeout(() => setAdded(false), 1500); };
@@ -42,7 +42,7 @@ export function ProductSheet({ product, account }: { product: Product; account: 
     <div className="space-y-6">
       <div>
         <p className={`font-sans text-[14px] leading-relaxed text-ink/80 ${more ? "" : "line-clamp-3"}`}>{desc}</p>
-        {desc.length > 160 && <button onClick={() => setMore((v) => !v)} className="mt-1 font-sans text-[11px] font-bold uppercase tracking-[0.14em] text-gold-ink">{more ? (locale === "en" ? "Read less" : "Tutup") : (locale === "en" ? "Read more" : "Selengkapnya")}</button>}
+        {desc.length > 160 && <button onClick={() => setMore((v) => !v)} className="mt-1 font-sans text-[11px] font-bold uppercase tracking-[0.14em] text-gold-ink">{more ? (locale === "en" ? "Read less" : "Ringkas") : (locale === "en" ? "Read more" : "Selengkapnya")}</button>}
       </div>
 
       <div className="flex flex-wrap items-end gap-x-3 gap-y-1">

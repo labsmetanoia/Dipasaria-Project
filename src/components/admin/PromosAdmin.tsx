@@ -4,7 +4,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import type { Promo } from "@/lib/types";
 import { deletePromoAction, upsertPromoAction } from "@/actions/admin";
 import { Badge, Field } from "@/components/ui";
-import { rupiah } from "@/lib/format";
+import { formatDate, rupiah } from "@/lib/format";
 
 const blank = (): Promo => ({ id: "", code: "", type: "percent", value: 10, min_spend: 0, segment: "all", quota: null, used_count: 0, first_order_only: false, starts_at: null, ends_at: null, is_active: true, description: "" });
 
@@ -20,7 +20,7 @@ export function PromosAdmin({ promos: initial }: { promos: Promo[] }) {
     setPromos((ps) => (ps.some((p) => p.id === r.data.id) ? ps.map((p) => (p.id === r.data.id ? r.data : p)) : [...ps, r.data]));
     setEdit(null);
   });
-  const del = (id: string) => start(async () => { if (!confirm("Hapus promo?")) return; await deletePromoAction(id); setPromos((ps) => ps.filter((p) => p.id !== id)); });
+  const del = (id: string) => start(async () => { if (!confirm("Hapus promo ini?")) return; await deletePromoAction(id); setPromos((ps) => ps.filter((p) => p.id !== id)); });
   return (
     <div className="space-y-4">
       <div className="flex justify-end"><button onClick={() => setEdit(blank())} className="btn-primary text-sm"><Plus className="h-4 w-4" /> Promo baru</button></div>
@@ -31,8 +31,8 @@ export function PromosAdmin({ promos: initial }: { promos: Promo[] }) {
               <div><p className="font-display text-lg font-semibold tracking-wide text-ocean-900">{p.code}</p><p className="text-sm text-mute">{p.description}</p></div>
               <div className="flex gap-1">{p.is_active ? <Badge tone="success">Aktif</Badge> : <Badge>Nonaktif</Badge>}<Badge tone="tide">{p.segment === "all" ? "Semua" : p.segment === "retail" ? "Rumah tangga" : "Bisnis"}</Badge></div>
             </div>
-            <p className="mt-2 text-sm">{p.type === "percent" ? `Diskon ${p.value}%` : p.type === "fixed" ? `Potongan ${rupiah(p.value)}` : "Gratis ongkos kirim"} · min. {rupiah(p.min_spend)}{p.first_order_only ? " · pesanan pertama" : ""}</p>
-            <p className="text-xs text-mute">Dipakai {p.used_count}{p.quota !== null ? ` / ${p.quota}` : ""}{p.ends_at ? ` · sampai ${p.ends_at.slice(0, 10)}` : ""}</p>
+            <p className="mt-2 text-sm">{p.type === "percent" ? `Diskon ${p.value}%` : p.type === "fixed" ? `Potongan ${rupiah(p.value)}` : "Gratis ongkos kirim"} · minimal belanja {rupiah(p.min_spend)}{p.first_order_only ? " · pesanan pertama" : ""}</p>
+            <p className="text-xs text-mute">Dipakai {p.used_count}{p.quota !== null ? ` / ${p.quota}` : ""}{p.ends_at ? ` · sampai ${formatDate(p.ends_at.slice(0, 10))}` : ""}</p>
             <div className="mt-3 flex gap-2"><button onClick={() => setEdit(p)} className="btn-secondary px-3 py-1.5 text-xs">Ubah</button><button onClick={() => del(p.id)} className="btn-ghost px-3 py-1.5 text-xs text-gold-ink"><Trash2 className="h-3.5 w-3.5" /></button></div>
           </div>
         ))}
@@ -46,10 +46,10 @@ export function PromosAdmin({ promos: initial }: { promos: Promo[] }) {
             <Field label={edit.type === "percent" ? "Persen" : "Nilai (Rp)"}><input type="number" className="input" value={edit.value} disabled={edit.type === "free_delivery"} onChange={(e) => setEdit({ ...edit, value: Number(e.target.value) })} /></Field>
             <Field label="Minimal belanja (Rp)"><input type="number" className="input" value={edit.min_spend} onChange={(e) => setEdit({ ...edit, min_spend: Number(e.target.value) })} /></Field>
             <Field label="Segmen"><select className="input" value={edit.segment} onChange={(e) => setEdit({ ...edit, segment: e.target.value as Promo["segment"] })}><option value="all">Semua</option><option value="retail">Rumah tangga</option><option value="business">Bisnis</option></select></Field>
-            <Field label="Kuota (kosong = tanpa batas)"><input type="number" className="input" value={edit.quota ?? ""} onChange={(e) => setEdit({ ...edit, quota: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
+            <Field label="Kuota (kosongkan jika tanpa batas)"><input type="number" className="input" value={edit.quota ?? ""} onChange={(e) => setEdit({ ...edit, quota: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
             <Field label="Mulai"><input type="date" className="input" value={edit.starts_at?.slice(0, 10) ?? ""} onChange={(e) => setEdit({ ...edit, starts_at: e.target.value ? `${e.target.value}T00:00:00+07:00` : null })} /></Field>
             <Field label="Berakhir"><input type="date" className="input" value={edit.ends_at?.slice(0, 10) ?? ""} onChange={(e) => setEdit({ ...edit, ends_at: e.target.value ? `${e.target.value}T23:59:59+07:00` : null })} /></Field>
-            <Field label="Deskripsi (tampil ke pelanggan)"><input className="input" value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
+            <Field label="Deskripsi (ditampilkan kepada pelanggan)"><input className="input" value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></Field>
           </div>
           <div className="flex flex-wrap gap-4 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={edit.first_order_only} onChange={(e) => setEdit({ ...edit, first_order_only: e.target.checked })} className="accent-ocean-900" /> Hanya pesanan pertama (per nomor WhatsApp)</label>

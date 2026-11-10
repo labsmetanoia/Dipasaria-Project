@@ -9,7 +9,7 @@ import { STORAGE_LABEL, UNIT_LABEL } from "@/lib/config";
 import type { StorageClass } from "@/lib/types";
 
 const GROUPS: Array<{ key: StorageClass; title: string; hint: string }> = [
-  { key: "chilled", title: "Lelang Muara Baru & segar", hint: "Beli sesuai daftar + buffer; cek mata, insang, bau, suhu inti ≤4 °C; foto per lot." },
+  { key: "chilled", title: "Lelang Muara Baru dan ikan segar", hint: "Beli sesuai daftar ditambah cadangan; periksa mata, insang, aroma, dan suhu inti ≤4 °C; foto per lot." },
   { key: "frozen", title: "Ambil dari freezer", hint: "FEFO: ambil kedaluwarsa terdekat; kantong terinsulasi terpisah." },
   { key: "ambient", title: "Rak suhu ruang", hint: "Telur dan bumbu dikemas dalam wadah terpisah." },
 ];
@@ -22,7 +22,7 @@ export default async function BuyingListPage({ searchParams }: { searchParams: P
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="eyebrow">Belanja subuh</p><h1 className="text-2xl text-ocean-900">Daftar beli · {formatDate(date, "weekday")}</h1><p className="text-xs text-mute">Buffer ikan segar {settings.catch_weight_buffer_pct}% untuk memilih ekor yang pas dan susut pembersihan.</p></div>
+        <div><p className="eyebrow">Belanja subuh</p><h1 className="text-2xl text-ocean-900">Daftar belanja · {formatDate(date, "weekday")}</h1><p className="text-xs text-mute">Cadangan ikan segar {settings.catch_weight_buffer_pct}% untuk memilih ekor yang pas dan susut pembersihan.</p></div>
         <div className="flex gap-2"><DateSelector date={date} /><PrintButton /></div>
       </div>
       {lines.length === 0 ? <Empty title="Belum ada pesanan untuk tanggal ini" /> : GROUPS.map((g) => {

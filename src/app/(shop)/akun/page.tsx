@@ -7,7 +7,7 @@ import { fmt } from "@/lib/i18n/dict";
 import { BusinessLogin } from "@/components/shop/BusinessLogin";
 import { ReorderButton } from "@/components/shop/ReorderPanel";
 import { businessLogoutAction } from "@/actions/shop";
-import { formatDate, rupiah, waLink, jamRange } from "@/lib/format";
+import { formatDate, rupiah, waLink, jamRange, qtyUnit } from "@/lib/format";
 import { StatusBadge, PaymentBadge, Badge } from "@/components/ui";
 
 export const metadata = { title: "Akun bisnis" };
@@ -44,7 +44,7 @@ export default async function AccountPage() {
               <li key={o.id} className="card flex items-center justify-between gap-3 p-4">
                 <Link href={`/pesanan/${o.code}?hp=${o.phone}`} className="min-w-0 flex-1">
                   <p className="font-bold text-ocean-950">{o.code} <span className="ml-1 text-xs font-normal text-mute">{formatDate(o.delivery_date, "short", locale)}</span></p>
-                  <p className="truncate text-xs text-mute">{o.items.map((i) => `${i.product_name} ${i.qty_final ?? i.qty_ordered} ${i.unit}`).join(" · ")}</p>
+                  <p className="truncate text-xs text-mute">{o.items.map((i) => `${i.product_name} ${qtyUnit(i.qty_final ?? i.qty_ordered, i.unit, locale)}`).join(" · ")}</p>
                   <div className="mt-1 flex gap-1"><StatusBadge status={o.status} /><PaymentBadge status={o.payment_status} />{o.has_catch_weight && !o.weighed_at && <Badge>{t.account.awaitingWeigh}</Badge>}</div>
                 </Link>
                 <div className="flex flex-col items-end gap-2"><p className="text-sm font-bold">{rupiah(o.total_final ?? o.total_est)}</p><ReorderButton order={o} label={t.shop.repeat} className="btn-secondary px-3 py-1.5 text-xs" /></div>
@@ -53,7 +53,7 @@ export default async function AccountPage() {
           </ul>
         )}
       </section>
-      <a href={waLink(settings.whatsapp_number, `${locale === "en" ? "Hello" : "Halo"} ${settings.store_name}, ${account.business_name}.`)} target="_blank" rel="noreferrer" className="btn-secondary"><MessageCircle className="h-4 w-4" /> {t.account.contactUs}</a>
+      <a href={waLink(settings.whatsapp_number, `${locale === "en" ? "Hello" : "Halo"} ${settings.store_name}, ${locale === "en" ? "this is" : "saya dari"} ${account.business_name}.`)} target="_blank" rel="noreferrer" className="btn-secondary"><MessageCircle className="h-4 w-4" /> {t.account.contactUs}</a>
     </div>
   );
 }

@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ImageSlot } from "./Decor";
 import { Seal } from "@/components/Logo";
+import { useT } from "@/lib/i18n/client";
 
 export interface Slide { eyebrow: string; title: string; sub?: string; cta: { href: string; label: string }; cta2?: { href: string; label: string }; icon: string; image?: string | null }
 
 export function HeroSlider({ slides }: { slides: Slide[] }) {
  const [i, setI] = useState(0);
+ const { locale } = useT();
+ const en = locale === "en";
  useEffect(() => { const id = setInterval(() => setI((x) => (x + 1) % slides.length), 7000); return () => clearInterval(id); }, [slides.length]);
  const s = slides[i];
  return (
@@ -28,9 +31,9 @@ export function HeroSlider({ slides }: { slides: Slide[] }) {
           </div>
         </div>
       </div>
-      <button onClick={() => setI((i - 1 + slides.length) % slides.length)} className="absolute left-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center bg-black/30 text-white hover:bg-coral-500 hover:text-ocean-950 md:flex" aria-label="Previous"><ChevronLeft className="h-5 w-5" /></button>
-      <button onClick={() => setI((i + 1) % slides.length)} className="absolute right-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center bg-black/30 text-white hover:bg-coral-500 hover:text-ocean-950 md:flex" aria-label="Next"><ChevronRight className="h-5 w-5" /></button>
-      <div className="absolute bottom-5 right-6 flex gap-2">{slides.map((_, k) => <button key={k} onClick={() => setI(k)} aria-label={`Slide ${k + 1}`} className={`h-2.5 w-2.5 rounded-full border border-white/60 ${k === i ? "bg-coral-500" : "bg-white/20"}`} />)}</div>
+      <button onClick={() => setI((i - 1 + slides.length) % slides.length)} className="absolute left-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center bg-black/30 text-white hover:bg-coral-500 hover:text-ocean-950 md:flex" aria-label={en ? "Previous" : "Sebelumnya"}><ChevronLeft className="h-5 w-5" /></button>
+      <button onClick={() => setI((i + 1) % slides.length)} className="absolute right-3 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center bg-black/30 text-white hover:bg-coral-500 hover:text-ocean-950 md:flex" aria-label={en ? "Next" : "Berikutnya"}><ChevronRight className="h-5 w-5" /></button>
+      <div className="absolute bottom-5 right-6 flex gap-2">{slides.map((_, k) => <button key={k} onClick={() => setI(k)} aria-label={`${en ? "Slide" : "Tampilan"} ${k + 1}`} className={`h-2.5 w-2.5 rounded-full border border-white/60 ${k === i ? "bg-coral-500" : "bg-white/20"}`} />)}</div>
     </section>
   );
 }

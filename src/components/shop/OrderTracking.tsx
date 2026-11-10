@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import { CheckCircle2, Circle, Loader2, MessageCircle, Scale } from "lucide-react";
 import type { Order, Settings } from "@/lib/types";
-import { formatDate, formatDateTime, rupiah, waLink } from "@/lib/format";
+import { formatDate, formatDateTime, rupiah, waLink, qtyUnit } from "@/lib/format";
 import { fmt } from "@/lib/i18n/dict";
 import { useT } from "@/lib/i18n/client";
 import { confirmPaymentAction } from "@/actions/shop";
@@ -53,14 +53,14 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
       <div className="card p-5">
         <div className="flex items-center justify-between"><h2 className="font-bold text-ocean-950">{t.tracking.details}</h2>{order.has_catch_weight && <span className="inline-flex items-center gap-1 text-xs text-mute"><Scale className="h-3.5 w-3.5" />{order.weighed_at ? t.tracking.weighedDone : t.tracking.weighedPending}</span>}</div>
         <table className="mt-3 w-full text-sm">
-          <thead className="text-xs text-mute"><tr><th className="pb-1 text-left font-medium">{t.tracking.product}</th><th className="pb-1 text-right font-medium">{t.tracking.ordered}</th>{order.has_catch_weight && <th className="pb-1 text-right font-medium">{t.tracking.weighed}</th>}<th className="pb-1 text-right font-medium">{t.tracking.price}</th></tr></thead>
+          <thead className="text-xs text-mute"><tr><th className="pb-1 text-left font-medium">{t.tracking.product}</th><th className="hidden pb-1 pl-3 text-right font-medium sm:table-cell">{t.tracking.ordered}</th>{order.has_catch_weight && <th className="hidden pb-1 pl-3 text-right font-medium sm:table-cell">{t.tracking.weighed}</th>}<th className="pb-1 text-right font-medium">{t.tracking.price}</th></tr></thead>
           <tbody className="divide-y divide-line">
             {order.items.map((i) => (
               <tr key={i.id}>
-                <td className="py-2"><span className="font-semibold">{i.product_name}</span><span className="block text-xs text-mute">{i.variant_label}{i.prep_label ? ` · ${i.prep_label}` : ""} · {rupiah(i.unit_price)}/{unit(i.unit)}</span></td>
-                <td className="py-2 text-right">{i.qty_ordered} {unit(i.unit)}</td>
-                {order.has_catch_weight && <td className="py-2 text-right">{i.qty_final !== null ? `${i.qty_final} ${unit(i.unit)}` : i.is_catch_weight ? "—" : `${i.qty_ordered} ${unit(i.unit)}`}</td>}
-                <td className="py-2 text-right font-bold">{rupiah(i.line_total_final ?? i.line_total_est)}</td>
+                <td className="py-2"><span className="font-semibold">{i.product_name}</span><span className="block text-xs text-mute">{i.variant_label}{i.prep_label ? ` · ${i.prep_label}` : ""} · {rupiah(i.unit_price)}/{unit(i.unit)}</span><span className="mt-0.5 block text-xs font-semibold text-ink sm:hidden">{t.tracking.ordered}: {qtyUnit(i.qty_ordered, i.unit, locale)}{i.qty_final !== null && i.is_catch_weight ? ` · ${t.tracking.weighed}: ${qtyUnit(i.qty_final, i.unit, locale)}` : ""}</span></td>
+                <td className="hidden whitespace-nowrap py-2 pl-3 text-right sm:table-cell">{qtyUnit(i.qty_ordered, i.unit, locale)}</td>
+                {order.has_catch_weight && <td className="hidden whitespace-nowrap py-2 pl-3 text-right sm:table-cell">{i.qty_final !== null ? qtyUnit(i.qty_final, i.unit, locale) : i.is_catch_weight ? "—" : qtyUnit(i.qty_ordered, i.unit, locale)}</td>}
+                <td className="whitespace-nowrap py-2 pl-3 text-right font-bold">{rupiah(i.line_total_final ?? i.line_total_est)}</td>
               </tr>
             ))}
           </tbody>

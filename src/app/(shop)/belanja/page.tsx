@@ -19,32 +19,32 @@ export const metadata = { title: "Belanja" };
 const copy = {
   id: {
     slides: [
-      { eyebrow: "Tangkapan hari ini · Muara Baru", title: "Ikan pilihan. Jelas jenisnya. Tepat ukurannya.", sub: "Dipilih di lelang sebelum subuh, ditimbang dan disiangi sesuai pesanan, lalu diantar dingin ke dapur Anda besok pagi.", cta: { href: "/belanja/kategori/ikan-segar", label: "Belanja ikan segar" }, cta2: { href: "/belanja/semua", label: "Semua produk" }, icon: "fish" },
-      { eyebrow: "Untuk restoran", title: "Pesan pukul 19.30. Tiba di dapur pukul 07.00.", sub: "Harga grosir, pengiriman dapur pukul 05.00–08.00, pembayaran tempo bagi pelanggan tetap, dan tagihan yang mencantumkan nama setiap jenis ikan.", cta: { href: "/restoran#daftar", label: "Daftar akun bisnis" }, cta2: { href: "/restoran", label: "Selengkapnya" }, icon: "shrimp" },
-      { eyebrow: "Paket hemat", title: "Isi freezer dalam sekali pesan.", sub: "Udang kupas, fillet ikan, potongan salmon dan ayam dalam satu kotak, lebih hemat daripada membeli satuan.", cta: { href: "/belanja/kategori/paket-hemat", label: "Lihat paket" }, icon: "box" },
+      { eyebrow: "Tangkapan hari ini · Muara Baru", title: "Ikan pilihan. Jelas jenisnya. Tepat ukurannya.", sub: "Dipilih di lelang sebelum subuh, disiangi dan ditimbang sesuai pesanan, lalu diantar dingin ke dapur Anda besok pagi.", cta: { href: "/belanja/kategori/ikan-segar", label: "Belanja ikan segar" }, cta2: { href: "/belanja/semua", label: "Semua produk" }, icon: "fish" },
+      { eyebrow: "Untuk restoran", title: "Pesan pukul 19.30. Tiba di dapur sebelum pukul 08.00.", sub: "Harga grosir, pengiriman dapur pukul 05.00–08.00, pembayaran tempo bagi pelanggan tetap, dan tagihan yang mencantumkan nama setiap jenis ikan.", cta: { href: "/restoran#daftar", label: "Daftar akun bisnis" }, cta2: { href: "/restoran", label: "Selengkapnya" }, icon: "shrimp" },
+      { eyebrow: "Paket hemat", title: "Isi freezer dalam sekali pesan.", sub: "Udang kupas, fillet ikan, potongan salmon, dan ayam dalam satu paket, lebih hemat daripada membeli satuan.", cta: { href: "/belanja/kategori/paket-hemat", label: "Lihat paket" }, icon: "box" },
     ],
-    memberStrip: "Punya restoran? Buka akun bisnis untuk harga grosir, pengiriman subuh dan pembayaran tempo.",
+    memberStrip: "Punya restoran? Buka akun bisnis untuk harga grosir, pengiriman subuh, dan pembayaran tempo.",
     memberCta: "Daftar sekarang",
     catsEyebrow: "Mulai dari sini", catsTitle: "Belanja per kategori", explore: "Lihat",
-    findEyebrow: "Cara berbelanja", findTitle: "Temukan yang Anda butuhkan", findSub: "Mulailah dari kebutuhan dapur Anda, bukan dari daftar produk.",
+    findEyebrow: "Pilihan belanja", findTitle: "Tiga cara mengisi dapur Anda", findSub: "Mulailah dari kebutuhan dapur Anda, bukan dari daftar produk.",
     find: [
-      { href: "/belanja/kategori/paket-hemat", eyebrow: "Satu kotak", title: "Paket hemat", sub: "Kotak beku siap kirim untuk kebutuhan seminggu, lebih hemat daripada harga satuan.", cta: "Belanja paket", icon: "box", key: "box" },
+      { href: "/belanja/kategori/paket-hemat", eyebrow: "Satu kotak", title: "Paket hemat", sub: "Kotak beku siap kirim untuk kebutuhan seminggu, lebih hemat daripada membeli satuan.", cta: "Lihat paket", icon: "box", key: "box" },
       { href: "/belanja/kategori/ikan-segar", eyebrow: "Dari lelang subuh", title: "Tangkapan hari ini", sub: "Jenis ikan yang kami pilih di lelang pukul 03.00 dan ditimbang sebelum dikirim.", cta: "Lihat tangkapan", icon: "fish", key: "standards" },
-      { href: "/restoran", eyebrow: "Akun bisnis", title: "Untuk restoran", sub: "Harga grosir, jadwal pengiriman dapur, pesan lagi sekali sentuh, dan tagihan terperinci.", cta: "Daftar akun", icon: "shrimp", key: "restaurant" },
+      { href: "/restoran", eyebrow: "Akun bisnis", title: "Untuk restoran", sub: "Harga grosir, jadwal pengiriman dapur, pesan lagi dengan satu sentuhan, dan tagihan terperinci.", cta: "Daftar akun bisnis", icon: "shrimp", key: "restaurant" },
     ],
     stepsTitle: "Cara kerjanya",
-    steps: ["Pilih produk, ukuran dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, timbang dan siapkan saat subuh", "Diantar dingin sampai ke pintu Anda"],
-    gradeEyebrow: "Standar Dipasaria", gradeTitle: "Lebih segar. Jelas jenisnya. Tepat ukurannya.", gradeBody: "Setiap ikan dicantumkan nama ilmiahnya, ukuran per ekornya dan pilihan cara penyiapannya. Suhu inti dijaga ≤4 °C sejak lelang dan dicatat di setiap rute. Kami hanya membeli sesuai pesanan, sehingga tidak ada ikan yang menginap.", gradeCta: "Belanja ikan segar", gradeCta2: "Lihat standar kami", gradeTag: "Langsung dari lelang, bukan dari gudang",
+    steps: ["Pilih produk, ukuran, dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, siapkan, dan timbang saat subuh", "Diantar dingin sampai ke pintu Anda"],
+    gradeEyebrow: "Standar Dipasaria", gradeTitle: "Segar dari lelang. Jelas jenisnya. Tepat ukurannya.", gradeBody: "Setiap ikan dilengkapi nama ilmiah, ukuran per ekor, dan pilihan cara penyiapan. Suhu inti dijaga ≤4 °C sejak lelang dan dicatat di setiap rute. Kami hanya membeli sesuai pesanan, sehingga tidak ada ikan segar yang menginap.", gradeCta: "Belanja ikan segar", gradeCta2: "Lihat standar kami", gradeTag: "Langsung dari lelang, bukan dari gudang",
     catchTitle: "Tangkapan hari ini", catchSub: "Harga per kg, ditimbang setelah disiapkan.",
-    storyEyebrow: "Cerita kami", storyTitle: "Standar dapur profesional, untuk dapur rumah Anda.", storyBody: "Dipasaria berawal sebagai pedagang prinsipal di lantai lelang Muara Baru. Kini kami memasok restoran independen di sepanjang satu rute dan rumah tangga di sekitarnya, dengan standar yang sama untuk keduanya.", storyCard: "Pedagang prinsipal", storyCardSub: "Kami membeli dan memiliki barang sebelum menjualnya, sehingga kami bertanggung jawab penuh atas ukuran, berat dan suhunya.", storyFacts: [["Lelang pukul 03.00", "Di Muara Baru, dipilih dan difoto per lot."], ["Rantai dingin", "0–4 °C untuk produk segar, −18 °C untuk produk beku, dicatat di setiap rute."], ["Ayam halal", "Dari RPHU bersertifikat halal dan NKV, dengan dokumen per lot."]], storyCta: "Baca cerita kami", storyCta2: "Belanja",
+    storyEyebrow: "Cerita kami", storyTitle: "Standar dapur profesional, untuk dapur rumah Anda.", storyBody: "Dipasaria berawal sebagai pedagang prinsipal di lantai lelang Muara Baru. Kini kami memasok restoran independen di sepanjang satu rute dan rumah tangga di sekitarnya, dengan standar yang sama untuk keduanya.", storyCard: "Pedagang prinsipal", storyCardSub: "Kami membeli dan memiliki barang sebelum menjualnya, sehingga kami bertanggung jawab penuh atas ukuran, berat, dan suhunya.", storyFacts: [["Lelang pukul 03.00", "Di Muara Baru, dipilih dan difoto per lot."], ["Rantai dingin", "0–4 °C untuk produk segar, −18 °C untuk produk beku, dicatat di setiap rute."], ["Ayam halal", "Dari RPHU bersertifikat halal dan NKV, dengan dokumen per lot."]], storyCta: "Baca cerita kami", storyCta2: "Belanja",
     specialsEyebrow: "Pilihan minggu ini", specialsTitle: "Paling sering dipesan", specialsSub: "Produk yang dipesan ulang oleh dapur langganan kami setiap minggu.", specialsCta: "Semua produk",
-    freezerTitle: "Isi freezer", freezerSub: "Produk beku yang tahan lama, dengan harga tetap.",
+    freezerTitle: "Stok seminggu, siap di freezer", freezerSub: "Produk beku yang tahan lama, dengan harga tetap.",
     minNote: (min: string, free: string) => `Minimal pesanan ${min} · gratis ongkos kirim mulai ${free}`,
   },
   en: {
     slides: [
       { eyebrow: "Today's catch · Muara Baru", title: "The right fish. Named. Graded.", sub: "Auctioned before dawn, weighed and cleaned to order, delivered cold to your kitchen tomorrow morning.", cta: { href: "/belanja/kategori/ikan-segar", label: "Shop fresh fish" }, cta2: { href: "/belanja/semua", label: "All products" }, icon: "fish" },
-      { eyebrow: "For restaurants", title: "Order at 7.30 pm. In the kitchen by 7 am.", sub: "Wholesale prices, a 05:00–08:00 kitchen slot, terms once established, species-named invoices.", cta: { href: "/restoran#daftar", label: "Open a business account" }, cta2: { href: "/restoran", label: "Learn more" }, icon: "shrimp" },
+      { eyebrow: "For restaurants", title: "Order at 7.30 pm. In the kitchen before 8 am.", sub: "Wholesale prices, a 05:00–08:00 kitchen slot, terms once established, species-named invoices.", cta: { href: "/restoran#daftar", label: "Open a business account" }, cta2: { href: "/restoran", label: "Learn more" }, icon: "shrimp" },
       { eyebrow: "Value boxes", title: "Stock the freezer in one order.", sub: "Peeled shrimp, fillets, salmon portions and chicken in one box, for less than buying separately.", cta: { href: "/belanja/kategori/paket-hemat", label: "See boxes" }, icon: "box" },
     ],
     memberStrip: "Run a restaurant? Open a business account for wholesale prices, the dawn kitchen slot and payment terms.",
@@ -102,7 +102,7 @@ export default async function BelanjaPage() {
       {/* Trust bar */}
       <div className="border-b border-line bg-white">
         <div className="container-x grid grid-cols-2 gap-y-4 py-5 md:grid-cols-4">
-          {[[Fish, en ? "Auctioned at Muara Baru, 3 a.m." : "Dari lelang Muara Baru, pukul 03.00"], [Snowflake, en ? "Cold chain 0–4 °C to your door" : "Rantai dingin 0–4 °C sampai ke pintu"], [BadgeCheck, en ? "Halal-certified chicken, per lot" : "Ayam bersertifikat halal per lot"], [ShieldCheck, en ? "Replace or refund within 2 hours" : "Ganti atau uang kembali dalam 2 jam"]].map(([I, l]) => { const Icon = I as typeof Fish; return <div key={l as string} className="flex items-center gap-3"><span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-ocean-950 text-coral-500"><Icon className="h-4 w-4" /></span><span className="font-sans text-[12px] font-bold uppercase leading-tight tracking-[0.1em]">{l as string}</span></div>; })}
+          {[[Fish, en ? "Auctioned at Muara Baru, 3 a.m." : "Dari lelang Muara Baru, pukul 03.00"], [Snowflake, en ? "Cold chain 0–4 °C to your door" : "Rantai dingin 0–4 °C sampai ke pintu"], [BadgeCheck, en ? "Halal-certified chicken, per lot" : "Ayam halal, dokumen per lot"], [ShieldCheck, en ? "Replace or refund within 2 hours" : "Ganti atau uang kembali dalam 2 jam"]].map(([I, l]) => { const Icon = I as typeof Fish; return <div key={l as string} className="flex items-center gap-3"><span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-ocean-950 text-coral-500"><Icon className="h-4 w-4" /></span><span className="font-sans text-[12px] font-bold uppercase leading-tight tracking-[0.1em]">{l as string}</span></div>; })}
         </div>
       </div>
 
@@ -175,7 +175,7 @@ export default async function BelanjaPage() {
 
       {/* Big image band */}
       <ImageSlot src={IMAGES.kitchen} alt="" icon="chicken" className="h-[42vh] min-h-[280px]">
-        <div className="absolute inset-0 flex items-end"><div className="container-x pb-10 text-white"><p className="eyebrow text-coral-500">{t.nav.forRestaurants}</p><p className="mt-2 max-w-xl text-[2rem] font-bold uppercase leading-none sm:text-[2.8rem]" style={{ fontFamily: "var(--font-display)" }}>{locale === "en" ? "Restaurant quality. Delivered to your door." : "Kualitas restoran. Diantar ke pintu Anda."}</p><div className="mt-4 flex gap-2 font-sans text-[12px] text-white/80">{[t.footer.halal, t.footer.coldChain].map((x) => <span key={x} className="flex items-center gap-1"><Check className="h-3.5 w-3.5 text-coral-500" />{x}</span>)}</div></div></div>
+        <div className="absolute inset-0 flex items-end"><div className="container-x pb-10 text-white"><p className="eyebrow text-coral-500">{t.nav.forRestaurants}</p><p className="mt-2 max-w-xl text-[2rem] font-bold uppercase leading-none sm:text-[2.8rem]" style={{ fontFamily: "var(--font-display)" }}>{locale === "en" ? "The chefs' fish, now for your table." : "Ikan pilihan para koki, kini untuk meja makan Anda."}</p><div className="mt-4 flex gap-2 font-sans text-[12px] text-white/80">{[t.footer.halal, t.footer.coldChain].map((x) => <span key={x} className="flex items-center gap-1"><Check className="h-3.5 w-3.5 text-coral-500" />{x}</span>)}</div></div></div>
       </ImageSlot>
       <p className="sr-only">{fmt(t.shop.heroSub, { min: rupiah(minOrder), free: rupiah(free) })}</p>
     </>

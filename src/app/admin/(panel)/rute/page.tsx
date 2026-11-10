@@ -18,7 +18,7 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="eyebrow">Rute dan pengemasan</p><h1 className="text-2xl text-ocean-900">{formatDate(date, "weekday")} · {live.length} drop</h1></div>
+        <div><p className="eyebrow">Rute dan pengemasan</p><h1 className="text-2xl text-ocean-900">{formatDate(date, "weekday")} · {live.length} titik antar</h1></div>
         <div className="flex gap-2"><DateSelector date={date} /><PrintButton /></div>
       </div>
       {live.length === 0 ? <Empty title="Tidak ada pengiriman untuk tanggal ini" /> : slots.map((s) => {
@@ -27,7 +27,7 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
         const byArea = [...new Set(list.map((o) => o.area_name))];
         return (
           <section key={s.id}>
-            <h2 className="mb-2 text-ocean-900">{jamRange(s.start_time, s.end_time)} {s.label} <span className="text-sm font-normal text-mute">· {list.length}/{s.capacity} drop</span></h2>
+            <h2 className="mb-2 text-ocean-900">{jamRange(s.start_time, s.end_time)} {s.label} <span className="text-sm font-normal text-mute">· {list.length}/{s.capacity} titik antar</span></h2>
             <div className="space-y-3">
               {byArea.map((area) => (
                 <div key={area}>
@@ -51,7 +51,7 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
                           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold">
                             {bags.chilled > 0 && <span className="rounded-full bg-tide-100 px-2 py-0.5 text-tide-700">❄ Segar {bags.chilled} item</span>}
                             {bags.frozen > 0 && <span className="rounded-full bg-[#eaf1fb] px-2 py-0.5 text-[#2f5f9e]">🧊 Beku {bags.frozen} item</span>}
-                            {bags.ambient > 0 && <span className="rounded-full bg-warn-50 px-2 py-0.5 text-warn-600">📦 Ruang {bags.ambient} item</span>}
+                            {bags.ambient > 0 && <span className="rounded-full bg-warn-50 px-2 py-0.5 text-warn-600">📦 Suhu ruang {bags.ambient} item</span>}
                           </div>
                           <ul className="mt-2 text-xs text-ink/80">{o.items.map((i) => <li key={i.id}>• {i.product_name} {i.variant_label} — {i.qty_final ?? i.qty_ordered} {UNIT_LABEL[i.unit]}{i.prep_label ? ` (${i.prep_label.toLowerCase()})` : ""}</li>)}</ul>
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2">
