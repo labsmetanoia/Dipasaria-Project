@@ -17,49 +17,59 @@ Premium here means *precise and calm*, not luxurious. We earn it with clear fact
 
 ## 2. Logo
 
-### The mark
+![Brand board](brand/brand-board.png)
 
-A single fish form built from three ideas:
+### The emblem
 
-- **The body is a "D"**: a straight back edge and a full curve, so the mark reads as both the initial and a fish.
-- **A flared, forked tail** on the left gives the mark movement and makes it recognisable at 16 px.
-- **One eye**, nothing else. Earlier concepts with a gill line read as a face; the eye alone keeps it calm.
+A snapper leaping out of a market basket, with a gold arc beneath.
 
-Geometry lives in `src/components/Logo.tsx` (`MARK_PATH`, 64 × 64 grid; eye at 43.5, 26, r 2.5). Never redraw it by hand; use the component or the files in `public/brand/`.
+- **The basket (keranjang)** is the auction crate at Muara Baru, and the "pasar" in Di*pasar*ia: we are traders who buy at the market so you don't have to.
+- **The leaping fish** is freshness: just landed, still moving. Its gill and eye make it unmistakably a fish, not a leaf or a bird.
+- **The gold arc (senyum)** is both the sea and the smile of good service: reliability and trust.
+
+Built on a 120 × 123 grid. Geometry lives in `scripts/brand/build.cjs` and is generated into `src/components/brand/paths.ts`; never redraw it by hand.
+
+### Wordmark and tagline
+
+- **Wordmark:** "Dipasaria" in Plus Jakarta Sans ExtraBold (800), mixed case, tracking −2%, converted to outlines. Two tones: **Dipa** in black (cream on dark) and **saria** in deep gold `#C09200` (gold `#EAB200` on dark).
+- **Tagline:** "— SEGAR & TERPILIH —" in Plus Jakarta Sans Bold, uppercase, tracking 0.34 em, between two gold rules.
 
 ### Lockups
 
-| Lockup | Use | Component |
+| Lockup | Use | Component / file |
 | --- | --- | --- |
-| Mark + wordmark | Header, admin, documents | `<Logo />` |
-| Mark + wordmark + descriptor "PROTEIN PILIHAN · JAKARTA" | Footer, hero moments, social image, print | `<Logo descriptor />` |
-| Mark in a rounded black tile | App icon, favicon, admin login, offline page | `<LogoMark tile />` |
-| Circular seal "DIPASARIA ✦ PROTEIN PILIHAN ✦ MUARA BARU · JAKARTA" | Packaging stickers, footer sign-off, quality marks | `<Seal />` |
+| Horizontal | Header, admin, invoices, email | `<Logo />` · `logo-horizontal.svg` |
+| Horizontal with tagline | Footer, documents, social image | `<Logo tagline />` · `logo-horizontal-tagline.svg` |
+| Stacked with tagline | Signage, bags, packaging, offline page, hero moments | `<Logo stacked tagline />` · `logo-stacked.svg` |
+| Emblem | Avatars, stickers, small spaces | `<Emblem />` · `emblem.svg` |
+| App tile | App icon, favicon | `<LogoMark />` · `icons/icon.svg` |
+| Seal "DIPASARIA · SEGAR & TERPILIH · MUARA BARU · JAKARTA" | Quality stamp on packaging, hero, footer | `<Seal />` · `seal.svg`, `seal-black.svg` |
 
-Wordmark: Barlow Condensed ExtraBold (800), uppercase, letter-spacing 0.1 em. Descriptor: Barlow SemiBold (600), uppercase, letter-spacing about 0.38 em.
+Add `dark` to any component for black backgrounds.
 
 ### Colour versions
 
-- **Gold mark on black**: primary. Header, footer, app icon.
-- **Black mark on cream or gold**: light surfaces, print on kraft or white.
-- **White mark**: only on photography where gold lacks contrast.
+- **Full colour on cream or white:** black basket, gold fish, deep-gold arc, black and deep-gold wordmark. Primary.
+- **Reversed on black:** cream basket, gold fish and arc, cream and gold wordmark.
+- **One colour:** all black (or all cream on black) for stamps, embossing, fax and newsprint; the eye becomes a cut-out.
 
 ### Do not
 
-- Stretch, rotate, outline or add shadows to the mark.
-- Put the gold mark on cream or white (it fails contrast); use the black mark there.
-- Add a gill line, scales, waves or a smile.
-- Set the wordmark in any other typeface or in lower case.
-- Place it on busy photography without a dark overlay.
+- Recolour outside the palette, add gradients, outlines or shadows.
+- Separate the fish from the basket, or flip the fish to face left.
+- Retype the wordmark in a live font, change its two-tone split, or set it in capitals.
+- Place full colour on gold (use one-colour black) or on busy photography without a dark overlay.
 
-Clear space: at least the height of the eye-to-back distance (about a quarter of the mark's height) on every side. Minimum size: 16 px for the mark alone, 120 px wide for the lockup with descriptor.
+Clear space: the height of the basket rim on every side. Minimum size: emblem 20 px, horizontal lockup 32 px tall, stacked lockup 96 px tall.
 
-### Files
+### Files and regeneration
 
-`public/brand/`: `logo-mark-gold.svg`, `logo-mark-black.svg`, `seal-gold.svg`, `logo-lockup-on-black.png`, `logo-lockup-on-cream.png`, `logo-lockup-on-gold.png`.
-`public/icons/`: `icon.svg`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`.
-`public/og.jpg`: 1200 × 630 social preview.
-Regenerate the PNGs with `node scripts/export-brand.cjs` after changing the mark.
+`public/brand/`: emblem (colour, reversed, black, cream), horizontal and stacked lockups (SVG and PNG), seals, `pattern-sisik.svg` (gold) and `pattern-sisik-ink.svg` (black). `public/icons/`: app and touch icons. `public/og.jpg`: social preview. `docs/brand/brand-board.png`: presentation board.
+Regenerate everything with `npm run brand`.
+
+### Graphic element: "sisik"
+
+Overlapping scale arcs that read as both fish scales and waves. Use it at 6–14% opacity on black and gold surfaces (footer, gold strips, dark bands, packaging, the back of business cards) via `<Sisik />`. Never on photography or behind body text on light backgrounds.
 
 ## 3. Colour
 
@@ -79,9 +89,9 @@ Proportions: roughly 60% cream and parchment, 30% black, 10% gold. Gold is the s
 
 ## 4. Typography
 
-- **Display: Barlow Condensed**, 700 and 800, always uppercase. Headings, prices, product names, buttons.
-- **Body: Barlow**, 400 to 600. Paragraphs, forms, tables.
-- Eyebrows and labels: Barlow 700, uppercase, 11 to 12 px, letter-spacing 0.14 to 0.22 em, in gold ink on light, gold on black.
+- **Brand sans: Plus Jakarta Sans** (400 to 800). The logotype is drawn from it, and it sets all body text, forms, labels, buttons and the tagline. It was designed for Jakarta's own city identity, which suits a Jakarta brand.
+- **Display: Barlow Condensed** (700 and 800), always uppercase, for big headlines, prices and product names, where a condensed face gives impact on small screens.
+- Eyebrows and labels: Plus Jakarta Sans 700, uppercase, 11 to 12 px, letter-spacing 0.14 to 0.22 em, in gold ink on light, gold on black.
 - Body copy 14.5 to 17 px, line-height 1.6 to 1.75, measure under about 70 characters.
 - Hero headlines break after each sentence (the slider does this automatically), so write them as two or three short sentences.
 
@@ -155,7 +165,8 @@ We sound like a trusted fishmonger who also keeps good books: knowledgeable, dir
 
 ### Core lines
 
-- Tagline: **Protein pilihan untuk dapur Jakarta.**
+- Brand line (logo tagline): **Segar & terpilih.**
+- Descriptive tagline (page titles, app name): **Protein pilihan untuk dapur Jakarta.**
 - Hero: **Ikan pilihan. Jelas jenisnya. Tepat ukurannya.**
 - Sign-off: **Segar dari lelang subuh, siap untuk dapur Anda.**
 - Restaurant promise: **Pesan dalam 60 detik. Tiba di dapur pukul 07.00.**
@@ -167,7 +178,7 @@ Prepared texts live in `src/lib/wa.ts`. Keep them friendly and complete: greetin
 
 ## 10. Checklist before publishing anything
 
-- [ ] Uses the logo files or components, not a screenshot.
+- [ ] Uses the logo files or components, not a screenshot or retyped wordmark.
 - [ ] Gold text on light backgrounds uses `gold-ink`.
 - [ ] Every time, price and temperature follows the EYD V formats above.
 - [ ] No word from the "Avoid" column.

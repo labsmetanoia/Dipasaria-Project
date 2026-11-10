@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, ClipboardList, ShoppingBasket, Route, Package, Users, Tag, Settings, BarChart3, LogOut, ExternalLink } from "lucide-react";
-import { LogoMark } from "@/components/Logo";
+import { Logo, LogoMark } from "@/components/Logo";
 import { adminLogoutAction } from "@/actions/admin";
 
 const NAV = [
@@ -24,7 +24,7 @@ export function AdminShell({ children, demo }: { children: React.ReactNode; demo
   return (
     <div className="flex min-h-screen bg-sand-50">
       <aside className="no-print hidden w-60 flex-none flex-col border-r border-line bg-white md:flex">
-        <div className="flex items-center gap-2.5 px-5 py-5"><LogoMark className="h-9 w-9" tile /><div><p className="font-display text-[20px] font-extrabold uppercase leading-none tracking-[0.1em] text-ocean-950">Dipasaria</p><p className="mt-1 font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">Panel pengelola</p></div></div>
+        <div className="px-5 py-5"><Logo size="sm" /><p className="mt-2 pl-[2px] font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">Panel pengelola</p></div>
         <nav className="flex-1 space-y-0.5 px-3">
           {NAV.map(({ href, label, Icon, exact }) => (
             <Link key={href} href={href} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${active(href, exact) ? "bg-ocean-900 text-white" : "text-ink/70 hover:bg-sand-100"}`}><Icon className="h-4 w-4" />{label}</Link>

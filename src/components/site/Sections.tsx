@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { ImageSlot } from "./Decor";
+import { ImageSlot, Sisik } from "./Decor";
 
 /** Section header: eyebrow + big condensed heading, optional right-aligned action (reference pattern). */
 export function SectionHead({ eyebrow, title, sub, action, dark = false, center = false }: { eyebrow?: string; title: string; sub?: string; action?: { href: string; label: string }; dark?: boolean; center?: boolean }) {
@@ -34,14 +34,16 @@ export function PageHero({ eyebrow, title, sub, icon = "fish", image, children, 
 
 export function Band({ children, tone = "white", className = "" }: { children: ReactNode; tone?: "white" | "cream" | "parchment" | "dark" | "gold"; className?: string }) {
  const bg = { white: "bg-white", cream: "bg-sand-50", parchment: "bg-sand-100", dark: "bg-ocean-950 text-white", gold: "bg-coral-500 text-ocean-950" }[tone];
- return <section className={`${bg} ${className}`}><div className="container-x py-16 md:py-20">{children}</div></section>;
+ const pattern = tone === "dark" ? <Sisik opacity={0.09} /> : tone === "gold" ? <Sisik ink opacity={0.07} /> : null;
+ return <section className={`relative overflow-hidden ${bg} ${className}`}>{pattern}<div className="container-x relative py-16 md:py-20">{children}</div></section>;
 }
 
 /** Gold "how it works" strip with four icon steps. */
 export function StepsStrip({ title, steps }: { title: string; steps: Array<{ icon: ReactNode; text: string }> }) {
  return (
-    <section className="bg-coral-500 text-ocean-950">
-      <div className="container-x py-10">
+    <section className="relative overflow-hidden bg-coral-500 text-ocean-950">
+      <Sisik ink opacity={0.07} />
+      <div className="container-x relative py-10">
         <h2 className="text-center text-[2rem] sm:text-[2.6rem]">{title}</h2>
         <div className="mt-8 grid grid-cols-2 gap-6 md:grid-cols-4">
           {steps.map((s, i) => (

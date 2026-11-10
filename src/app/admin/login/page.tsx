@@ -2,16 +2,18 @@
 import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { adminLoginAction } from "@/actions/admin";
-import { LogoMark } from "@/components/Logo";
+import { Logo } from "@/components/Logo";
+import { Sisik } from "@/components/site/Decor";
 import { Field } from "@/components/ui";
 
 export default function AdminLoginPage() {
   const [state, action, pending] = useActionState(adminLoginAction, undefined);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-ocean-950 px-4">
-      <form action={action} className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-float">
-        <LogoMark className="h-12 w-12" tile />
-        <h1 className="mt-4 text-2xl font-semibold text-ocean-900">Panel pengelola</h1>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-ocean-950 px-4">
+      <Sisik />
+      <form action={action} className="relative w-full max-w-sm border-t-4 border-coral-500 bg-white p-7 shadow-float">
+        <Logo size="md" />
+        <h1 className="mt-6 text-2xl font-semibold text-ocean-900">Panel pengelola</h1>
         <p className="mt-1 text-sm text-mute">Masuk untuk mengelola pesanan, produk dan pelanggan.</p>
         <div className="mt-6 space-y-4">
           <Field label="Email"><input name="email" type="email" className="input" autoComplete="username" placeholder="pemilik@dipasaria.id" /></Field>

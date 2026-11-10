@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ImageSlot } from "./Decor";
+import { Seal } from "@/components/Logo";
 
 export interface Slide { eyebrow: string; title: string; sub?: string; cta: { href: string; label: string }; cta2?: { href: string; label: string }; icon: string; image?: string | null }
 
@@ -15,6 +16,7 @@ export function HeroSlider({ slides }: { slides: Slide[] }) {
       {slides.map((sl, k) => (
         <ImageSlot key={k} src={sl.image} alt={sl.title} icon={sl.icon} className={`absolute inset-0 -z-10 transition-opacity duration-700 ${k === i ? "opacity-100" : "opacity-0"}`}><div className="photo-fade absolute inset-0" /><div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" /></ImageSlot>
       ))}
+      <Seal className="absolute bottom-16 right-[6%] hidden h-32 w-32 rotate-[-8deg] drop-shadow-[0_8px_24px_rgba(0,0,0,.45)] lg:block xl:h-36 xl:w-36" />
       <div className="container-x flex h-full flex-col justify-end pb-14 md:pb-20">
         <div key={i} className="max-w-3xl">
           <p className="eyebrow rise text-coral-500">{s.eyebrow}</p>

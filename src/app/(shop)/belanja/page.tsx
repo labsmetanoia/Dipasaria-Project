@@ -9,7 +9,7 @@ import { segmentOf } from "@/lib/pricing";
 import { IMAGES } from "@/lib/content/images";
 import { HeroSlider } from "@/components/site/HeroSlider";
 import { SectionHead, Band, StepsStrip, CategoryTile, DarkCard } from "@/components/site/Sections";
-import { ImageSlot } from "@/components/site/Decor";
+import { ImageSlot, Sisik } from "@/components/site/Decor";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { ReorderPanel } from "@/components/shop/ReorderPanel";
 import { rupiah } from "@/lib/format";
@@ -91,8 +91,9 @@ export default async function BelanjaPage() {
       {account && orders.length > 0 ? (
         <div className="container-x -mt-8 relative z-10"><ReorderPanel orders={orders} accountName={account.business_name} /></div>
       ) : (
-        <div className="bg-coral-600 text-ocean-950">
-          <div className="container-x flex flex-wrap items-center justify-center gap-x-4 gap-y-1 py-2.5 text-center font-sans text-[12px] font-bold uppercase tracking-[0.12em]">
+        <div className="relative overflow-hidden bg-coral-600 text-ocean-950">
+          <Sisik ink opacity={0.08} />
+          <div className="container-x relative flex flex-wrap items-center justify-center gap-x-4 gap-y-1 py-2.5 text-center font-sans text-[12px] font-bold uppercase tracking-[0.12em]">
             <span>{c.memberStrip}</span><Link href="/restoran#daftar" className="border border-ocean-950 px-3 py-1 hover:bg-ocean-950 hover:text-coral-500">{c.memberCta}</Link>
           </div>
         </div>

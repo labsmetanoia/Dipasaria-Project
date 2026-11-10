@@ -35,3 +35,17 @@ export function MarqueeBand({ text }: { text: string }) {
     </div>
   );
 }
+
+/**
+ * "Sisik" — the brand pattern of overlapping scales, read both as fish scales and as waves.
+ * Place inside a `relative overflow-hidden` dark (or gold) surface. Purely decorative.
+ */
+export function Sisik({ className = "", opacity = 0.14, size = 56, ink = false }: { className?: string; opacity?: number; size?: number; ink?: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={`pointer-events-none absolute inset-0 ${className}`}
+      style={{ backgroundImage: `url(/brand/pattern-sisik${ink ? "-ink" : ""}.svg)`, backgroundSize: `${size}px ${size / 2}px`, opacity }}
+    />
+  );
+}

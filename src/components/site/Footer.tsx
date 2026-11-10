@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Instagram, MessageCircle, Send } from "lucide-react";
-import { Logo, Seal } from "@/components/Logo";
+import { Logo, Seal, Tagline } from "@/components/Logo";
+import { Sisik } from "@/components/site/Decor";
 import { waLink } from "@/lib/format";
 import { fmt, type Dict } from "@/lib/i18n/dict";
 import type { Locale } from "@/lib/i18n";
@@ -11,10 +12,10 @@ export function Footer({ settings, t, locale }: { settings: Settings; t: Dict; l
  const col = "space-y-2.5 font-sans text-[13.5px] text-white/75";
  const link = "block hover:text-coral-500";
  return (
-    <footer className="bg-ocean-950 text-white">
+    <footer className="border-t-4 border-coral-500 bg-ocean-950 text-white">
       <div className="container-x grid gap-10 py-14 md:grid-cols-12">
         <div className="md:col-span-4">
-          <Logo dark size="lg" descriptor />
+          <Logo dark size="lg" tagline />
           <p className="mt-5 max-w-xs font-sans text-[13.5px] leading-relaxed text-white/70">{en ? "A principal trader on the Muara Baru auction floor at 3 a.m. Named, size-graded seafood and halal chicken for Jakarta's restaurants and homes, delivered cold the next morning." : "Pedagang prinsipal yang hadir di lantai lelang Muara Baru sejak pukul tiga pagi. Seafood dengan jenis dan ukuran yang jelas, serta ayam halal, untuk restoran dan rumah tangga di Jakarta, diantar dingin keesokan paginya."}</p>
           <div className="mt-5 flex gap-2">
             <a href={waLink(settings.whatsapp_number, fmt(t.common.chatDefault, { store: settings.store_name }))} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="flex h-9 w-9 items-center justify-center border border-white/20 hover:border-coral-500 hover:text-coral-500"><MessageCircle className="h-4 w-4" /></a>
@@ -51,9 +52,12 @@ export function Footer({ settings, t, locale }: { settings: Settings; t: Dict; l
           <p className="mt-6 font-sans text-[12px] text-white/50">{settings.address_line} · +{settings.whatsapp_number} · 08.00–21.00 WIB</p>
         </div>
       </div>
-      <div className="container-x flex items-center justify-between gap-6 border-t border-white/10 py-8">
-        <p className="max-w-md font-display text-[1.6rem] font-bold uppercase leading-none text-white/90">{en ? "Fresh from the dawn auction, ready for your kitchen." : "Segar dari lelang subuh, siap untuk dapur Anda."}</p>
-        <Seal className="h-24 w-24 flex-none opacity-90 sm:h-28 sm:w-28" />
+      <div className="relative overflow-hidden border-t border-white/10">
+        <Sisik opacity={0.1} />
+        <div className="container-x relative flex items-center justify-between gap-6 py-10">
+          <div><Tagline dark /><p className="mt-3 max-w-md font-display text-[1.8rem] font-bold uppercase leading-none text-white sm:text-[2.2rem]">{en ? "Fresh from the dawn auction, ready for your kitchen." : "Segar dari lelang subuh, siap untuk dapur Anda."}</p></div>
+          <Seal className="h-24 w-24 flex-none sm:h-32 sm:w-32" />
+        </div>
       </div>
       <div className="border-t border-white/10">
         <div className="container-x flex flex-col gap-1 py-4 font-sans text-[11px] uppercase tracking-[0.12em] text-white/45 sm:flex-row sm:justify-between">
