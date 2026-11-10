@@ -20,7 +20,7 @@ const copy = {
   id: {
     slides: [
       { eyebrow: "Tangkapan hari ini · Muara Baru", title: "Ikan pilihan. Jelas jenisnya. Tepat ukurannya.", sub: "Dipilih di lelang sebelum subuh, disiangi dan ditimbang sesuai pesanan, lalu diantar dingin ke dapur Anda besok pagi.", cta: { href: "/belanja/kategori/ikan-segar", label: "Belanja ikan segar" }, cta2: { href: "/belanja/semua", label: "Semua produk" }, icon: "fish" },
-      { eyebrow: "Untuk restoran", title: "Pesan pukul 19.30. Tiba di dapur sebelum pukul 08.00.", sub: "Harga grosir, pengiriman dapur pukul 05.00–08.00, pembayaran tempo bagi pelanggan tetap, dan tagihan yang mencantumkan nama setiap jenis ikan.", cta: { href: "/restoran#daftar", label: "Daftar akun bisnis" }, cta2: { href: "/restoran", label: "Selengkapnya" }, icon: "shrimp" },
+      { eyebrow: "Untuk restoran", title: "Pesan malam ini. Tiba sebelum pukul 08.00.", sub: "Harga grosir, pengiriman dapur pukul 05.00–08.00, pembayaran tempo bagi pelanggan tetap, dan tagihan yang mencantumkan nama setiap jenis ikan.", cta: { href: "/restoran#daftar", label: "Daftar akun bisnis" }, cta2: { href: "/restoran", label: "Selengkapnya" }, icon: "shrimp" },
       { eyebrow: "Paket hemat", title: "Isi freezer dalam sekali pesan.", sub: "Udang kupas, fillet ikan, potongan salmon, dan ayam dalam satu paket, lebih hemat daripada membeli satuan.", cta: { href: "/belanja/kategori/paket-hemat", label: "Lihat paket" }, icon: "box" },
     ],
     memberStrip: "Punya restoran? Buka akun bisnis untuk harga grosir, pengiriman subuh, dan pembayaran tempo.",
@@ -44,7 +44,7 @@ const copy = {
   en: {
     slides: [
       { eyebrow: "Today's catch · Muara Baru", title: "The right fish. Named. Graded.", sub: "Auctioned before dawn, weighed and cleaned to order, delivered cold to your kitchen tomorrow morning.", cta: { href: "/belanja/kategori/ikan-segar", label: "Shop fresh fish" }, cta2: { href: "/belanja/semua", label: "All products" }, icon: "fish" },
-      { eyebrow: "For restaurants", title: "Order at 7.30 pm. In the kitchen before 8 am.", sub: "Wholesale prices, a 05:00–08:00 kitchen slot, terms once established, species-named invoices.", cta: { href: "/restoran#daftar", label: "Open a business account" }, cta2: { href: "/restoran", label: "Learn more" }, icon: "shrimp" },
+      { eyebrow: "For restaurants", title: "Order tonight. In your kitchen by 8 am.", sub: "Wholesale prices, a 05:00–08:00 kitchen slot, terms once established, species-named invoices.", cta: { href: "/restoran#daftar", label: "Open a business account" }, cta2: { href: "/restoran", label: "Learn more" }, icon: "shrimp" },
       { eyebrow: "Value boxes", title: "Stock the freezer in one order.", sub: "Peeled shrimp, fillets, salmon portions and chicken in one box, for less than buying separately.", cta: { href: "/belanja/kategori/paket-hemat", label: "See boxes" }, icon: "box" },
     ],
     memberStrip: "Run a restaurant? Open a business account for wholesale prices, the dawn kitchen slot and payment terms.",

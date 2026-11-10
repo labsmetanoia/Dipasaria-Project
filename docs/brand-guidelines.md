@@ -19,16 +19,29 @@ Premium here means *precise and calm*, not luxurious. We earn it with clear fact
 
 ![Brand board](brand/brand-board.png)
 
+### The concept: "Fajar di pasar" (dawn at the market)
+
+**Brand story:** *Di pasar, saat fajar, kami pilihkan sarinya.* At the market, at dawn, we choose the best of it.
+
+We read the name as three words that make up the promise (a brand reading, not a claimed etymology): **di pasar** (at the market), **dipa** (Sanskrit for lamp or light) and **sari** (Indonesian for essence, the best part). Each element of the logo carries one of them:
+
+| Element | Meaning | Promise |
+| --- | --- | --- |
+| Market basket (keranjang lelang) | *di pasar* | Principal trader on the Muara Baru auction floor; we buy, choose and answer for every lot |
+| Rising sun behind the fish | *dipa*, light | The pre-dawn auction, and openness: species, size, weight and temperature always written down |
+| Snapper leaping across the sun | freshness | Just landed, still moving; dawn light shows through its eye, gill and lateral line: nothing hidden |
+| Gold crescent beneath (senyum) | service | A wave and a smile: on-time delivery, the 2-hour replacement guarantee |
+| Gold square dot on the "i" | *sari* | One gold mark among black letters: only the best of each lot reaches your kitchen |
+
+The silhouette (a gold dome rising from a black basket) is distinctive at a glance and reads at 20 px; the black-and-gold contrast carries the premium positioning.
+
 ### The emblem
 
-A snapper leaping out of a market basket, with a gold arc beneath.
-
-- **The basket (keranjang)** is the auction crate at Muara Baru, and the "pasar" in Di*pasar*ia: we are traders who buy at the market so you don't have to.
-- **The leaping fish** is freshness: just landed, still moving. A curved body, tapered gill, fine lateral line and single eye make it unmistakably a snapper.
-- **The gold crescent (senyum)** tapers to fine points: both the sea and the smile of good service, reliability and trust.
-- **Craft details:** five slim slots and a fine line inside the rim. At 32 px and below the small version (`<Emblem small />`, favicon, seal) drops the lateral and rim lines and uses four slots so it stays crisp.
-
-Built on a 120 × 123 grid. Geometry lives in `scripts/brand/build.cjs` and is generated into `src/components/brand/paths.ts`; never redraw it by hand.
+- Built on a 120 × 123 grid: half-sun (r 38) rising from the basket rim, a thin halo arc (r 42.5), the fish at −25°, basket with five slim slots and a rim line, tapered crescent below.
+- Eye, gill and lateral line are cut out of the fish, so the sun shows through them.
+- At 32 px and below use the small version (`<Emblem small />`, favicon, seal): no halo, rim line or lateral line, four slots.
+- One-colour versions draw the sun as an outline ring.
+- Geometry lives in `scripts/brand/build.cjs` and is generated into `src/components/brand/paths.ts`; never redraw it by hand.
 
 ### Wordmark and tagline
 
@@ -51,14 +64,15 @@ Add `dark` to any component for black backgrounds.
 
 ### Colour versions
 
-- **Full colour on cream or white:** black basket, gold fish, deep-gold arc, black and deep-gold wordmark. Primary.
-- **Reversed on black:** cream basket, gold fish and arc, cream and gold wordmark.
+- **Full colour on cream or white:** gold sun with deep-gold halo, black fish and basket, deep-gold crescent; black and deep-gold wordmark. Primary.
+- **Reversed on black:** gold sun and crescent, black fish, cream basket; cream and gold wordmark.
+- **On gold:** cream sun, black fish, basket and crescent (`emblem-gold.svg`).
 - **One colour:** all black (or all cream on black) for stamps, embossing, fax and newsprint; the eye becomes a cut-out.
 
 ### Do not
 
 - Recolour outside the palette, add gradients, outlines or shadows.
-- Separate the fish from the basket, or flip the fish to face left.
+- Separate the fish, sun or basket, or flip the fish to face left.
 - Retype the wordmark in a live font, change its two-tone split, or set it in capitals.
 - Place full colour on gold (use one-colour black) or on busy photography without a dark overlay.
 

@@ -7,6 +7,7 @@ import { segmentOf } from "@/lib/pricing";
 import { CollectionView } from "@/components/shop/CollectionView";
 import { IMAGES } from "@/lib/content/images";
 import { ImageSlot } from "@/components/site/Decor";
+import { CategoryRail } from "@/components/site/Sections";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -43,6 +44,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
           </div>
         </div>
       </section>
+      <CategoryRail categories={categories.map((c) => ({ id: c.id, slug: c.slug, label: pick(locale, c.name, c.name_en) }))} counts={Object.fromEntries(categories.map((c) => [c.id, products.filter((p) => p.category_id === c.id).length]))} active={slug} allLabel={en ? "All products" : "Semua produk"} />
       <CollectionView products={list} categories={categories} segment={segmentOf(account)} discountPct={account?.discount_pct} activeSlug={slug} promo={promo} />
     </>
   );

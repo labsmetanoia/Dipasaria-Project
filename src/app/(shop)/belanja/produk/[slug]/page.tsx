@@ -16,6 +16,7 @@ import { SectionHead, StepsStrip, Band } from "@/components/site/Sections";
 import { MarqueeBand } from "@/components/site/Decor";
 import { segmentOf } from "@/lib/pricing";
 import { rupiah } from "@/lib/format";
+import { SITE_URL } from "@/lib/config";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -52,8 +53,24 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   ];
   const stepIcons = [<ClipboardList key="a" className="h-5 w-5" />, <CalendarDays key="b" className="h-5 w-5" />, <Fish key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
   const steps = en ? ["Choose products, sizes and preparation", "Pick a delivery day and slot", "We auction, weigh and prepare at dawn", "Delivered cold to your door"] : ["Pilih produk, ukuran, dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, siapkan, dan timbang saat subuh", "Diantar dingin sampai ke pintu Anda"];
+  const active = product.variants.filter((v) => v.is_active && !v.business_only && v.price_retail > 0);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    alternateName: product.name_en ?? undefined,
+    description: product.description,
+    sku: product.slug,
+    image: product.image_url ? [`${SITE_URL}${product.image_url}`] : undefined,
+    brand: { "@type": "Brand", name: "Dipasaria" },
+    category: cat?.name,
+    offers: active.length
+      ? { "@type": "AggregateOffer", priceCurrency: "IDR", lowPrice: Math.min(...active.map((v) => v.price_retail)), highPrice: Math.max(...active.map((v) => v.price_retail)), offerCount: active.length, availability: product.available_today ? "https://schema.org/InStock" : "https://schema.org/OutOfStock", url: `${SITE_URL}/belanja/produk/${product.slug}` }
+      : undefined,
+  };
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <section className="bg-white">
         <div className="grid lg:grid-cols-2">
           <div className="lg:sticky lg:top-[104px] lg:self-start">

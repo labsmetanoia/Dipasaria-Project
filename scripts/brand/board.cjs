@@ -36,7 +36,7 @@ ul{margin:8px 0 0 42px;padding:0;list-style:none;font-size:13.5px;line-height:1.
 <div class="side">
   <div style="width:300px">${horiz}</div>
   <div><div class="h">${ico('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>')}Tentang merek</div>
-  <p class="p">Dipasaria adalah pedagang prinsipal seafood dan protein pilihan dari lantai lelang Muara Baru. Logonya menampilkan ikan yang melompat dari keranjang lelang dengan senyum emas di bawahnya: kesegaran langsung dari pasar, disajikan dengan layanan yang tepercaya.</p></div>
+  <p class="p"><b>“Di pasar, saat fajar, kami pilihkan sarinya.”</b> Matahari terbit (<i>dipa</i>, cahaya) muncul dari keranjang lelang (<i>pasar</i>), seekor kakap melompat melintasinya, dan senyum emas di bawahnya menjanjikan layanan. Titik emas pada huruf i adalah <i>sari</i>: yang terbaik dari setiap lot.</p></div>
   <div><div class="h">${ico('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>')}Sistem identitas</div>
   <ul><li>Emblem, logo horizontal dan bertumpuk</li><li>Segel mutu, lencana dan pola "sisik"</li><li>Palet warna dan tipografi</li><li>Kemasan, papan nama dan alat tulis</li><li>Situs, toko daring dan aplikasi</li></ul></div>
   <div><div class="h">${ico('<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21a3 3 0 0 1 0-6h1"/>')}Palet warna</div>

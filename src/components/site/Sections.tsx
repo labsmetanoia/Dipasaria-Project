@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ImageSlot, Sisik } from "./Decor";
+import { nobreak } from "@/lib/format";
 
 /** Section header: eyebrow + big condensed heading, optional right-aligned action (reference pattern). */
 export function SectionHead({ eyebrow, title, sub, action, dark = false, center = false }: { eyebrow?: string; title: string; sub?: string; action?: { href: string; label: string }; dark?: boolean; center?: boolean }) {
@@ -21,11 +22,11 @@ export function SectionHead({ eyebrow, title, sub, action, dark = false, center 
 export function PageHero({ eyebrow, title, sub, icon = "fish", image, children, compact = false }: { eyebrow: string; title: string; sub?: string; icon?: string; image?: string | null; children?: ReactNode; compact?: boolean }) {
  return (
     <section className="relative isolate text-white">
-      <ImageSlot src={image} alt={title} icon={icon} className="absolute inset-0 -z-10"><div className="photo-fade absolute inset-0" /><div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-black/10" /></ImageSlot>
+      <ImageSlot src={image} alt={title} icon={icon} className="absolute inset-0 -z-10"><div className="photo-fade absolute inset-0" /><div className="hero-scrim absolute inset-0" /></ImageSlot>
       <div className={`container-x ${compact ? "py-16 md:py-20" : "py-20 md:py-28"}`}>
-        <p className="eyebrow rise text-coral-500">{eyebrow}</p>
-        <h1 className="rise rise-2 mt-3 max-w-4xl text-[2.6rem] sm:text-[4rem] lg:text-[5rem]">{title}</h1>
-        {sub && <p className="rise rise-3 mt-5 max-w-2xl font-sans text-[16px] leading-relaxed text-white/80">{sub}</p>}
+        <p className="rise flex items-center gap-3 font-sans text-[11.5px] font-bold uppercase tracking-[0.24em] text-coral-500"><span className="h-px w-10 bg-coral-500" />{eyebrow}</p>
+        <h1 className="page-title rise rise-2 mt-4 max-w-4xl">{title}</h1>
+        {sub && <p className="rise rise-3 mt-5 max-w-2xl font-sans text-[16px] leading-relaxed text-white/90 [text-shadow:0_1px_12px_rgba(0,0,0,.5)]">{nobreak(sub)}</p>}
         {children && <div className="rise rise-3 mt-8">{children}</div>}
       </div>
     </section>
@@ -84,5 +85,22 @@ export function DarkCard({ href, eyebrow, title, sub, cta, image, icon }: { href
         <span className="mt-4 inline-flex items-center gap-2 bg-coral-500 px-3.5 py-2 font-sans text-[10.5px] font-bold uppercase tracking-[0.16em] text-ocean-950">{cta} <ArrowRight className="h-3.5 w-3.5" /></span>
       </div>
     </Link>
+  );
+}
+
+/** Horizontal category rail: quick jumps between collections, active one in black. */
+export function CategoryRail({ categories, active, allLabel, counts }: { categories: Array<{ id: string; slug: string; label: string }>; active?: string; allLabel: string; counts?: Record<string, number> }) {
+ const item = (href: string, label: string, on: boolean, n?: number) => (
+    <Link key={href} href={href} aria-current={on ? "page" : undefined} className={`flex flex-none items-center gap-2 border px-4 py-2 font-sans text-[11.5px] font-bold uppercase tracking-[0.12em] transition ${on ? "border-ocean-950 bg-ocean-950 text-coral-500" : "border-line bg-white text-ink hover:border-ocean-950"}`}>
+      {label}{n !== undefined && <span className={on ? "text-sand-50/70" : "text-mute"}>{n}</span>}
+    </Link>
+  );
+ return (
+    <nav aria-label="Kategori" className="border-b border-line bg-sand-50">
+      <div className="container-x -mx-5 flex gap-2 overflow-x-auto px-5 py-3 scrollbar-none sm:mx-auto">
+        {item("/belanja/semua", allLabel, active === undefined)}
+        {categories.map((c) => item(`/belanja/kategori/${c.slug}`, c.label, active === c.slug, counts?.[c.id]))}
+      </div>
+    </nav>
   );
 }

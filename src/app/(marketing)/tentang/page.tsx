@@ -7,6 +7,8 @@ import { PageHero, Band, SectionHead, StepsStrip } from "@/components/site/Secti
 import { ImageSlot } from "@/components/site/Decor";
 import { IMAGES } from "@/lib/content/images";
 import { ProductIcon } from "@/components/Icons";
+import { Emblem, Logo } from "@/components/Logo";
+import { Sisik } from "@/components/site/Decor";
 
 export const metadata: Metadata = { title: "Tentang kami" };
 
@@ -47,6 +49,16 @@ const copy = {
     guaranteeT: "Jaminan kesegaran: ganti atau uang kembali dalam 2 jam, tanpa banyak tanya.",
     guaranteeD: "Kirimkan foto melalui WhatsApp dalam 2 jam setelah pesanan diterima. Kami ganti pada pengiriman berikutnya atau kami kembalikan uang Anda. Kami menyisihkan 1,5% penjualan untuk jaminan ini, sebagai pengganti kesempatan Anda memeriksa ikan secara langsung.",
     cta: "Lihat katalog",
+    markEyebrow: "Makna logo",
+    markTitle: "Di pasar, saat fajar, kami pilihkan sarinya.",
+    markIntro: "Kami membaca nama Dipasaria sebagai tiga kata yang menjadi janji kami: di pasar, dipa (cahaya), dan sari (inti, bagian terbaik). Setiap bagian logo menceritakan satu janji itu.",
+    marks: [
+      ["Keranjang lelang", "Di pasar", "Keranjang adalah lantai lelang Muara Baru. Kami pedagang prinsipal: kami sendiri yang membeli, memilih, dan bertanggung jawab atas setiap lot."],
+      ["Matahari terbit", "Dipa, cahaya", "Lelang dimulai sebelum fajar. Cahaya juga berarti keterbukaan: jenis, ukuran, berat, dan suhu selalu jelas tertulis."],
+      ["Ikan yang melompat", "Segar", "Baru didaratkan dan masih bergerak. Cahaya fajar menembus mata, insang, dan garis tubuhnya: tidak ada yang kami sembunyikan."],
+      ["Senyum emas", "Layanan", "Lengkung di bawah keranjang adalah ombak sekaligus senyum: pengiriman tepat waktu dan jaminan ganti dalam 2 jam."],
+      ["Titik emas pada huruf i", "Sari, yang terpilih", "Satu titik emas di antara huruf hitam: dari setiap lot, hanya yang terbaik yang sampai ke dapur Anda."],
+    ],
   },
   en: {
     eyebrow: "About us",
@@ -84,6 +96,16 @@ const copy = {
     guaranteeT: "Freshness guarantee: replacement or refund within 2 hours. No argument.",
     guaranteeD: "Send a photo on WhatsApp within 2 hours of delivery. We replace on the next delivery or refund. We budget 1.5% of sales for this, because it is the substitute for inspecting the fish with your own hands.",
     cta: "See the catalogue",
+    markEyebrow: "The meaning of the mark",
+    markTitle: "At the market, at dawn, we choose the best of it.",
+    markIntro: "We read the name Dipasaria as three words that make up our promise: di pasar (at the market), dipa (light) and sari (essence, the best part). Each part of the logo tells one of them.",
+    marks: [
+      ["The auction basket", "At the market", "The basket is the Muara Baru auction floor. We are principal traders: we buy, choose and answer for every lot ourselves."],
+      ["The rising sun", "Dipa, light", "The auction starts before dawn. Light also means openness: species, size, weight and temperature are always written down."],
+      ["The leaping fish", "Fresh", "Just landed and still moving. Dawn light shines through its eye, gill and lateral line: nothing hidden."],
+      ["The golden smile", "Service", "The curve beneath the basket is both a wave and a smile: on-time delivery and a 2-hour replacement guarantee."],
+      ["The gold dot on the i", "Sari, the chosen one", "One gold dot among black letters: from every lot, only the best reaches your kitchen."],
+    ],
   },
 };
 
@@ -101,6 +123,26 @@ export default async function TentangPage() {
           <div className="space-y-5 font-sans text-[15px] leading-relaxed text-ink/80 lg:col-span-7">{c.story.map((x) => <p key={x}>{x}</p>)}</div>
         </div>
       </Band>
+      <section id="makna-logo" className="relative overflow-hidden bg-ocean-950 text-sand-50">
+        <Sisik opacity={0.08} />
+        <div className="container-x relative grid gap-12 py-16 md:py-24 lg:grid-cols-12 lg:items-center">
+          <div className="lg:col-span-5">
+            <p className="flex items-center gap-3 font-sans text-[11.5px] font-bold uppercase tracking-[0.24em] text-coral-500"><span className="h-px w-10 bg-coral-500" />{c.markEyebrow}</p>
+            <h2 className="mt-4 text-[2.4rem] text-sand-50 sm:text-[3.2rem]">{c.markTitle}</h2>
+            <p className="mt-5 max-w-md font-sans text-[15px] leading-relaxed text-sand-50/80">{c.markIntro}</p>
+            <div className="mt-10 flex items-center gap-8"><Emblem variant="reversed" className="h-40 w-40 flex-none sm:h-48 sm:w-48" /><Logo dark tagline className="hidden h-16 w-auto sm:block" /></div>
+          </div>
+          <ol className="grid gap-px overflow-hidden border border-white/10 bg-white/10 sm:grid-cols-2 lg:col-span-7">
+            {c.marks.map(([name, tag, body], i) => (
+              <li key={name} className={`bg-ocean-950 p-6 ${i === c.marks.length - 1 ? "sm:col-span-2" : ""}`}>
+                <p className="font-sans text-[11px] font-bold uppercase tracking-[0.2em] text-coral-500">{String(i + 1).padStart(2, "0")} · {tag}</p>
+                <p className="mt-2 font-display text-[1.5rem] font-bold uppercase leading-none">{name}</p>
+                <p className="mt-2 font-sans text-[13.5px] leading-relaxed text-sand-50/75">{body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
       <Band tone="parchment">
         <SectionHead eyebrow={c.valuesEyebrow} title={c.valuesTitle} />
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

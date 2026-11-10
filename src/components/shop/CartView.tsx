@@ -14,8 +14,24 @@ import { QtyStepper } from "./QtyStepper";
 import { ProductArt } from "@/components/ProductArt";
 import { Empty } from "@/components/ui";
 
-export function MinOrderBar({ subtotal, min }: { subtotal: number; min: number }) {
+/** Two-stage progress: first to the minimum order, then on to the free-delivery threshold. */
+export function MinOrderBar({ subtotal, min, free }: { subtotal: number; min: number; free?: number }) {
  const { t } = useT();
+ const minMet = subtotal >= min;
+ if (minMet && free && free > min) {
+ const leftFree = Math.max(0, free - subtotal);
+ const pctFree = Math.min(100, Math.round((subtotal / free) * 100));
+ return (
+      <div>
+        <div className="flex items-center justify-between text-xs">
+          <span className={leftFree > 0 ? "text-ink/70" : "font-bold text-success-600"}>{leftFree > 0 ? fmt(t.cart.freeMore, { amount: rupiah(leftFree) }) : t.cart.freeMet}</span>
+          <span className="text-mute">{rupiah(free)}</span>
+        </div>
+        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-sand-200"><div className={`h-full rounded-full transition-all ${leftFree > 0 ? "bg-ocean-950" : "bg-success-600"}`} style={{ width: `${pctFree}%` }} /></div>
+        {leftFree > 0 && <p className="mt-1 text-[11px] font-semibold text-success-600">✓ {t.cart.minMet}</p>}
+      </div>
+    );
+  }
  const pct = Math.min(100, Math.round((subtotal / min) * 100));
  const left = Math.max(0, min - subtotal);
  return (
@@ -67,7 +83,7 @@ export function CartView({ products, settings, areas, account }: { products: Pro
       </div>
       <aside className="min-w-0 lg:col-span-5">
         <div className="card sticky top-32 p-5">
-          <MinOrderBar subtotal={q.subtotal} min={q.min_order} />
+          <MinOrderBar subtotal={q.subtotal} min={q.min_order} free={account?.status === "approved" ? settings.free_delivery_business : settings.free_delivery_retail} />
           <dl className="mt-5 space-y-2 text-sm">
             <div className="flex justify-between"><dt className="text-mute">{t.cart.subtotal} {q.has_catch_weight && `(${t.common.estimated})`}</dt><dd className="font-bold">{rupiah(q.subtotal)}</dd></div>
             <div className="flex justify-between"><dt className="text-mute">{t.cart.shipping}</dt><dd className="text-mute">{t.cart.shippingAtCheckout}</dd></div>

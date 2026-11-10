@@ -16,6 +16,11 @@ export function qtyUnit(n: number | null | undefined, unit: string, locale: "id"
   return `${n.toLocaleString(locale === "en" ? "en-US" : "id-ID", { maximumFractionDigits: 2 })} ${unitLabel(unit, locale)}`;
 }
 
+/** Keeps ranges such as "05.00–08.00" or "40–50" on one line (word joiners around the en dash). */
+export function nobreak(text: string): string {
+  return text.replace(/(\d)–(\d)/g, "$1\u2060–\u2060$2");
+}
+
 /** Rupiah in EYD V style: no space after the symbol (Rp150.000). */
 export function rupiah(n: number | null | undefined, opts: { compact?: boolean } = {}): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";

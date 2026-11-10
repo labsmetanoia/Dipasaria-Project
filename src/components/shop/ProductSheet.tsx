@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Scale, Snowflake, MapPin, ShieldCheck, Fish, BadgeCheck, ShoppingBag, Package } from "lucide-react";
 import type { BusinessAccount, Product } from "@/lib/types";
 import { segmentOf, unitPrice } from "@/lib/pricing";
@@ -21,6 +21,20 @@ export function ProductSheet({ product, account }: { product: Product; account: 
  const [added, setAdded] = useState(false);
  const [more, setMore] = useState(false);
  const { add, notify } = useCart();
+ // Mobile: a sticky add-to-cart bar appears once the main button has scrolled out of view.
+ const ctaRef = useRef<HTMLButtonElement>(null);
+ const [showBar, setShowBar] = useState(false);
+ useEffect(() => {
+   const el = ctaRef.current;
+   if (!el || typeof IntersectionObserver === "undefined") return;
+   const io = new IntersectionObserver(([e]) => setShowBar(!e.isIntersecting && e.boundingClientRect.top < 0));
+   io.observe(el);
+   return () => io.disconnect();
+ }, []);
+ useEffect(() => {
+   document.body.dataset.stickyCta = showBar ? "1" : "";
+   return () => { document.body.dataset.stickyCta = ""; };
+ }, [showBar]);
  const prep = product.prep_options.find((p) => p.id === prepId) ?? null;
  const price = useMemo(() => (variant ? unitPrice(variant, segment, account) + (prep?.surcharge ?? 0) : 0), [variant, segment, account, prep]);
  const total = Math.round(price * qty);
@@ -78,7 +92,7 @@ export function ProductSheet({ product, account }: { product: Product; account: 
         <QtyStepper value={qty} min={variant.min_qty} step={variant.step_qty} unit={unit} onChange={(v) => setQty(Math.max(variant.min_qty, v))} />
         <p className="font-sans text-[13px] text-mute">{product.is_catch_weight ? `± ${t.common.estimated}: ` : `${t.shop.total}: `}<b className="text-ink">{rupiah(total)}</b></p>
       </div>
-      <button type="button" disabled={off || outOfStock} onClick={doAdd} className="btn-accent w-full py-4 text-[13.5px]">
+      <button ref={ctaRef} type="button" disabled={off || outOfStock} onClick={doAdd} className="btn-accent w-full py-4 text-[13.5px]">
         {added ? <><Check className="h-4 w-4" /> {t.shop.added}</> : off ? t.shop.soldOut : outOfStock ? t.shop.outOfStock : <><ShoppingBag className="h-4 w-4" /> {t.shop.addToCart}</>}
       </button>
       {variant.stock_qty !== null && variant.stock_qty <= 5 && variant.stock_qty > 0 && <p className="-mt-3 font-sans text-xs text-gold-ink">{fmt(t.shop.leftInStock, { n: variant.stock_qty, unit })}</p>}
@@ -92,6 +106,17 @@ export function ProductSheet({ product, account }: { product: Product; account: 
         <p className="flex gap-2"><Snowflake className="h-4 w-4 flex-none text-gold-ink" />{pick(locale, product.storage_note, product.storage_note_en)}</p>
       </div>
       {product.is_catch_weight && <p className="flex gap-2 bg-sand-100 px-4 py-3 font-sans text-[12.5px] leading-relaxed text-ink/80"><Scale className="mt-0.5 h-4 w-4 flex-none text-gold-ink" />{t.shop.catchNote}</p>}
+      <div aria-hidden={!showBar} className={`no-print fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(0,0,0,.08)] backdrop-blur transition-transform duration-300 md:hidden ${showBar ? "translate-y-0" : "translate-y-full"}`}>
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-display text-[16px] font-bold uppercase leading-none">{locale === "en" && product.name_en ? product.name_en : product.name}</p>
+            <p className="mt-1 font-sans text-[12px] text-mute">{pick(locale, variant.label, variant.label_en)} · <b className="text-ink">{rupiah(price)}</b>/{unit}</p>
+          </div>
+          <button type="button" tabIndex={showBar ? 0 : -1} disabled={off || outOfStock} onClick={doAdd} className="btn-accent flex-none px-4 py-3 text-[12px]">
+            {added ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />} {added ? t.shop.added : t.shop.add}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -19,6 +19,17 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#000000", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
+const ORG_LD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Dipasaria",
+  slogan: "Segar & terpilih",
+  url: SITE_URL,
+  logo: `${SITE_URL}/brand/logo-stacked.png`,
+  areaServed: ["Jakarta", "Tangerang"],
+  address: { "@type": "PostalAddress", addressLocality: "Jakarta Utara", addressCountry: "ID" },
+};
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { locale, t } = await getT();
   return (
@@ -29,6 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_LD) }} />
         <LocaleProvider locale={locale} t={t}>{children}</LocaleProvider>
         <RegisterSW />
       </body>

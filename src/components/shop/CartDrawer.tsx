@@ -68,7 +68,7 @@ export function CartDrawer({ products, settings, areas, account }: { products: P
         </div>
         {lines.length > 0 && (
           <div className="border-t border-line bg-white px-5 py-4">
-            <MinOrderBar subtotal={q.subtotal} min={q.min_order} />
+            <MinOrderBar subtotal={q.subtotal} min={q.min_order} free={account?.status === "approved" ? settings.free_delivery_business : settings.free_delivery_retail} />
             <div className="mt-4 flex items-baseline justify-between"><span className="font-sans text-[11px] font-bold uppercase tracking-[0.14em] text-mute">{t.cart.subtotal}{q.has_catch_weight ? ` (${t.common.estimated})` : ""}</span><span className="font-display text-3xl font-bold">{rupiah(q.subtotal)}</span></div>
             <p className="mt-1 font-sans text-[11.5px] text-mute">{t.cart.shipping}: {t.cart.shippingAtCheckout}</p>
             {q.errors.length > 0 && <p className="mt-2 font-sans text-xs text-gold-ink">{q.errors[0]}</p>}

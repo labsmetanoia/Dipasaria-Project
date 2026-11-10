@@ -30,27 +30,31 @@ const LATERAL = "M14 -0.9Q-2 -3.6 -20 2.6Q-2 -1.4 14 0.5Z";
 const FISH = FISH_BODY + GILL + LATERAL;
 const FISH_SMALL = FISH_BODY + GILL;
 const FIN = "M-6 -12.6C-2 -22 9 -24.5 15 -13.4C8 -15.6 1 -14.6 -6 -12.6Z";
-const FISH_TRANSFORM = "translate(56 35) rotate(-27) scale(1.06)";
+const FISH_TRANSFORM = "translate(59 40) rotate(-25) scale(0.86)";
 const EYE = { cx: 26, cy: -3.6, r: 2.5 };
+const EYE_HOLE = `M${EYE.cx + EYE.r} ${EYE.cy}A${EYE.r} ${EYE.r} 0 1 0 ${EYE.cx - EYE.r} ${EYE.cy}A${EYE.r} ${EYE.r} 0 1 0 ${EYE.cx + EYE.r} ${EYE.cy}Z`;
+// "Dipa" (light): a dawn sun rising out of the basket, the 03.00 auction and the transparency of a named catch.
+const SUN = "M22 55A38 38 0 0 1 98 55Z";
+const SUN_RING = "M23.2 55A36.8 36.8 0 0 1 96.8 55"; // one-colour versions: the sun as an outline
+const HALO = "M17.5 55A42.5 42.5 0 0 1 102.5 55";
 // The "senyum": a tapered gold crescent under the basket — the sea, and the service.
 const SMILE = "M33 104.5Q60 124 87 104.5Q60 109 33 104.5Z";
 
+// sun: fill colour or null (then drawn as an outline ring in `ring`); halo: thin outer arc (omitted at small sizes)
 const VARIANTS = {
-  color: { basket: C.black, fish: C.gold, eye: C.black, smile: C.deep },
-  reversed: { basket: C.cream, fish: C.gold, eye: C.black, smile: C.gold },
-  black: { basket: C.black, fish: C.black, eye: null, smile: C.black },
-  cream: { basket: C.cream, fish: C.cream, eye: null, smile: C.cream },
-  gold: { basket: C.black, fish: C.black, eye: null, smile: C.black, bg: C.gold },
+  color: { sun: C.gold, halo: C.deep, fish: C.black, basket: C.black, smile: C.deep },
+  reversed: { sun: C.gold, halo: C.gold, fish: C.black, basket: C.cream, smile: C.gold },
+  gold: { sun: C.cream, halo: C.black, fish: C.black, basket: C.black, smile: C.black },
+  black: { sun: null, ring: C.black, halo: null, fish: C.black, basket: C.black, smile: C.black },
+  cream: { sun: null, ring: C.cream, halo: null, fish: C.cream, basket: C.cream, smile: C.cream },
 };
 
 function emblemSvgInner(v, small = false) {
-  const eye = v.eye
-    ? `<circle cx="${EYE.cx}" cy="${EYE.cy}" r="${EYE.r}" fill="${v.eye}"/>`
-    : "";
-  // In one-colour versions the eye is a hole: draw it as an even-odd subpath of the fish.
-  const fishBase = small ? FISH_SMALL : FISH;
-  const fishPath = v.eye ? fishBase : fishBase + `M${EYE.cx + EYE.r} ${EYE.cy}A${EYE.r} ${EYE.r} 0 1 0 ${EYE.cx - EYE.r} ${EYE.cy}A${EYE.r} ${EYE.r} 0 1 0 ${EYE.cx + EYE.r} ${EYE.cy}Z`;
-  return `<g transform="${FISH_TRANSFORM}" fill="${v.fish}"><path fill-rule="evenodd" d="${fishPath}"/><path d="${FIN}"/>${eye}</g>`
+  const sun = v.sun ? `<path fill="${v.sun}" d="${SUN}"/>` : `<path fill="none" stroke="${v.ring}" stroke-width="2.4" d="${SUN_RING}"/>`;
+  const halo = v.halo && !small ? `<path fill="none" stroke="${v.halo}" stroke-width="1.3" d="${HALO}"/>` : "";
+  // Eye, gill and lateral line are cut out of the fish, so the dawn light shows through them.
+  return sun + halo
+    + `<g transform="${FISH_TRANSFORM}" fill="${v.fish}"><path fill-rule="evenodd" d="${(small ? FISH_SMALL : FISH) + EYE_HOLE}"/><path d="${FIN}"/></g>`
     + `<path fill-rule="evenodd" fill="${v.basket}" d="${small ? BASKET_SMALL : BASKET}"/>`
     + `<path fill="${v.smile}" d="${SMILE}"/>`;
 }
@@ -158,7 +162,7 @@ const MONO = { emblem: VARIANTS.black, word: C.black, accent: C.black, tag: C.bl
 function seal(color, ink) {
   const text = "DIPASARIA · SEGAR & TERPILIH · MUARA BARU · JAKARTA · ";
   const ringText = ring(F700, text, 13, 100, 100, 70, 1.2, 0);
-  const em = `<g transform="translate(58 55) scale(0.7)">${emblemSvgInner({ basket: color, fish: color, eye: null, smile: color }, true)}</g>`;
+  const em = `<g transform="translate(58 55) scale(0.7)">${emblemSvgInner({ sun: null, ring: color, halo: null, basket: color, fish: color, smile: color }, true)}</g>`;
   return {
     w: 200, h: 200,
     inner: `<circle cx="100" cy="100" r="96" fill="${ink}"/><circle cx="100" cy="100" r="92" fill="none" stroke="${color}" stroke-width="1.6"/><circle cx="100" cy="100" r="86" fill="none" stroke="${color}" stroke-width="0.6"/><circle cx="100" cy="100" r="58" fill="none" stroke="${color}" stroke-width="0.8"/><g fill="${color}">${ringText}</g>${em}`,
@@ -188,6 +192,7 @@ write("public/brand/emblem.svg", svg({ w: 120, h: 123, inner: emblemSvgInner(VAR
 write("public/brand/emblem-reversed.svg", svg({ w: 120, h: 123, inner: emblemSvgInner(VARIANTS.reversed) }, C.black));
 write("public/brand/emblem-black.svg", svg({ w: 120, h: 123, inner: emblemSvgInner(VARIANTS.black) }));
 write("public/brand/emblem-cream.svg", svg({ w: 120, h: 123, inner: emblemSvgInner(VARIANTS.cream) }, C.black));
+write("public/brand/emblem-gold.svg", svg({ w: 120, h: 123, inner: emblemSvgInner(VARIANTS.gold) }, C.gold));
 // Lockups
 write("public/brand/logo-horizontal.svg", svg(horizontal(LIGHT, false)));
 write("public/brand/logo-horizontal-tagline.svg", svg(horizontal(LIGHT, true)));
@@ -213,7 +218,7 @@ write("public/brand/icon-large.svg", icon(9, 13));
 
 // Path constants for React components
 const ts = `// Generated by scripts/brand/build.cjs — do not edit by hand.
-export const EMBLEM = ${JSON.stringify({ basket: BASKET, basketSmall: BASKET_SMALL, fish: FISH, fishSmall: FISH_SMALL, fin: FIN, fishTransform: FISH_TRANSFORM, eye: EYE, smile: SMILE, viewBox: "0 0 120 123" })} as const;
+export const EMBLEM = ${JSON.stringify({ sun: SUN, sunRing: SUN_RING, halo: HALO, basket: BASKET, basketSmall: BASKET_SMALL, fish: FISH + EYE_HOLE, fishSmall: FISH_SMALL + EYE_HOLE, fin: FIN, fishTransform: FISH_TRANSFORM, smile: SMILE, viewBox: "0 0 120 123" })} as const;
 export const WORDMARK = ${JSON.stringify({ dipa: WORD.dipa, dot: WORD.dot, saria: WORD.saria, width: WORD.width, cap: WORD.cap, desc: WORD.desc })} as const;
 export const TAGLINE = ${JSON.stringify({ text: TAG_TEXT, d: TAG.d, width: TAG.width, cap: TAG.cap })} as const;
 export const SEAL_RING = ${JSON.stringify(ring(F700, "DIPASARIA · SEGAR & TERPILIH · MUARA BARU · JAKARTA · ", 13, 100, 100, 70, 1.2, 0))};
