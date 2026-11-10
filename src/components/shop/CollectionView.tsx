@@ -18,7 +18,7 @@ export function CollectionView({ products, categories, segment, discountPct, act
  const [limit, setLimit] = useState(12);
  const L = locale === "en"
     ? { all: "All categories", storage: "Storage", sortBy: "Sort by", rec: "Recommended", pl: "Price: low to high", ph: "Price: high to low", nm: "Name", avail: "Available today", more: "See more products", count: (n: number) => `${n} products` }
-    : { all: "Semua kategori", storage: "Penyimpanan", sortBy: "Urutkan", rec: "Rekomendasi", pl: "Harga: rendah ke tinggi", ph: "Harga: tinggi ke rendah", nm: "Nama", avail: "Tersedia hari ini", more: "Lihat produk lainnya", count: (n: number) => `${n} produk` };
+    : { all: "Semua kategori", storage: "Penyimpanan", sortBy: "Urutkan", rec: "Rekomendasi", pl: "Harga terendah", ph: "Harga tertinggi", nm: "Nama", avail: "Tersedia hari ini", more: "Lihat produk lainnya", count: (n: number) => `${n} produk` };
  const list = useMemo(() => {
  const price = (p: Product) => { const v = defaultVariant(p, segment); return v ? (segment === "business" ? v.price_business : v.price_retail) : 0; };
  let xs = products.filter((p) => (storage === "all" || p.storage_class === storage) && (!onlyAvail || p.available_today));

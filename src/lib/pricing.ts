@@ -74,13 +74,13 @@ export function validatePromo(
   isFirstOrder: boolean | undefined,
 ): { promo: Promo | null; error: string | null } {
   if (!promo) return { promo: null, error: "Kode promo tidak ditemukan." };
-  if (!promo.is_active) return { promo: null, error: "Kode promo tidak aktif." };
+  if (!promo.is_active) return { promo: null, error: "Kode promo sudah tidak berlaku." };
   if (promo.segment !== "all" && promo.segment !== segment) return { promo: null, error: "Kode promo tidak berlaku untuk akun ini." };
-  if (promo.starts_at && nowIso < promo.starts_at) return { promo: null, error: "Promo belum dimulai." };
-  if (promo.ends_at && nowIso > promo.ends_at) return { promo: null, error: "Promo sudah berakhir." };
+  if (promo.starts_at && nowIso < promo.starts_at) return { promo: null, error: "Promo ini belum dimulai." };
+  if (promo.ends_at && nowIso > promo.ends_at) return { promo: null, error: "Promo ini sudah berakhir." };
   if (promo.quota !== null && promo.used_count >= promo.quota) return { promo: null, error: "Kuota promo sudah habis." };
-  if (subtotal < promo.min_spend) return { promo: null, error: `Minimum belanja promo Rp ${promo.min_spend.toLocaleString("id-ID")}.` };
-  if (promo.first_order_only && isFirstOrder === false) return { promo: null, error: "Promo hanya untuk pesanan pertama." };
+  if (subtotal < promo.min_spend) return { promo: null, error: `Promo ini berlaku untuk belanja minimal Rp${promo.min_spend.toLocaleString("id-ID")}.` };
+  if (promo.first_order_only && isFirstOrder === false) return { promo: null, error: "Promo ini khusus untuk pesanan pertama." };
   return { promo, error: null };
 }
 
@@ -108,7 +108,7 @@ export function quote(
     }
     const { product, variant } = hit;
     if (!product.is_active || !variant.is_active) {
-      errors.push(`${product.name} sudah tidak dijual.`);
+      errors.push(`${product.name} sudah tidak tersedia.`);
       continue;
     }
     if (!product.available_today) {
@@ -116,12 +116,12 @@ export function quote(
       continue;
     }
     if (variant.business_only && segment !== "business") {
-      errors.push(`${product.name} (${variant.label}) hanya untuk akun bisnis.`);
+      errors.push(`${product.name} (${variant.label}) khusus untuk akun bisnis.`);
       continue;
     }
     const q = roundQty(l.qty, variant);
     if (q < variant.min_qty) {
-      errors.push(`${product.name}: minimum ${variant.min_qty} ${variant.unit}.`);
+      errors.push(`${product.name}: pembelian minimal ${variant.min_qty} ${variant.unit}.`);
       continue;
     }
     if (variant.stock_qty !== null && q > variant.stock_qty) {
@@ -131,7 +131,7 @@ export function quote(
     let prep: PrepOption | null = null;
     if (l.prep_option_id) {
       prep = product.prep_options.find((p) => p.id === l.prep_option_id) ?? null;
-      if (!prep) errors.push(`${product.name}: opsi penyiapan tidak tersedia.`);
+      if (!prep) errors.push(`${product.name}: cara penyiapan tidak tersedia.`);
     }
     const price = unitPrice(variant, segment, ctx.account) + (prep?.surcharge ?? 0);
     const lineTotal = Math.round(price * q);

@@ -27,7 +27,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Pesanan" value={summary.orders_total} sub={`${summary.orders_business} bisnis · ${summary.orders_retail} rumah tangga`} />
-        <Stat label="Penjualan" value={rupiah(summary.sales, { compact: true })} sub={summary.to_weigh ? `${summary.to_weigh} belum ditimbang (perkiraan)` : "final"} />
+        <Stat label="Penjualan" value={rupiah(summary.sales, { compact: true })} sub={summary.to_weigh ? `${summary.to_weigh} belum ditimbang (perkiraan)` : "angka akhir"} />
         <Stat label="Laba kotor (est.)" value={`${summary.margin_pct.toFixed(1)}%`} sub={rupiah(summary.est_gross_profit, { compact: true })} tone={marginTone} />
         <Stat label="Non-seafood" value={`${summary.non_seafood_share_pct.toFixed(0)}%`} sub="target Gate B: 15–25%" tone={summary.non_seafood_share_pct >= 15 ? "good" : "neutral"} />
       </div>
@@ -76,7 +76,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
 }
 
 function ActionCard({ title, count, href, tone, children, sub, icon }: { title: string; count: number; href: string; tone: "coral" | "warn" | "neutral"; children: React.ReactNode; sub?: string; icon?: React.ReactNode }) {
-  const color = tone === "coral" ? "text-coral-600" : tone === "warn" ? "text-warn-600" : "text-ocean-900";
+  const color = tone === "coral" ? "text-gold-ink" : tone === "warn" ? "text-warn-600" : "text-ocean-900";
   return (
     <div className="card p-5">
       <div className="flex items-start justify-between">

@@ -61,12 +61,12 @@ export function ProductsTable({ products: initial, categories }: { products: Pro
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-sand-100 text-left text-xs text-mute">
-            <tr><th className="px-3 py-2 font-medium">Ada hari ini</th><th className="px-3 py-2 font-medium">Produk / varian</th><th className="px-3 py-2 text-right font-medium">Modal</th><th className="px-3 py-2 text-right font-medium">Harga retail</th><th className="px-3 py-2 text-right font-medium">Margin</th><th className="px-3 py-2 text-right font-medium">Harga grosir</th><th className="px-3 py-2 text-right font-medium">Margin</th><th className="px-3 py-2 text-right font-medium">Stok</th></tr>
+            <tr><th className="px-3 py-2 font-medium">Ada hari ini</th><th className="px-3 py-2 font-medium">Produk / varian</th><th className="px-3 py-2 text-right font-medium">Modal</th><th className="px-3 py-2 text-right font-medium">Harga eceran</th><th className="px-3 py-2 text-right font-medium">Margin</th><th className="px-3 py-2 text-right font-medium">Harga grosir</th><th className="px-3 py-2 text-right font-medium">Margin</th><th className="px-3 py-2 text-right font-medium">Stok</th></tr>
           </thead>
           <tbody className="divide-y divide-line">
             {list.map((p) => p.variants.map((v, vi) => {
               const mr = margin(v, false), mb = margin(v, true);
-              const flag = (m: number | null) => m === null ? "text-mute" : m < 10 ? "font-semibold text-coral-600" : m < 12 ? "text-warn-600" : "text-success-600";
+              const flag = (m: number | null) => m === null ? "text-mute" : m < 10 ? "font-semibold text-gold-ink" : m < 12 ? "text-warn-600" : "text-success-600";
               return (
                 <tr key={v.id} className={`${!p.available_today ? "bg-sand-50/70 text-mute" : ""} ${vi > 0 ? "" : "border-t-2 border-sand-200"}`}>
                   <td className="px-3 py-2">{vi === 0 && <button onClick={() => toggleAvail(p)} className={`relative h-6 w-11 rounded-full transition ${p.available_today ? "bg-success-600" : "bg-sand-300"}`} aria-label="Ada hari ini"><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${p.available_today ? "left-[22px]" : "left-0.5"}`} /></button>}</td>

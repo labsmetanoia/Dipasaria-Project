@@ -11,7 +11,7 @@ import type { StorageClass } from "@/lib/types";
 const GROUPS: Array<{ key: StorageClass; title: string; hint: string }> = [
   { key: "chilled", title: "Lelang Muara Baru & segar", hint: "Beli sesuai daftar + buffer; cek mata, insang, bau, suhu inti ≤4 °C; foto per lot." },
   { key: "frozen", title: "Ambil dari freezer", hint: "FEFO: ambil kedaluwarsa terdekat; kantong terinsulasi terpisah." },
-  { key: "ambient", title: "Rak suhu ruang", hint: "Telur dan bumbu dalam tote terpisah." },
+  { key: "ambient", title: "Rak suhu ruang", hint: "Telur dan bumbu dikemas dalam wadah terpisah." },
 ];
 
 export default async function BuyingListPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {

@@ -4,7 +4,7 @@ import { getT } from "@/lib/i18n/server";
 import { OrderLookup } from "@/components/shop/OrderLookup";
 import { MyOrders } from "@/components/shop/MyOrders";
 
-export const metadata = { title: "Pesanan" };
+export const metadata = { title: "Lacak pesanan" };
 export const dynamic = "force-dynamic";
 
 export default async function OrdersPage() {

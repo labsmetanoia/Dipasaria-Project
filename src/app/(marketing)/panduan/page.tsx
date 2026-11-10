@@ -14,7 +14,7 @@ export default async function PanduanPage() {
   const { locale } = await getT();
   const c = locale === "en"
     ? { eyebrow: "Guides", title: "Know your fish, store it properly, cost your kitchen.", sub: "Short, practical notes from the auction floor and the packing table. New guides every week.", read: "Read" }
-    : { eyebrow: "Panduan", title: "Mengenal ikan, menyimpan dengan benar, menghitung biaya dapur.", sub: "Catatan singkat dan praktis dari lantai lelang dan meja packing. Panduan baru setiap minggu.", read: "Baca" };
+    : { eyebrow: "Panduan", title: "Mengenal ikan, menyimpannya dengan benar, dan menghitung biaya dapur.", sub: "Catatan singkat dan praktis dari lantai lelang dan meja pengemasan. Panduan baru setiap minggu.", read: "Baca" };
   return (
     <>
       <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="fillet" image={IMAGES.butcher} />

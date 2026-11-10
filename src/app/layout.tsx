@@ -12,8 +12,9 @@ export const metadata: Metadata = {
   applicationName: BRAND.name,
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: BRAND.name, statusBarStyle: "black-translucent" },
-  openGraph: { type: "website", siteName: BRAND.name, title: `${BRAND.name} — ${BRAND.tagline}`, description: BRAND.promise, locale: "id_ID" },
-  icons: { icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }, { url: "/icons/icon-192.png", sizes: "192x192" }], apple: "/icons/icon-192.png" },
+  openGraph: { type: "website", siteName: BRAND.name, title: `${BRAND.name} — ${BRAND.tagline}`, description: BRAND.promise, locale: "id_ID", images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "Dipasaria" }] },
+  twitter: { card: "summary_large_image", images: ["/og.jpg"] },
+  icons: { icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }, { url: "/icons/icon-192.png", sizes: "192x192" }], apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = { themeColor: "#000000", width: "device-width", initialScale: 1, viewportFit: "cover" };

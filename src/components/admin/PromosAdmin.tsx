@@ -31,9 +31,9 @@ export function PromosAdmin({ promos: initial }: { promos: Promo[] }) {
               <div><p className="font-display text-lg font-semibold tracking-wide text-ocean-900">{p.code}</p><p className="text-sm text-mute">{p.description}</p></div>
               <div className="flex gap-1">{p.is_active ? <Badge tone="success">Aktif</Badge> : <Badge>Nonaktif</Badge>}<Badge tone="tide">{p.segment === "all" ? "Semua" : p.segment === "retail" ? "Rumah tangga" : "Bisnis"}</Badge></div>
             </div>
-            <p className="mt-2 text-sm">{p.type === "percent" ? `Diskon ${p.value}%` : p.type === "fixed" ? `Potongan ${rupiah(p.value)}` : "Gratis ongkir"} · min. {rupiah(p.min_spend)}{p.first_order_only ? " · pesanan pertama" : ""}</p>
+            <p className="mt-2 text-sm">{p.type === "percent" ? `Diskon ${p.value}%` : p.type === "fixed" ? `Potongan ${rupiah(p.value)}` : "Gratis ongkos kirim"} · min. {rupiah(p.min_spend)}{p.first_order_only ? " · pesanan pertama" : ""}</p>
             <p className="text-xs text-mute">Dipakai {p.used_count}{p.quota !== null ? ` / ${p.quota}` : ""}{p.ends_at ? ` · sampai ${p.ends_at.slice(0, 10)}` : ""}</p>
-            <div className="mt-3 flex gap-2"><button onClick={() => setEdit(p)} className="btn-secondary px-3 py-1.5 text-xs">Ubah</button><button onClick={() => del(p.id)} className="btn-ghost px-3 py-1.5 text-xs text-coral-600"><Trash2 className="h-3.5 w-3.5" /></button></div>
+            <div className="mt-3 flex gap-2"><button onClick={() => setEdit(p)} className="btn-secondary px-3 py-1.5 text-xs">Ubah</button><button onClick={() => del(p.id)} className="btn-ghost px-3 py-1.5 text-xs text-gold-ink"><Trash2 className="h-3.5 w-3.5" /></button></div>
           </div>
         ))}
       </div>
@@ -42,9 +42,9 @@ export function PromosAdmin({ promos: initial }: { promos: Promo[] }) {
           <h2 className="font-semibold text-ocean-900">{edit.id ? `Ubah ${edit.code}` : "Promo baru"}</h2>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Kode"><input className="input uppercase" value={edit.code} onChange={(e) => setEdit({ ...edit, code: e.target.value })} /></Field>
-            <Field label="Jenis"><select className="input" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value as Promo["type"] })}><option value="percent">Persen</option><option value="fixed">Potongan tetap</option><option value="free_delivery">Gratis ongkir</option></select></Field>
+            <Field label="Jenis"><select className="input" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value as Promo["type"] })}><option value="percent">Persen</option><option value="fixed">Potongan tetap</option><option value="free_delivery">Gratis ongkos kirim</option></select></Field>
             <Field label={edit.type === "percent" ? "Persen" : "Nilai (Rp)"}><input type="number" className="input" value={edit.value} disabled={edit.type === "free_delivery"} onChange={(e) => setEdit({ ...edit, value: Number(e.target.value) })} /></Field>
-            <Field label="Minimum belanja (Rp)"><input type="number" className="input" value={edit.min_spend} onChange={(e) => setEdit({ ...edit, min_spend: Number(e.target.value) })} /></Field>
+            <Field label="Minimal belanja (Rp)"><input type="number" className="input" value={edit.min_spend} onChange={(e) => setEdit({ ...edit, min_spend: Number(e.target.value) })} /></Field>
             <Field label="Segmen"><select className="input" value={edit.segment} onChange={(e) => setEdit({ ...edit, segment: e.target.value as Promo["segment"] })}><option value="all">Semua</option><option value="retail">Rumah tangga</option><option value="business">Bisnis</option></select></Field>
             <Field label="Kuota (kosong = tanpa batas)"><input type="number" className="input" value={edit.quota ?? ""} onChange={(e) => setEdit({ ...edit, quota: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
             <Field label="Mulai"><input type="date" className="input" value={edit.starts_at?.slice(0, 10) ?? ""} onChange={(e) => setEdit({ ...edit, starts_at: e.target.value ? `${e.target.value}T00:00:00+07:00` : null })} /></Field>
@@ -55,7 +55,7 @@ export function PromosAdmin({ promos: initial }: { promos: Promo[] }) {
             <label className="flex items-center gap-2"><input type="checkbox" checked={edit.first_order_only} onChange={(e) => setEdit({ ...edit, first_order_only: e.target.checked })} className="accent-ocean-900" /> Hanya pesanan pertama (per nomor WhatsApp)</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={edit.is_active} onChange={(e) => setEdit({ ...edit, is_active: e.target.checked })} className="accent-ocean-900" /> Aktif</label>
           </div>
-          {err && <p className="text-sm text-coral-600">{err}</p>}
+          {err && <p className="text-sm text-gold-ink">{err}</p>}
           <div className="flex gap-2"><button onClick={save} disabled={pending || !edit.code} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}</button><button onClick={() => setEdit(null)} className="btn-ghost">Batal</button></div>
         </div>
       )}

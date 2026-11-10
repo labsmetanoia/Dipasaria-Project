@@ -29,7 +29,7 @@ export function msgOrderConfirmed(o: Order, s: Settings): string {
     itemLines(o),
     ``,
     `Total${est}: *${rupiah(o.total_est)}*`,
-    o.has_catch_weight ? `\nIkan segar ditimbang subuh; invoice final menyusul sebelum pengiriman.` : "",
+    o.has_catch_weight ? `\nIkan segar ditimbang saat subuh; tagihan akhir akan kami kirim sebelum pengiriman.` : "",
     `Lacak pesanan: ${trackingUrl(o)}`,
   ].join("\n");
 }
@@ -37,27 +37,27 @@ export function msgOrderConfirmed(o: Order, s: Settings): string {
 export function msgFinalInvoice(o: Order, s: Settings): string {
   const total = o.total_final ?? o.total_est;
   const pay =
-    o.payment_method === "qris" ? `Pembayaran QRIS a.n. ${s.bank_holder}. Scan QR di halaman pesanan, lalu tekan "Saya sudah bayar".`
-    : o.payment_method === "transfer" ? `Transfer ke ${s.bank_name} ${s.bank_account} a.n. ${s.bank_holder}.`
-    : o.payment_method === "cod" ? `Pembayaran saat barang diterima.`
-    : `Ditagihkan sesuai tempo akun Anda.`;
+    o.payment_method === "qris" ? `Pembayaran QRIS atas nama ${s.bank_holder}. Pindai kode QR di halaman pesanan, lalu tekan "Saya sudah membayar".`
+    : o.payment_method === "transfer" ? `Transfer ke ${s.bank_name} ${s.bank_account} atas nama ${s.bank_holder}.`
+    : o.payment_method === "cod" ? `Pembayaran dilakukan saat pesanan diterima (COD).`
+    : `Ditagihkan sesuai ketentuan tempo akun Anda.`;
   return [
-    `Invoice final ${s.store_name} — *${o.code}*`,
+    `Tagihan akhir ${s.store_name} — *${o.code}*`,
     `${o.customer_name} · ${formatDate(o.delivery_date)}, ${o.slot_label}`,
     ``,
     itemLines(o, true),
     ``,
     o.discount ? `Diskon: −${rupiah(o.discount)}` : "",
-    `Ongkir: ${o.delivery_fee ? rupiah(o.delivery_fee) : "Gratis"}`,
+    `Ongkos kirim: ${o.delivery_fee ? rupiah(o.delivery_fee) : "Gratis"}`,
     `*Total: ${rupiah(total)}*`,
     ``,
     pay,
-    `Detail: ${trackingUrl(o)}`,
+    `Rincian pesanan: ${trackingUrl(o)}`,
   ].filter((l) => l !== "").join("\n");
 }
 
 export function msgOutForDelivery(o: Order, s: Settings): string {
-  return `Halo ${o.customer_name}, pesanan *${o.code}* dari ${s.store_name} sedang dalam perjalanan untuk slot ${o.slot_label}. Mohon siapkan penerimaan di: ${o.address}. Terima kasih! 🐟`;
+  return `Halo ${o.customer_name}, pesanan *${o.code}* dari ${s.store_name} sedang dalam perjalanan sesuai jadwal ${o.slot_label}. Mohon pastikan ada yang menerima di: ${o.address}. Terima kasih! 🐟`;
 }
 
 export function msgAccessCode(a: BusinessAccount, s: Settings): string {
@@ -68,7 +68,7 @@ export function msgAccessCode(a: BusinessAccount, s: Settings): string {
     `• Nomor WhatsApp: ${a.phone}`,
     `• Kode akses: *${a.access_code}*`,
     ``,
-    `Setelah masuk, Anda melihat harga grosir, slot dapur 05:00–08:00 dan bisa "Pesan lagi" dari pesanan sebelumnya. Batas pesan untuk pengiriman besok: 20:00 WIB.`,
+    `Setelah masuk, Anda dapat melihat harga grosir, memilih pengiriman dapur pukul 05.00–08.00, dan menggunakan "Pesan lagi" dari pesanan sebelumnya. Batas pemesanan untuk pengiriman besok: pukul 20.00 WIB.`,
   ].join("\n");
 }
 

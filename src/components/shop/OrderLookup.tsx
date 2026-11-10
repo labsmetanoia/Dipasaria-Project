@@ -21,7 +21,7 @@ export function OrderLookup({ initialCode = "" }: { initialCode?: string }) {
         <Field label={t.tracking.orderNo}><input className="input uppercase" value={code} onChange={(e) => setCode(e.target.value)} placeholder="DP-261101-K7M2" required /></Field>
         <Field label={t.checkout.phone}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xx" required /></Field>
       </div>
-      {err && <p className="mt-2 text-sm text-coral-600">{err}</p>}
+      {err && <p className="mt-2 text-sm text-gold-ink">{err}</p>}
       <button className="btn-primary mt-4" disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="h-4 w-4" /> {t.tracking.track}</>}</button>
     </form>
   );

@@ -320,29 +320,29 @@ begin
   if coalesce(trim(p->>'customer_name'), '') = '' then raise exception 'Nama penerima wajib diisi.'; end if;
   v_phone := normalize_phone(p->>'phone');
   if v_phone !~ '^62[0-9]{8,13}$' then raise exception 'Nomor WhatsApp tidak valid.'; end if;
-  if coalesce(trim(p->>'address'), '') = '' then raise exception 'Alamat wajib diisi.'; end if;
-  if jsonb_array_length(coalesce(p->'lines', '[]'::jsonb)) = 0 then raise exception 'Keranjang kosong.'; end if;
+  if coalesce(trim(p->>'address'), '') = '' then raise exception 'Alamat pengiriman wajib diisi.'; end if;
+  if jsonb_array_length(coalesce(p->'lines', '[]'::jsonb)) = 0 then raise exception 'Keranjang Anda masih kosong.'; end if;
 
   -- delivery date vs cut-off
   d := (p->>'delivery_date')::date;
   first_date := jnow::date + case when jnow::time < s.cutoff_time::time then 1 else 2 end;
   if d < first_date or d > jnow::date + s.max_days_ahead then
-    raise exception 'Tanggal pengiriman tidak tersedia (batas pesan % WIB).', s.cutoff_time;
+    raise exception 'Tanggal pengiriman tidak tersedia. Batas pemesanan untuk pengiriman besok pukul % WIB.', replace(s.cutoff_time, ':', '.');
   end if;
 
   select * into area from delivery_areas where id = p->>'area_id' and is_active;
-  if not found then raise exception 'Area pengiriman tidak valid.'; end if;
+  if not found then raise exception 'Wilayah pengiriman tidak valid.'; end if;
 
   select * into slot from delivery_slots where id = p->>'slot_id' and is_active and (segment = 'all' or segment = seg);
-  if not found then raise exception 'Slot pengiriman tidak valid.'; end if;
+  if not found then raise exception 'Jam pengiriman tidak tersedia untuk akun ini.'; end if;
   perform pg_advisory_xact_lock(hashtext(d::text || slot.id));
   select count(*) into used from orders where delivery_date = d and slot_id = slot.id and status <> 'cancelled';
-  if used >= slot.capacity then raise exception 'Slot pengiriman sudah penuh, pilih slot lain.'; end if;
+  if used >= slot.capacity then raise exception 'Kuota jam pengiriman ini sudah penuh. Silakan pilih jam lain.'; end if;
 
   pm := p->>'payment_method';
   if pm not in ('qris','transfer','cod','terms') then raise exception 'Metode pembayaran tidak valid.'; end if;
-  if pm = 'cod' and not (seg = 'business' and acc.allow_cod) then raise exception 'COD hanya untuk akun bisnis yang disetujui.'; end if;
-  if pm = 'terms' and not (seg = 'business' and acc.payment_terms <> 'prepaid') then raise exception 'Tempo hanya untuk akun bisnis dengan fasilitas tempo.'; end if;
+  if pm = 'cod' and not (seg = 'business' and acc.allow_cod) then raise exception 'Bayar di tempat (COD) hanya tersedia untuk akun bisnis yang telah disetujui.'; end if;
+  if pm = 'terms' and not (seg = 'business' and acc.payment_terms <> 'prepaid') then raise exception 'Pembayaran tempo hanya tersedia untuk akun bisnis dengan fasilitas tempo.'; end if;
 
   -- unique order code, then the header row (totals are filled in after the lines)
   loop
@@ -352,7 +352,7 @@ begin
   insert into orders (id, code, segment, account_id, customer_name, phone, address, area_id, area_name, maps_url, delivery_date,
     slot_id, slot_label, payment_method, payment_status, status, customer_note, history)
   values (oid, v_code, seg, acc.id, trim(p->>'customer_name'), v_phone, trim(p->>'address'), area.id, area.name, nullif(trim(p->>'maps_url'), ''), d,
-    slot.id, slot.label || ' ' || slot.start_time || '–' || slot.end_time, pm, 'unpaid', 'new', coalesce(trim(p->>'customer_note'), ''),
+    slot.id, slot.label || ' ' || replace(slot.start_time, ':', '.') || '–' || replace(slot.end_time, ':', '.'), pm, 'unpaid', 'new', coalesce(trim(p->>'customer_note'), ''),
     jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())));
 
   -- lines
@@ -360,12 +360,12 @@ begin
     select * into var from variants where id = line->>'variant_id' and is_active for update;
     if not found then raise exception 'Salah satu produk sudah tidak tersedia.'; end if;
     select * into prod from products where id = var.product_id and is_active;
-    if not found then raise exception 'Salah satu produk sudah tidak dijual.'; end if;
+    if not found then raise exception 'Salah satu produk sudah tidak tersedia.'; end if;
     if not prod.available_today then raise exception '% habis hari ini.', prod.name; end if;
-    if var.business_only and seg <> 'business' then raise exception '% (%) hanya untuk akun bisnis.', prod.name, var.label; end if;
+    if var.business_only and seg <> 'business' then raise exception '% (%) khusus untuk akun bisnis.', prod.name, var.label; end if;
 
     q := var.min_qty + greatest(0, round(((line->>'qty')::numeric - var.min_qty) / var.step_qty)) * var.step_qty;
-    if q < var.min_qty then raise exception '%: minimum % %.', prod.name, var.min_qty, var.unit; end if;
+    if q < var.min_qty then raise exception '%: pembelian minimal % %.', prod.name, var.min_qty, var.unit; end if;
     if var.stock_qty is not null and q > var.stock_qty then
       raise exception '% (%): stok tersisa % %.', prod.name, var.label, var.stock_qty, var.unit;
     end if;
@@ -373,7 +373,7 @@ begin
     has_prep := false;
     if coalesce(line->>'prep_option_id', '') <> '' then
       select * into prep from prep_options where id = line->>'prep_option_id' and product_id = prod.id;
-      if not found then raise exception '%: opsi penyiapan tidak tersedia.', prod.name; end if;
+      if not found then raise exception '%: cara penyiapan tidak tersedia.', prod.name; end if;
       has_prep := true;
     end if;
 
@@ -399,7 +399,7 @@ begin
   end loop;
 
   min_order := case when seg = 'business' then s.min_order_business else s.min_order_retail end;
-  if v_subtotal < min_order then raise exception 'Minimum pesanan Rp %.', to_char(min_order, 'FM999G999G999'); end if;
+  if v_subtotal < min_order then raise exception 'Minimal pesanan Rp%.', replace(to_char(min_order, 'FM999,999,999'), ',', '.'); end if;
 
   threshold := case when seg = 'business' then s.free_delivery_business else s.free_delivery_retail end;
   v_fee := case when v_subtotal >= threshold then 0 else area.fee end;
@@ -408,14 +408,14 @@ begin
   if coalesce(trim(p->>'promo_code'), '') <> '' then
     select * into promo from promos where upper(code) = upper(trim(p->>'promo_code')) for update;
     if not found then raise exception 'Kode promo tidak ditemukan.'; end if;
-    if not promo.is_active then raise exception 'Kode promo tidak aktif.'; end if;
+    if not promo.is_active then raise exception 'Kode promo sudah tidak berlaku.'; end if;
     if promo.segment <> 'all' and promo.segment <> seg then raise exception 'Kode promo tidak berlaku untuk akun ini.'; end if;
-    if promo.starts_at is not null and now() < promo.starts_at then raise exception 'Promo belum dimulai.'; end if;
-    if promo.ends_at is not null and now() > promo.ends_at then raise exception 'Promo sudah berakhir.'; end if;
+    if promo.starts_at is not null and now() < promo.starts_at then raise exception 'Promo ini belum dimulai.'; end if;
+    if promo.ends_at is not null and now() > promo.ends_at then raise exception 'Promo ini sudah berakhir.'; end if;
     if promo.quota is not null and promo.used_count >= promo.quota then raise exception 'Kuota promo sudah habis.'; end if;
-    if v_subtotal < promo.min_spend then raise exception 'Minimum belanja promo Rp %.', to_char(promo.min_spend, 'FM999G999G999'); end if;
+    if v_subtotal < promo.min_spend then raise exception 'Promo ini berlaku untuk belanja minimal Rp%.', replace(to_char(promo.min_spend, 'FM999,999,999'), ',', '.'); end if;
     if promo.first_order_only and exists (select 1 from orders o2 where o2.phone = v_phone and o2.status <> 'cancelled' and o2.id <> oid) then
-      raise exception 'Promo hanya untuk pesanan pertama.';
+      raise exception 'Promo ini khusus untuk pesanan pertama.';
     end if;
     if promo.type = 'percent' then v_discount := round(v_subtotal * promo.value / 100);
     elsif promo.type = 'fixed' then v_discount := least(promo.value, v_subtotal);
@@ -457,7 +457,7 @@ begin
   select * into s from settings where id = 1;
 
   for it in select * from jsonb_array_elements(p_items) loop
-    if (it->>'qty_final')::numeric < 0 then raise exception 'Berat harus angka positif.'; end if;
+    if (it->>'qty_final')::numeric < 0 then raise exception 'Berat harus berupa angka positif.'; end if;
     update order_items
        set qty_final = (it->>'qty_final')::numeric,
            line_total_final = round(unit_price * (it->>'qty_final')::numeric)
@@ -507,7 +507,7 @@ begin
   if p_status not in ('new','confirmed','packing','delivering','completed','cancelled') then raise exception 'Status tidak valid.'; end if;
   select * into o from orders where id = p_order_id for update;
   if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
-  if o.status = 'cancelled' then raise exception 'Pesanan sudah dibatalkan.'; end if;
+  if o.status = 'cancelled' then raise exception 'Pesanan ini sudah dibatalkan.'; end if;
   if p_status = 'cancelled' then
     for it in select * from order_items where order_id = p_order_id loop
       update variants set stock_qty = stock_qty + it.qty_ordered where id = it.variant_id and stock_qty is not null;
@@ -556,7 +556,7 @@ begin
   v_phone := normalize_phone(p->>'phone');
   if v_phone !~ '^62[0-9]{8,13}$' then raise exception 'Nomor WhatsApp tidak valid.'; end if;
   if exists (select 1 from business_accounts where business_accounts.phone = v_phone) then
-    raise exception 'Nomor ini sudah terdaftar. Hubungi kami via WhatsApp untuk kode akses.';
+    raise exception 'Nomor ini sudah terdaftar. Hubungi kami melalui WhatsApp untuk mendapatkan kode akses.';
   end if;
   insert into business_accounts (business_name, contact_name, phone, address, area_id, business_type, notes)
   values (trim(p->>'business_name'), trim(p->>'contact_name'), v_phone, coalesce(trim(p->>'address'), ''),

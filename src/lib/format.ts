@@ -1,11 +1,22 @@
 const TZ = "Asia/Jakarta";
 
+/** Rupiah in EYD V style: no space after the symbol (Rp150.000). */
 export function rupiah(n: number | null | undefined, opts: { compact?: boolean } = {}): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   if (opts.compact && Math.abs(n) >= 1_000_000) {
-    return `Rp ${(n / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
+    return `Rp${(n / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} juta`;
   }
-  return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
+  return `Rp${Math.round(n).toLocaleString("id-ID")}`;
+}
+
+/** Clock time in Indonesian style: "05:00" → "05.00". Data keeps HH:MM. */
+export function jam(t: string): string {
+  return t.replace(":", ".");
+}
+
+/** Time range "05.00–08.00". */
+export function jamRange(a: string, b: string): string {
+  return `${jam(a)}–${jam(b)}`;
 }
 
 export function qty(n: number, unit: string): string {

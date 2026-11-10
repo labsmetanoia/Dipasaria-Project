@@ -33,7 +33,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           <div className="mt-8 space-y-6 font-sans text-[17px] leading-[1.75] text-ink/85">{body.body.map((p, i) => <p key={i}>{p}</p>)}</div>
           <div className="mt-12 bg-ocean-950 p-7 text-white">
             <p className="eyebrow">{locale === "en" ? "Shop" : "Belanja"}</p>
-            <p className="mt-2 text-[1.8rem]">{locale === "en" ? "Named, graded fish delivered cold tomorrow morning." : "Ikan bernama dan bergrade, diantar dingin besok pagi."}</p>
+            <p className="mt-2 text-[1.8rem]">{locale === "en" ? "Named, size-graded fish delivered cold tomorrow morning." : "Ikan pilihan dengan jenis dan ukuran yang jelas, diantar dingin besok pagi."}</p>
             <Link href="/belanja" className="btn-accent mt-5">{locale === "en" ? "See today's catch" : "Lihat tangkapan hari ini"} <ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>

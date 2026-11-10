@@ -2,9 +2,9 @@ export const BRAND = {
   name: "Dipasaria",
   legalName: "Dipasaria",
   tagline: "Protein pilihan untuk dapur Jakarta",
-  promise: "Ikan yang benar, bernama dan bergrade, bersama semua kebutuhan protein dapur Anda dalam satu pengiriman.",
+  promise: "Ikan pilihan dengan jenis dan ukuran yang jelas, bersama seluruh kebutuhan protein dapur Anda, dalam satu pengiriman.",
   city: "Jakarta",
-  cutoffLabel: "20:00 WIB",
+  cutoffLabel: "20.00 WIB",
 };
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -29,7 +29,7 @@ export const STATUS_LABEL: Record<string, string> = {
   new: "Baru",
   confirmed: "Dikonfirmasi",
   packing: "Dikemas",
-  delivering: "Dikirim",
+  delivering: "Dalam pengiriman",
   completed: "Selesai",
   cancelled: "Dibatalkan",
 };
@@ -37,7 +37,7 @@ export const STATUS_LABEL: Record<string, string> = {
 export const PAYMENT_LABEL: Record<string, string> = {
   qris: "QRIS",
   transfer: "Transfer bank",
-  cod: "Bayar saat terima (COD)",
+  cod: "Bayar di tempat (COD)",
   terms: "Tempo mingguan",
 };
 
@@ -57,10 +57,10 @@ export const TERMS_LABEL: Record<string, string> = {
 export const BUSINESS_TYPES = [
   "Restoran seafood",
   "Restoran Padang / Sunda / Manado",
-  "Chinese-Indonesian",
-  "Ayam geprek / fried chicken",
-  "Kafe / cloud kitchen",
+  "Restoran masakan Tionghoa",
+  "Ayam geprek / ayam goreng tepung",
+  "Kafe / dapur daring",
   "Katering",
-  "Warung / reseller frozen",
+  "Warung / pengecer produk beku",
   "Lainnya",
 ];

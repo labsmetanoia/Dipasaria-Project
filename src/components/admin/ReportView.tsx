@@ -35,7 +35,7 @@ export function ReportView({ rows, from, to }: { rows: SalesRow[]; from: string;
               <thead className="text-left text-xs text-mute"><tr><th className="py-1 font-medium">Tanggal</th><th className="py-1 text-right font-medium">Pesanan</th><th className="py-1 text-right font-medium">Penjualan</th><th className="py-1 text-right font-medium">Laba kotor</th><th className="py-1 text-right font-medium">Margin</th><th className="py-1 text-right font-medium">Non-seafood</th></tr></thead>
               <tbody className="divide-y divide-line">
                 {rows.map((r) => (
-                  <tr key={r.date}><td className="py-1.5">{formatDate(r.date, "weekday")}</td><td className="py-1.5 text-right">{r.orders}</td><td className="py-1.5 text-right">{rupiah(r.sales)}</td><td className="py-1.5 text-right">{rupiah(r.gross_profit)}</td><td className={`py-1.5 text-right ${r.sales && r.gross_profit / r.sales < 0.1 ? "text-coral-600" : ""}`}>{r.sales ? ((r.gross_profit / r.sales) * 100).toFixed(1) : 0}%</td><td className="py-1.5 text-right">{r.sales ? ((r.non_seafood_sales / r.sales) * 100).toFixed(0) : 0}%</td></tr>
+                  <tr key={r.date}><td className="py-1.5">{formatDate(r.date, "weekday")}</td><td className="py-1.5 text-right">{r.orders}</td><td className="py-1.5 text-right">{rupiah(r.sales)}</td><td className="py-1.5 text-right">{rupiah(r.gross_profit)}</td><td className={`py-1.5 text-right ${r.sales && r.gross_profit / r.sales < 0.1 ? "text-gold-ink" : ""}`}>{r.sales ? ((r.gross_profit / r.sales) * 100).toFixed(1) : 0}%</td><td className="py-1.5 text-right">{r.sales ? ((r.non_seafood_sales / r.sales) * 100).toFixed(0) : 0}%</td></tr>
                 ))}
               </tbody>
             </table>

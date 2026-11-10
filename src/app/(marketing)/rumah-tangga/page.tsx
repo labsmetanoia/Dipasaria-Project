@@ -13,14 +13,14 @@ export const metadata: Metadata = { title: "Untuk rumah tangga" };
 const copy = {
   id: {
     eyebrow: "Untuk rumah tangga",
-    title: "Ikan yang sudah disiangi, udang yang sudah dikupas, salmon yang sudah dipotong.",
-    sub: "Tanpa bau, tanpa duri, tanpa tebak-tebakan. Pesan malam ini, terima besok pagi atau sore dalam kotak berpendingin.",
-    points: (min: string, free: string) => [`Belanja tanpa akun, minimum ${min}, gratis ongkir dari ${free}`, "Pilih ukuran dan cara penyiapan: siangi, fillet, kupas, potong steak", "Slot pagi 10.00–13.00 atau sore 15.00–18.00, besok", "Bayar QRIS atau transfer setelah berat final dikonfirmasi via WhatsApp", "Ganti atau refund dalam 2 jam jika tidak segar"],
-    howEyebrow: "Cara belanjanya",
+    title: "Ikan sudah disiangi, udang sudah dikupas, salmon sudah dipotong.",
+    sub: "Tanpa bau amis, tanpa duri, tanpa menebak-nebak. Pesan malam ini, terima besok pagi atau sore dalam kotak berpendingin.",
+    points: (min: string, free: string) => [`Belanja tanpa akun, minimal pesanan ${min}, gratis ongkos kirim mulai ${free}`, "Pilih ukuran dan cara penyiapan: disiangi, difillet, dikupas atau dipotong steak", "Pengiriman besok pagi pukul 10.00–13.00 atau sore pukul 15.00–18.00", "Bayar dengan QRIS atau transfer setelah berat akhir dikonfirmasi melalui WhatsApp", "Ganti atau uang kembali dalam 2 jam jika produk kurang segar"],
+    howEyebrow: "Cara berbelanja",
     howTitle: "Tiga langkah, selesai sebelum pukul 20.00.",
-    how: [["1", "Pilih produk", "Tangkapan hari ini untuk ikan segar; pack beku untuk stok freezer. Lihat harga per kg atau per pack sebelum menambah."], ["2", "Pilih hari & slot", "Besok pagi atau sore. Area pengiriman menentukan ongkir; di atas ambang, gratis."], ["3", "Bayar setelah ditimbang", "Ikan segar ditimbang subuh; invoice final masuk ke WhatsApp. Produk beku harganya tetap."]],
+    how: [["1", "Pilih produk", "Tangkapan hari ini untuk ikan segar, produk beku untuk stok freezer. Harga per kg atau per kemasan terlihat sebelum Anda menambahkannya ke keranjang."], ["2", "Pilih hari dan jam", "Besok pagi atau sore. Ongkos kirim mengikuti wilayah Anda, dan gratis di atas batas tertentu."], ["3", "Bayar setelah ditimbang", "Ikan segar ditimbang saat subuh, lalu tagihan akhir dikirim ke WhatsApp. Harga produk beku sudah pasti."]],
     boxesEyebrow: "Paket hemat",
-    boxesTitle: "Isi freezer sekali pesan, lebih murah dari membeli satuan.",
+    boxesTitle: "Isi freezer dalam sekali pesan, lebih hemat daripada membeli satuan.",
     cta: "Mulai belanja",
   },
   en: {
@@ -47,7 +47,7 @@ export default async function RumahTanggaPage() {
     <>
       <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="box" image={IMAGES.box} />
       <Band>
-        <ul className="grid gap-3 sm:grid-cols-2">{c.points(rupiah(settings.min_order_retail), rupiah(settings.free_delivery_retail)).map((p) => <li key={p} className="flex gap-3 border border-line bg-white px-5 py-4 font-sans text-[14.5px] text-ink/85"><Check className="mt-0.5 h-5 w-5 flex-none text-coral-600" />{p}</li>)}</ul>
+        <ul className="grid gap-3 sm:grid-cols-2">{c.points(rupiah(settings.min_order_retail), rupiah(settings.free_delivery_retail)).map((p) => <li key={p} className="flex gap-3 border border-line bg-white px-5 py-4 font-sans text-[14.5px] text-ink/85"><Check className="mt-0.5 h-5 w-5 flex-none text-gold-ink" />{p}</li>)}</ul>
       </Band>
       <Band tone="parchment">
         <SectionHead eyebrow={c.howEyebrow} title={c.howTitle} />

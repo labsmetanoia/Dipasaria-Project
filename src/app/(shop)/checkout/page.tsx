@@ -5,7 +5,7 @@ import { CheckoutForm } from "@/components/shop/CheckoutForm";
 import { availableDates } from "@/lib/pricing";
 import { nowJakarta } from "@/lib/format";
 
-export const metadata = { title: "Checkout" };
+export const metadata = { title: "Pengiriman dan pembayaran" };
 export const dynamic = "force-dynamic";
 
 export default async function CheckoutPage() {

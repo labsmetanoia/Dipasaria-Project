@@ -34,7 +34,7 @@ export function CartDrawer({ products, settings, areas, account }: { products: P
       <aside className="slide-in absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-sand-50 shadow-float">
         <div className="flex items-center justify-between border-b border-line bg-white px-5 py-4">
           <h2 className="text-2xl">{t.cart.title} <span className="font-sans text-sm font-bold text-mute">({lines.length})</span></h2>
-          <button onClick={closeDrawer} className="p-1.5 hover:text-coral-600" aria-label={t.common.close}><X className="h-5 w-5" /></button>
+          <button onClick={closeDrawer} className="p-1.5 hover:text-gold-ink" aria-label={t.common.close}><X className="h-5 w-5" /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {lines.length === 0 ? (
@@ -52,7 +52,7 @@ export function CartDrawer({ products, settings, areas, account }: { products: P
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0"><p className="truncate font-display text-[17px] font-bold uppercase leading-tight">{locale === "en" && p.name_en ? p.name_en : p.name}</p><p className="truncate font-sans text-xs text-mute">{pick(locale, v.label, v.label_en)}{ql?.prep ? ` · ${pick(locale, ql.prep.label, ql.prep.label_en)}` : ""}</p></div>
-                        <button onClick={() => remove(l.variant_id, l.prep_option_id)} className="p-1 text-mute hover:text-coral-600" aria-label={t.cart.remove}><Trash2 className="h-4 w-4" /></button>
+                        <button onClick={() => remove(l.variant_id, l.prep_option_id)} className="p-1 text-mute hover:text-gold-ink" aria-label={t.cart.remove}><Trash2 className="h-4 w-4" /></button>
                       </div>
                       <div className="mt-2 flex items-center justify-between">
                         <QtyStepper size="sm" value={l.qty} min={v.min_qty} step={v.step_qty} unit={t.unit[v.unit]} onChange={(n) => setQty(l.variant_id, l.prep_option_id, n < v.min_qty ? 0 : n)} />
@@ -70,7 +70,7 @@ export function CartDrawer({ products, settings, areas, account }: { products: P
             <MinOrderBar subtotal={q.subtotal} min={q.min_order} />
             <div className="mt-4 flex items-baseline justify-between"><span className="font-sans text-[11px] font-bold uppercase tracking-[0.14em] text-mute">{t.cart.subtotal}{q.has_catch_weight ? ` (${t.common.estimated})` : ""}</span><span className="font-display text-3xl font-bold">{rupiah(q.subtotal)}</span></div>
             <p className="mt-1 font-sans text-[11.5px] text-mute">{t.cart.shipping}: {t.cart.shippingAtCheckout}</p>
-            {q.errors.length > 0 && <p className="mt-2 font-sans text-xs text-coral-700">{q.errors[0]}</p>}
+            {q.errors.length > 0 && <p className="mt-2 font-sans text-xs text-gold-ink">{q.errors[0]}</p>}
             <Link href="/checkout" onClick={closeDrawer} aria-disabled={!q.min_order_met || q.errors.length > 0} className={`btn-accent mt-4 w-full py-3.5 text-[13px] ${!q.min_order_met || q.errors.length ? "pointer-events-none opacity-50" : ""}`}>{t.cart.toDelivery} <ArrowRight className="h-4 w-4" /></Link>
             <Link href="/keranjang" onClick={closeDrawer} className="btn-link mt-3 w-full justify-center">{fmt(t.shop.viewCart, {})}</Link>
           </div>

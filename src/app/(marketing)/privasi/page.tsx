@@ -9,13 +9,13 @@ export const metadata: Metadata = { title: "Kebijakan privasi" };
 const copy = {
   id: {
     eyebrow: "Kebijakan privasi",
-    title: "Data Anda dipakai untuk mengantar pesanan, tidak untuk yang lain.",
+    title: "Data Anda hanya digunakan untuk mengantarkan pesanan.",
     body: [
-      `${BRAND.legalName} mengumpulkan nama, nomor WhatsApp, alamat pengiriman dan riwayat pesanan Anda untuk memproses, mengantar dan menagih pesanan, serta menghubungi Anda tentang pesanan tersebut. Dasar pemrosesannya adalah pelaksanaan perjanjian jual beli, sesuai Undang-Undang No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.`,
-      "Data disimpan di basis data yang kami kendalikan pada penyedia cloud dengan enkripsi dalam transit dan saat tersimpan. Hanya pemilik usaha dan staf yang ditunjuk yang memiliki akses ke panel administrasi. Kami tidak menjual atau membagikan data Anda kepada pihak ketiga, kecuali kepada mitra kurir sebatas nama, alamat dan nomor telepon yang diperlukan untuk pengantaran.",
-      "Pelacakan pesanan memerlukan nomor pesanan dan nomor WhatsApp yang digunakan saat memesan, sehingga orang lain tidak dapat melihat pesanan Anda. Akun bisnis masuk dengan kode akses yang bisa kami ganti kapan saja atas permintaan Anda.",
+      `${BRAND.legalName} mengumpulkan nama, nomor WhatsApp, alamat pengiriman dan riwayat pesanan Anda untuk memproses, mengantar dan menagih pesanan, serta menghubungi Anda terkait pesanan tersebut. Dasar pemrosesannya adalah pelaksanaan perjanjian jual beli, sesuai Undang-Undang No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.`,
+      "Data disimpan di basis data yang kami kendalikan pada penyedia layanan cloud, dengan enkripsi saat dikirim maupun saat disimpan. Hanya pemilik usaha dan staf yang ditunjuk yang memiliki akses ke panel administrasi. Kami tidak menjual atau membagikan data Anda kepada pihak ketiga, kecuali kepada mitra kurir sebatas nama, alamat dan nomor telepon yang diperlukan untuk pengantaran.",
+      "Pelacakan pesanan memerlukan nomor pesanan dan nomor WhatsApp yang digunakan saat memesan, sehingga orang lain tidak dapat melihat pesanan Anda. Akun bisnis masuk dengan kode akses yang dapat kami ganti kapan saja atas permintaan Anda.",
       "Anda dapat meminta salinan, perbaikan atau penghapusan data Anda melalui WhatsApp kami. Riwayat transaksi yang diperlukan untuk kewajiban perpajakan disimpan sesuai ketentuan yang berlaku.",
-      "Situs ini menyimpan keranjang belanja, pilihan bahasa dan detail pengiriman terakhir di perangkat Anda sendiri agar pesanan berikutnya lebih cepat; data tersebut tidak dikirim ke kami sampai Anda menekan tombol pesan.",
+      "Situs ini menyimpan keranjang belanja, pilihan bahasa dan detail pengiriman terakhir di perangkat Anda sendiri agar pesanan berikutnya lebih cepat; data tersebut tidak dikirim ke kami hingga Anda menekan tombol pesan.",
     ],
   },
   en: {

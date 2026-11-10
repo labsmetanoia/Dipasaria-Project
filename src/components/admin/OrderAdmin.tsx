@@ -38,7 +38,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
         <div className="flex flex-wrap items-center gap-2"><StatusBadge status={order.status} /><PaymentBadge status={order.payment_status} /><span className="rounded bg-sand-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-mute">{order.segment === "business" ? "B2B" : "Rumah tangga"}</span></div>
       </div>
 
-      {err && <div className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-coral-700">{err}</div>}
+      {err && <div className="rounded-xl bg-coral-50 px-4 py-3 text-sm text-gold-ink">{err}</div>}
 
       {/* Status actions */}
       <div className="card p-4">
@@ -47,12 +47,12 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
             <button disabled={pending} onClick={() => run(() => setOrderStatusAction(order.id, next))} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Tandai {STATUS_LABEL[next].toLowerCase()}</button>
           )}
           {order.status !== "cancelled" && order.status !== "completed" && (
-            <button disabled={pending} onClick={() => { if (confirm("Batalkan pesanan ini? Stok dikembalikan.")) run(() => setOrderStatusAction(order.id, "cancelled", "Dibatalkan dari back-office")); }} className="btn-secondary text-coral-600"><XCircle className="h-4 w-4" /> Batalkan</button>
+            <button disabled={pending} onClick={() => { if (confirm("Batalkan pesanan ini? Stok dikembalikan.")) run(() => setOrderStatusAction(order.id, "cancelled", "Dibatalkan dari panel pengelola")); }} className="btn-secondary text-gold-ink"><XCircle className="h-4 w-4" /> Batalkan</button>
           )}
           <div className="ml-auto flex flex-wrap gap-2">
-            <a className="btn-secondary" target="_blank" rel="noreferrer" href={waTo(order.phone, msgOrderConfirmed(order, settings))}><MessageCircle className="h-4 w-4" /> WA konfirmasi</a>
-            <a className={`btn-secondary ${needsWeigh ? "opacity-50" : ""}`} target="_blank" rel="noreferrer" href={waTo(order.phone, msgFinalInvoice(order, settings))}><MessageCircle className="h-4 w-4" /> WA invoice final</a>
-            <a className="btn-secondary" target="_blank" rel="noreferrer" href={waTo(order.phone, msgOutForDelivery(order, settings))}><MessageCircle className="h-4 w-4" /> WA sedang dikirim</a>
+            <a className="btn-secondary" target="_blank" rel="noreferrer" href={waTo(order.phone, msgOrderConfirmed(order, settings))}><MessageCircle className="h-4 w-4" /> WA: konfirmasi</a>
+            <a className={`btn-secondary ${needsWeigh ? "opacity-50" : ""}`} target="_blank" rel="noreferrer" href={waTo(order.phone, msgFinalInvoice(order, settings))}><MessageCircle className="h-4 w-4" /> WA: tagihan akhir</a>
+            <a className="btn-secondary" target="_blank" rel="noreferrer" href={waTo(order.phone, msgOutForDelivery(order, settings))}><MessageCircle className="h-4 w-4" /> WA: dalam pengiriman</a>
           </div>
         </div>
         <ol className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-mute">
@@ -87,14 +87,14 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
           </table>
           {order.has_catch_weight && order.status !== "cancelled" && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sand-100 px-4 py-3">
-              <p className="text-xs text-mute">Isi berat hasil timbangan (kg). Harga, promo dan ongkir dihitung ulang di server.</p>
-              <button disabled={pending} onClick={() => run(() => weighOrderAction(order.id, Object.entries(weights).map(([item_id, v]) => ({ item_id, qty_final: Number(v) }))))} className="btn-primary"><Scale className="h-4 w-4" /> Simpan timbangan & hitung ulang</button>
+              <p className="text-xs text-mute">Isi berat hasil timbangan (kg). Harga, promo dan ongkos kirim akan dihitung ulang oleh sistem.</p>
+              <button disabled={pending} onClick={() => run(() => weighOrderAction(order.id, Object.entries(weights).map(([item_id, v]) => ({ item_id, qty_final: Number(v) }))))} className="btn-primary"><Scale className="h-4 w-4" /> Simpan timbangan dan hitung ulang</button>
             </div>
           )}
           <dl className="mt-4 space-y-1 border-t border-line pt-3 text-sm">
             <div className="flex justify-between"><dt className="text-mute">Subtotal {order.subtotal_final === null && "(perkiraan)"}</dt><dd>{rupiah(order.subtotal_final ?? order.subtotal_est)}</dd></div>
             {order.discount > 0 && <div className="flex justify-between text-success-600"><dt>Promo {order.promo_code}</dt><dd>−{rupiah(order.discount)}</dd></div>}
-            <div className="flex justify-between"><dt className="text-mute">Ongkir</dt><dd>{order.delivery_fee ? rupiah(order.delivery_fee) : "Gratis"}</dd></div>
+            <div className="flex justify-between"><dt className="text-mute">Ongkos kirim</dt><dd>{order.delivery_fee ? rupiah(order.delivery_fee) : "Gratis"}</dd></div>
             <div className="flex justify-between text-base"><dt className="font-semibold">Total</dt><dd className="font-display text-xl font-semibold text-ocean-900">{rupiah(order.total_final ?? order.total_est)}</dd></div>
             <div className="flex justify-between text-xs text-mute"><dt>Est. laba kotor</dt><dd>{rupiah(order.items.reduce((s, i) => s + (i.line_total_final ?? i.line_total_est) - i.unit_cost * (i.qty_final ?? i.qty_ordered), 0) - order.discount)}</dd></div>
           </dl>
@@ -119,11 +119,11 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
               {order.payment_status !== "paid" && order.status !== "cancelled" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "paid"))} className="btn-primary"><Check className="h-4 w-4" /> Tandai lunas</button>}
               {order.payment_status === "paid" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "unpaid"))} className="btn-secondary">Batalkan lunas</button>}
             </div>
-            <p className="mt-2 text-xs text-mute">Tandai lunas hanya setelah dana terlihat di aplikasi bank / QRIS merchant, bukan dari tangkapan layar.</p>
+            <p className="mt-2 text-xs text-mute">Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar.</p>
           </div>
           <div className="card p-4">
             <h2 className="font-semibold text-ocean-900">Catatan internal</h2>
-            <textarea className="input mt-2" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Hanya terlihat di back-office" />
+            <textarea className="input mt-2" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Hanya terlihat di panel pengelola" />
             <button disabled={pending} onClick={() => run(() => updateInternalNoteAction(order.id, note))} className="btn-secondary mt-2 text-sm"><Save className="h-4 w-4" /> Simpan</button>
           </div>
           {order.account_id && accountTerms && <p className="text-xs text-mute">Tempo akun: {TERMS_LABEL[accountTerms] ?? accountTerms}</p>}

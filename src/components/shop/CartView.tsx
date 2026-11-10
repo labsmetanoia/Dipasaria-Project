@@ -41,7 +41,7 @@ export function CartView({ products, settings, areas, account }: { products: Pro
  return (
     <div className="grid gap-6 lg:grid-cols-12">
       <div className="min-w-0 space-y-3 lg:col-span-7">
-        {q.errors.length > 0 && <div className=" bg-coral-50 px-4 py-3 text-sm text-coral-700">{q.errors.map((e) => <p key={e}>{e}</p>)}</div>}
+        {q.errors.length > 0 && <div className=" bg-coral-50 px-4 py-3 text-sm text-gold-ink">{q.errors.map((e) => <p key={e}>{e}</p>)}</div>}
         {lines.map((l) => {
  const ql = q.lines.find((x) => x.variant.id === l.variant_id && (x.prep?.id ?? null) === (l.prep_option_id ?? null));
  const p = products.find((x) => x.id === l.product_id);
@@ -53,7 +53,7 @@ export function CartView({ products, settings, areas, account }: { products: Pro
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0"><p className="truncate font-bold text-ocean-950">{locale === "en" && p.name_en ? p.name_en : p.name}</p><p className="truncate text-xs text-mute">{v && pick(locale, v.label, v.label_en)}{ql?.prep ? ` · ${pick(locale, ql.prep.label, ql.prep.label_en)}` : ""}</p></div>
-                  <button onClick={() => remove(l.variant_id, l.prep_option_id)} className=" p-1.5 text-mute hover:bg-sand-100 hover:text-coral-600" aria-label={t.cart.remove}><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={() => remove(l.variant_id, l.prep_option_id)} className=" p-1.5 text-mute hover:bg-sand-100 hover:text-gold-ink" aria-label={t.cart.remove}><Trash2 className="h-4 w-4" /></button>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   {v && <QtyStepper size="sm" value={l.qty} min={v.min_qty} step={v.step_qty} unit={t.unit[v.unit]} onChange={(n) => setQty(l.variant_id, l.prep_option_id, n < v.min_qty ? 0 : n)} />}

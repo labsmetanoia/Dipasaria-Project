@@ -9,8 +9,8 @@ const NAV = [
   { href: "/admin", label: "Ringkasan", Icon: LayoutDashboard, exact: true },
   { href: "/admin/pesanan", label: "Pesanan", Icon: ClipboardList },
   { href: "/admin/belanja-subuh", label: "Belanja subuh", Icon: ShoppingBasket },
-  { href: "/admin/rute", label: "Rute & packing", Icon: Route },
-  { href: "/admin/produk", label: "Produk & stok", Icon: Package },
+  { href: "/admin/rute", label: "Rute dan pengemasan", Icon: Route },
+  { href: "/admin/produk", label: "Produk dan stok", Icon: Package },
   { href: "/admin/pelanggan", label: "Pelanggan", Icon: Users },
   { href: "/admin/promo", label: "Promo", Icon: Tag },
   { href: "/admin/laporan", label: "Laporan", Icon: BarChart3 },
@@ -24,7 +24,7 @@ export function AdminShell({ children, demo }: { children: React.ReactNode; demo
   return (
     <div className="flex min-h-screen bg-sand-50">
       <aside className="no-print hidden w-60 flex-none flex-col border-r border-line bg-white md:flex">
-        <div className="flex items-center gap-2 px-5 py-5"><LogoMark className="h-8 w-8" /><div><p className="font-display font-semibold text-ocean-900">Dipasaria</p><p className="text-[11px] text-mute">Back-office</p></div></div>
+        <div className="flex items-center gap-2.5 px-5 py-5"><LogoMark className="h-9 w-9" tile /><div><p className="font-display text-[20px] font-extrabold uppercase leading-none tracking-[0.1em] text-ocean-950">Dipasaria</p><p className="mt-1 font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">Panel pengelola</p></div></div>
         <nav className="flex-1 space-y-0.5 px-3">
           {NAV.map(({ href, label, Icon, exact }) => (
             <Link key={href} href={href} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${active(href, exact) ? "bg-ocean-900 text-white" : "text-ink/70 hover:bg-sand-100"}`}><Icon className="h-4 w-4" />{label}</Link>
@@ -36,9 +36,9 @@ export function AdminShell({ children, demo }: { children: React.ReactNode; demo
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        {demo && <div className="no-print bg-warn-600 px-3 py-1 text-center text-[11px] font-semibold text-white">Mode demo · tanpa Supabase, data contoh di memori (hilang saat server restart)</div>}
+        {demo && <div className="no-print bg-warn-600 px-3 py-1 text-center text-[11px] font-semibold text-white">Mode demo · tanpa Supabase; data contoh tersimpan di memori dan akan hilang saat server dimulai ulang</div>}
         <header className="no-print flex items-center justify-between border-b border-line bg-white px-4 py-3 md:hidden">
-          <div className="flex items-center gap-2"><LogoMark className="h-7 w-7" /><span className="font-display font-semibold text-ocean-900">Back-office</span></div>
+          <div className="flex items-center gap-2"><LogoMark className="h-7 w-7" tile /><span className="font-display text-[17px] font-extrabold uppercase tracking-[0.1em] text-ocean-950">Panel pengelola</span></div>
           <div className="flex items-center gap-1">
             {NAV.filter((n) => !MOBILE.includes(n.href)).map(({ href, label, Icon }) => (
               <Link key={href} href={href} aria-label={label} className={`rounded-lg p-2 ${active(href) ? "bg-ocean-900 text-white" : "text-ink/60"}`}><Icon className="h-4 w-4" /></Link>

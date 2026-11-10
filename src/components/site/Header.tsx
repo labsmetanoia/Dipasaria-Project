@@ -10,7 +10,7 @@ import { useT } from "@/lib/i18n/client";
 import { pick } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/dict";
 import { useCart } from "@/store/cart";
-import { nowJakarta, parseTime, addDays, formatDate } from "@/lib/format";
+import { nowJakarta, parseTime, addDays, formatDate, jam } from "@/lib/format";
 import type { Category } from "@/lib/types";
 
 export function Header({ categories, cutoff, accountName }: { categories: Category[]; cutoff: string; accountName: string | null }) {
@@ -39,7 +39,7 @@ export function Header({ categories, cutoff, accountName }: { categories: Catego
           <div className="flex items-center gap-2 lg:hidden">
             <button className="p-2" onClick={() => setOpen((v) => !v)} aria-label="Menu">{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
           </div>
-          <Link href="/belanja" aria-label="Dipasaria" className="shrink-0"><Logo dark /></Link>
+          <Link href="/belanja" aria-label="Dipasaria" className="shrink-0"><span className="hidden sm:inline"><Logo dark descriptor /></span><span className="sm:hidden"><Logo dark size="sm" /></span></Link>
           <nav className="hidden flex-1 items-center justify-center lg:flex" onMouseLeave={() => setMega(false)}>
             <div className="relative" onMouseEnter={() => setMega(true)}>
               <Link href="/belanja" className={`${navCls(active("/belanja") || active("/keranjang"))} inline-flex items-center gap-1`}>{t.common.shop} <ChevronDown className="h-3.5 w-3.5" /></Link>
@@ -61,7 +61,7 @@ export function Header({ categories, cutoff, accountName }: { categories: Catego
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src="/images/site/cat-ikan-segar.jpg" alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                        <div className="absolute bottom-3 left-4"><p className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-coral-500">{t.shop.todaysCatch}</p><p className="font-display text-[20px] font-bold uppercase leading-none">{locale === "en" ? "Auctioned at dawn" : "Dilelang subuh"} →</p></div>
+                        <div className="absolute bottom-3 left-4"><p className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-coral-500">{t.shop.todaysCatch}</p><p className="font-display text-[20px] font-bold uppercase leading-none">{locale === "en" ? "Auctioned at dawn" : "Dari lelang subuh"} →</p></div>
                       </Link>
                       <div className="space-y-1 p-5">
                         {[["/belanja/kategori/paket-hemat", locale === "en" ? "Value boxes" : "Paket hemat"], ["/akun", t.nav.businessAccount], ["/pesanan", t.nav.track]].map(([h, l]) => (
@@ -117,7 +117,7 @@ function CutoffStrip({ cutoff, accountName }: { cutoff: string; accountName: str
  return (
     <div className="bg-coral-500 text-ocean-950">
       <div className="container-x flex items-center justify-between gap-3 py-1.5 font-sans text-[11.5px] font-bold uppercase tracking-[0.12em]">
-        <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" />{before ? fmt(t.shop.cutoffBefore, { time, date: nextDate }) : fmt(t.shop.cutoffAfter, { cutoff, date: nextDate })}</span>
+        <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" />{before ? fmt(t.shop.cutoffBefore, { time, date: nextDate }) : fmt(t.shop.cutoffAfter, { cutoff: jam(cutoff), date: nextDate })}</span>
         {!accountName && <Link href="/restoran#daftar" className="hidden shrink-0 border border-ocean-950 px-2.5 py-0.5 hover:bg-ocean-950 hover:text-coral-500 sm:inline-block">{t.nav.businessAccount} →</Link>}
       </div>
     </div>

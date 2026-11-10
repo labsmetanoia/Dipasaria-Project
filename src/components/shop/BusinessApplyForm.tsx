@@ -24,7 +24,7 @@ export function BusinessApplyForm({ areas }: { areas: DeliveryArea[] }) {
       <Field label={t.apply.area}><select name="area_id" className="input"><option value="">{t.apply.chooseArea}</option>{areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
       <Field label={t.apply.address}><textarea name="address" className="input" rows={2} required /></Field>
       <Field label={t.apply.notes} hint={t.apply.notesHint}><textarea name="notes" className="input" rows={2} /></Field>
-      {err && <p className="text-sm text-coral-600">{err}</p>}
+      {err && <p className="text-sm text-gold-ink">{err}</p>}
       <button className="btn-accent w-full" disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.apply.submit}</button>
       <p className="text-xs text-mute">{t.apply.consent}</p>
     </form>

@@ -65,7 +65,7 @@ export async function applyAccountAction(input: AccountApplication): Promise<Act
 export async function businessLoginAction(phone: string, code: string): Promise<ActionResult<{ name: string }>> {
   const repo = await getRepo();
   const res = await repo.businessLogin(phone, code);
-  if (!res) return { ok: false, error: "Nomor atau kode akses tidak cocok. Kode dikirim via WhatsApp setelah akun disetujui." };
+  if (!res) return { ok: false, error: "Nomor WhatsApp atau kode akses tidak cocok. Kode akses dikirim melalui WhatsApp setelah akun disetujui." };
   await setBusinessSession(res.token);
   return { ok: true, data: { name: res.account.business_name } };
 }

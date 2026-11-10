@@ -7,10 +7,10 @@ import { fmt } from "@/lib/i18n/dict";
 import { BusinessLogin } from "@/components/shop/BusinessLogin";
 import { ReorderButton } from "@/components/shop/ReorderPanel";
 import { businessLogoutAction } from "@/actions/shop";
-import { formatDate, rupiah, waLink } from "@/lib/format";
+import { formatDate, rupiah, waLink, jamRange } from "@/lib/format";
 import { StatusBadge, PaymentBadge, Badge } from "@/components/ui";
 
-export const metadata = { title: "Akun" };
+export const metadata = { title: "Akun bisnis" };
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
@@ -30,7 +30,7 @@ export default async function AccountPage() {
         <dl className="mt-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div><dt className="text-white/50">{t.account.price}</dt><dd className="font-bold">{t.account.wholesale}{account.discount_pct ? ` −${account.discount_pct}%` : ""}</dd></div>
           <div><dt className="text-white/50">{t.account.payment}</dt><dd className="font-bold">{t.terms[account.payment_terms]}{account.allow_cod ? " · COD" : ""}</dd></div>
-          <div><dt className="text-white/50">{t.account.favSlot}</dt><dd className="font-bold">{slot ? `${slot.start_time}–${slot.end_time}` : "—"}</dd></div>
+          <div><dt className="text-white/50">{t.account.favSlot}</dt><dd className="font-bold">{slot ? jamRange(slot.start_time, slot.end_time) : "—"}</dd></div>
           <div><dt className="text-white/50">{t.account.minOrder}</dt><dd className="font-bold">{rupiah(settings.min_order_business)}</dd></div>
         </dl>
         <p className="mt-4 text-xs text-white/50">{t.account.kitchenAddress}: {account.address}</p>
@@ -38,7 +38,7 @@ export default async function AccountPage() {
       {orders[0] && <div className="card flex flex-wrap items-center justify-between gap-3 p-5"><div><p className="font-bold text-ocean-950">{fmt(t.account.reorderLike, { date: formatDate(orders[0].delivery_date, "short", locale) })}</p><p className="text-xs text-mute">{orders[0].items.map((i) => `${i.product_name} ${i.qty_ordered} ${i.unit}`).join(" · ")}</p></div><ReorderButton order={orders[0]} /></div>}
       <section>
         <h2 className="mb-3 font-bold text-ocean-950">{t.account.history}</h2>
-        {orders.length === 0 ? <p className="text-sm text-mute">{t.account.noOrders} <Link href="/belanja" className="font-bold text-coral-600">{t.common.shopNow}</Link>.</p> : (
+        {orders.length === 0 ? <p className="text-sm text-mute">{t.account.noOrders} <Link href="/belanja" className="font-bold text-gold-ink">{t.common.shopNow}</Link>.</p> : (
           <ul className="space-y-2">
             {orders.map((o) => (
               <li key={o.id} className="card flex items-center justify-between gap-3 p-4">

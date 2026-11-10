@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Tag, ShieldCheck, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import type { BusinessAccount, DeliveryArea, DeliverySlot, PaymentMethod, Product, Promo, Settings } from "@/lib/types";
 import { availableDates, quote, segmentOf, slotsForSegment } from "@/lib/pricing";
-import { isValidPhone, nowJakarta, relativeDayLabel, rupiah } from "@/lib/format";
+import { isValidPhone, nowJakarta, relativeDayLabel, rupiah, jam, jamRange } from "@/lib/format";
 import { pick } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/dict";
 import { useT } from "@/lib/i18n/client";
@@ -126,7 +126,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
           <>
             <section className="card p-5">
               <h2 className="text-lg text-ocean-950">{t.checkout.schedule}</h2>
-              <p className="mt-1 text-xs text-mute">{fmt(t.checkout.cutoffNote, { time: settings.cutoff_time })}</p>
+              <p className="mt-1 text-xs text-mute">{fmt(t.checkout.cutoffNote, { time: jam(settings.cutoff_time) })}</p>
               <div className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 scrollbar-none">
                 {dates.map((d) => <button key={d} type="button" onClick={() => setDate(d)} className={`chip flex-none ${date === d ? "chip-on" : ""}`}>{relativeDayLabel(d, now.date, locale)}</button>)}
               </div>
@@ -136,8 +136,8 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  const full = left <= 0;
  return (
                     <label key={s.id} className={`flex cursor-pointer items-center justify-between border px-3.5 py-3 text-sm ${full ? "cursor-not-allowed opacity-50" : slotId === s.id ? "border-ocean-950 bg-ocean-950/5" : "border-line"}`}>
-                      <span className="flex items-center gap-2"><input type="radio" name="slot" disabled={full} checked={slotId === s.id} onChange={() => setSlotId(s.id)} className="accent-ocean-950" /><span><b>{s.start_time}–{s.end_time}</b> · {s.label}</span></span>
-                      <span className={`text-xs ${full ? "text-coral-600" : left <= 3 ? "text-warn-600" : "text-mute"}`}>{full ? t.checkout.full : fmt(t.checkout.slotsLeft, { n: left })}</span>
+                      <span className="flex items-center gap-2"><input type="radio" name="slot" disabled={full} checked={slotId === s.id} onChange={() => setSlotId(s.id)} className="accent-ocean-950" /><span><b>{jamRange(s.start_time, s.end_time)}</b> · {s.label}</span></span>
+                      <span className={`text-xs ${full ? "text-gold-ink" : left <= 3 ? "text-warn-600" : "text-mute"}`}>{full ? t.checkout.full : fmt(t.checkout.slotsLeft, { n: left })}</span>
                     </label>
                   );
                 })}
@@ -165,7 +165,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
                   <button type="button" onClick={checkPromo} disabled={checkingPromo} className="btn-secondary flex-none whitespace-nowrap">{checkingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : t.checkout.apply}</button>
                 </div>
                 {promo && <p className="mt-1.5 text-xs font-bold text-success-600">{promo.code}: {promo.description}</p>}
-                {promoMsg && <p className="mt-1.5 text-xs text-coral-600">{promoMsg}</p>}
+                {promoMsg && <p className="mt-1.5 text-xs text-gold-ink">{promoMsg}</p>}
               </div>
               <div className="mt-5"><Field label={t.checkout.note}><textarea className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.checkout.notePlaceholder} /></Field></div>
             </section>
@@ -192,8 +192,8 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
             <div className="flex justify-between"><dt className="text-mute">{t.cart.shipping}</dt><dd>{areaId ? (q.delivery_fee ? rupiah(q.delivery_fee) : <span className="font-bold text-success-600">{t.common.free}</span>) : "—"}</dd></div>
             <div className="flex justify-between border-t border-line pt-2 text-base"><dt className="font-bold">{t.shop.total} {q.has_catch_weight && <span className="text-xs font-normal text-mute">({t.common.estimated})</span>}</dt><dd className="text-xl font-bold text-ocean-950">{rupiah(q.total)}</dd></div>
           </dl>
-          {q.errors.length > 0 && <div className="mt-3 bg-coral-50 px-3 py-2 text-xs text-coral-700">{q.errors.map((e) => <p key={e}>{e}</p>)}</div>}
-          {error && <div className="mt-3 bg-coral-50 px-3 py-2 text-sm text-coral-700">{error}</div>}
+          {q.errors.length > 0 && <div className="mt-3 bg-coral-50 px-3 py-2 text-xs text-gold-ink">{q.errors.map((e) => <p key={e}>{e}</p>)}</div>}
+          {error && <div className="mt-3 bg-coral-50 px-3 py-2 text-sm text-gold-ink">{error}</div>}
           {step === 2 ? (
             <button type="button" onClick={submit} disabled={!canSubmit} className="btn-accent mt-4 w-full py-3 text-base">{pending ? <Loader2 className="h-5 w-5 animate-spin" /> : t.checkout.placeOrder}</button>
           ) : (

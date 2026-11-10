@@ -31,7 +31,7 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
         <Link href={`${base}&unpaid=1`} className={`chip ${sp.unpaid ? "chip-on" : ""}`}>Belum lunas</Link>
         <form className="ml-auto flex gap-2" action="/admin/pesanan">
           <input type="hidden" name="all" value="1" />
-          <input name="q" defaultValue={sp.q} className="input w-48 py-1.5 text-sm" placeholder="Cari kode / nama / HP (semua tanggal)" />
+          <input name="q" defaultValue={sp.q} className="input w-48 py-1.5 text-sm" placeholder="Cari kode, nama atau nomor HP (semua tanggal)" />
         </form>
       </div>
       {orders.length === 0 ? <Empty title="Tidak ada pesanan untuk filter ini" /> : (

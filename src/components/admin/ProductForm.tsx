@@ -48,7 +48,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
         <Field label="Deskripsi (ID)"><textarea className="input" rows={3} value={p.description} onChange={(e) => set("description", e.target.value)} /></Field>
         <Field label="Description (EN)"><textarea className="input" rows={2} value={p.description_en ?? ""} onChange={(e) => set("description_en", e.target.value)} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Asal (ID)"><input className="input" value={p.origin} onChange={(e) => set("origin", e.target.value)} placeholder="Muara Baru, didaratkan subuh" /></Field>
+          <Field label="Asal (ID)"><input className="input" value={p.origin} onChange={(e) => set("origin", e.target.value)} placeholder="Muara Baru, didaratkan menjelang subuh" /></Field>
           <Field label="Origin (EN)"><input className="input" value={p.origin_en ?? ""} onChange={(e) => set("origin_en", e.target.value)} /></Field>
           <Field label="Catatan penyimpanan (ID)"><input className="input" value={p.storage_note} onChange={(e) => set("storage_note", e.target.value)} /></Field>
           <Field label="Storage note (EN)"><input className="input" value={p.storage_note_en ?? ""} onChange={(e) => set("storage_note_en", e.target.value)} /></Field>
@@ -56,11 +56,11 @@ export function ProductForm({ product, categories }: { product: Product | null; 
           <Field label="Urutan"><input className="input" type="number" value={p.sort} onChange={(e) => set("sort", Number(e.target.value))} /></Field>
         </div>
         <div className="flex flex-wrap gap-5 text-sm">
-          <label className="flex items-center gap-2"><input type="checkbox" checked={p.is_catch_weight} onChange={(e) => set("is_catch_weight", e.target.checked)} className="accent-ocean-900" /> Ditimbang (harga per kg, total final setelah timbang)</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={p.is_catch_weight} onChange={(e) => set("is_catch_weight", e.target.checked)} className="accent-ocean-900" /> Ditimbang (harga per kg, total akhir setelah ditimbang)</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={p.is_featured} onChange={(e) => set("is_featured", e.target.checked)} className="accent-ocean-900" /> Tampilkan di “Pilihan dapur”</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={p.is_active} onChange={(e) => set("is_active", e.target.checked)} className="accent-ocean-900" /> Aktif di katalog</label>
         </div>
-        {err && <p className="text-sm text-coral-600">{err}</p>}
+        {err && <p className="text-sm text-gold-ink">{err}</p>}
         <button onClick={save} disabled={pending || !p.name} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : product ? "Simpan perubahan" : "Buat produk"}</button>
       </div>
 
@@ -90,7 +90,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
                 <li key={o.id} className="flex items-center gap-2">
                   <input className="input py-1 text-sm" value={o.label} onChange={(e) => setPreps(preps.map((x) => (x.id === o.id ? { ...x, label: e.target.value } : x)))} onBlur={() => upsertPrepOptionAction(o)} />
                   <input className="input w-24 py-1 text-right text-sm" type="number" value={o.surcharge} onChange={(e) => setPreps(preps.map((x) => (x.id === o.id ? { ...x, surcharge: Number(e.target.value) } : x)))} onBlur={() => upsertPrepOptionAction(o)} />
-                  <button onClick={() => { deletePrepOptionAction(o.id); setPreps(preps.filter((x) => x.id !== o.id)); }} className="rounded-lg p-1.5 text-mute hover:text-coral-600" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={() => { deletePrepOptionAction(o.id); setPreps(preps.filter((x) => x.id !== o.id)); }} className="rounded-lg p-1.5 text-mute hover:text-gold-ink" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
                 </li>
               ))}
             </ul>

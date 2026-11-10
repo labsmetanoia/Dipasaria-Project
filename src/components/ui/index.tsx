@@ -4,7 +4,7 @@ export function Badge({ children, tone = "neutral", className = "" }: { children
  const tones = {
  neutral: "bg-sand-100 text-ink/70",
  tide: "bg-tide-100 text-tide-700",
- coral: "bg-coral-100 text-coral-700",
+ coral: "bg-coral-100 text-gold-ink",
  success: "bg-success-50 text-success-600",
  warn: "bg-warn-50 text-warn-600",
  frozen: "bg-[#eaf1fb] text-[#2f5f9e]",
@@ -48,7 +48,7 @@ export function SectionTitle({ eyebrow, title, children, light = false }: { eyeb
 }
 
 export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: "good" | "bad" | "neutral" }) {
- const color = tone === "good" ? "text-success-600" : tone === "bad" ? "text-coral-600" : "text-ocean-900";
+ const color = tone === "good" ? "text-success-600" : tone === "bad" ? "text-gold-ink" : "text-ocean-900";
  return (
     <div className="card p-4">
       <p className="text-xs font-semibold uppercase tracking-wider text-mute">{label}</p>

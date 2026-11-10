@@ -22,7 +22,7 @@ import type {
 import type { OrderFilter, Repo, Result, SalesRow } from "./repo";
 import { seedAccounts, seedAreas, seedCategories, seedProducts, seedPromos, seedSettings, seedSlots } from "./seed";
 import { availableDates, quote, segmentOf, slotsForSegment } from "../pricing";
-import { addDays, isValidPhone, normalizePhone, nowJakarta } from "../format";
+import { addDays, isValidPhone, jam, jamRange, normalizePhone, nowJakarta } from "../format";
 import { newId, orderCode, randomCode, sessionToken } from "../ids";
 
 interface Store {
@@ -118,7 +118,7 @@ function seedDemoOrders(store: Store) {
       maps_url: null,
       delivery_date: tomorrow,
       slot_id: slot.id,
-      slot_label: `${slot.label} ${slot.start_time}–${slot.end_time}`,
+      slot_label: `${slot.label} ${jamRange(slot.start_time, slot.end_time)}`,
       payment_method,
       payment_status: payment_method === "terms" || payment_method === "cod" ? "unpaid" : "unpaid",
       status,
@@ -224,8 +224,8 @@ export const memoryRepo: Repo = {
     const segment = segmentOf(account);
     if (!input.customer_name?.trim()) return fail("Nama penerima wajib diisi.");
     if (!isValidPhone(input.phone)) return fail("Nomor WhatsApp tidak valid.");
-    if (!input.address?.trim()) return fail("Alamat wajib diisi.");
-    if (!input.lines?.length) return fail("Keranjang kosong.");
+    if (!input.address?.trim()) return fail("Alamat pengiriman wajib diisi.");
+    if (!input.lines?.length) return fail("Keranjang Anda masih kosong.");
     const phone = normalizePhone(input.phone);
     const isFirst = !(await this.hasOrderedBefore(phone));
     const q = quote(
@@ -233,19 +233,19 @@ export const memoryRepo: Repo = {
       { lines: input.lines, area_id: input.area_id, promo_code: input.promo_code },
     );
     if (q.errors.length) return fail(q.errors[0]);
-    if (!q.min_order_met) return fail(`Minimum pesanan Rp ${q.min_order.toLocaleString("id-ID")}.`);
+    if (!q.min_order_met) return fail(`Minimal pesanan Rp${q.min_order.toLocaleString("id-ID")}.`);
     if (input.promo_code && q.promo_error) return fail(q.promo_error);
     const area = store.areas.find((a) => a.id === input.area_id && a.is_active);
-    if (!area) return fail("Area pengiriman tidak valid.");
-    if (!availableDates(store.settings, now).includes(input.delivery_date)) return fail("Tanggal pengiriman tidak tersedia (batas pesan 20:00 WIB).");
+    if (!area) return fail("Wilayah pengiriman tidak valid.");
+    if (!availableDates(store.settings, now).includes(input.delivery_date)) return fail(`Tanggal pengiriman tidak tersedia. Batas pemesanan untuk pengiriman besok pukul ${jam(store.settings.cutoff_time)} WIB.`);
     const slot = slotsForSegment(store.slots, segment).find((s) => s.id === input.slot_id);
-    if (!slot) return fail("Slot pengiriman tidak valid.");
+    if (!slot) return fail("Jam pengiriman tidak tersedia untuk akun ini.");
     const used = (await this.getSlotUsage([input.delivery_date]))[`${input.delivery_date}|${slot.id}`] ?? 0;
-    if (used >= slot.capacity) return fail("Slot pengiriman sudah penuh, pilih slot lain.");
+    if (used >= slot.capacity) return fail("Kuota jam pengiriman ini sudah penuh. Silakan pilih jam lain.");
     const pm = input.payment_method;
     if (!["qris", "transfer", "cod", "terms"].includes(pm)) return fail("Metode pembayaran tidak valid.");
-    if (pm === "cod" && !(segment === "business" && account?.allow_cod)) return fail("COD hanya untuk akun bisnis yang disetujui.");
-    if (pm === "terms" && !(segment === "business" && account && account.payment_terms !== "prepaid")) return fail("Tempo hanya untuk akun bisnis dengan fasilitas tempo.");
+    if (pm === "cod" && !(segment === "business" && account?.allow_cod)) return fail("Bayar di tempat (COD) hanya tersedia untuk akun bisnis yang telah disetujui.");
+    if (pm === "terms" && !(segment === "business" && account && account.payment_terms !== "prepaid")) return fail("Pembayaran tempo hanya tersedia untuk akun bisnis dengan fasilitas tempo.");
 
     // Reserve stock
     for (const l of q.lines) {
@@ -294,7 +294,7 @@ export const memoryRepo: Repo = {
       maps_url: input.maps_url?.trim() || null,
       delivery_date: input.delivery_date,
       slot_id: slot.id,
-      slot_label: `${slot.label} ${slot.start_time}–${slot.end_time}`,
+      slot_label: `${slot.label} ${jamRange(slot.start_time, slot.end_time)}`,
       payment_method: pm,
       payment_status: "unpaid",
       status: "new",
@@ -339,7 +339,7 @@ export const memoryRepo: Repo = {
     if (!input.business_name?.trim() || !input.contact_name?.trim()) return fail("Nama usaha dan nama kontak wajib diisi.");
     if (!isValidPhone(input.phone)) return fail("Nomor WhatsApp tidak valid.");
     const phone = normalizePhone(input.phone);
-    if (store.accounts.some((a) => a.phone === phone)) return fail("Nomor ini sudah terdaftar. Hubungi kami via WhatsApp untuk kode akses.");
+    if (store.accounts.some((a) => a.phone === phone)) return fail("Nomor ini sudah terdaftar. Hubungi kami melalui WhatsApp untuk mendapatkan kode akses.");
     const acc: BusinessAccount = {
       id: newId("ba"),
       business_name: input.business_name.trim(),
@@ -400,7 +400,7 @@ export const memoryRepo: Repo = {
     const store = getStore();
     const o = store.orders.find((x) => x.id === id);
     if (!o) return fail("Pesanan tidak ditemukan.");
-    if (o.status === "cancelled") return fail("Pesanan sudah dibatalkan.");
+    if (o.status === "cancelled") return fail("Pesanan ini sudah dibatalkan.");
     if (status === "cancelled") {
       for (const i of o.items) {
         const v = store.products.find((p) => p.id === i.product_id)?.variants.find((x) => x.id === i.variant_id);
@@ -419,7 +419,7 @@ export const memoryRepo: Repo = {
     for (const w of items) {
       const it = o.items.find((i) => i.id === w.item_id);
       if (!it) return fail("Baris pesanan tidak ditemukan.");
-      if (!(w.qty_final >= 0)) return fail("Berat harus angka positif.");
+      if (!(w.qty_final >= 0)) return fail("Berat harus berupa angka positif.");
       it.qty_final = w.qty_final;
       it.line_total_final = Math.round(it.unit_price * w.qty_final);
     }

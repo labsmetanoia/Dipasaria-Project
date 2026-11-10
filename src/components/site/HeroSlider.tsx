@@ -18,7 +18,7 @@ export function HeroSlider({ slides }: { slides: Slide[] }) {
       <div className="container-x flex h-full flex-col justify-end pb-14 md:pb-20">
         <div key={i} className="max-w-3xl">
           <p className="eyebrow rise text-coral-500">{s.eyebrow}</p>
-          <h1 className="rise rise-2 mt-3 text-[2.8rem] sm:text-[4.4rem] lg:text-[5.6rem]">{s.title}</h1>
+          <h1 className="rise rise-2 mt-3 text-[2.8rem] sm:text-[4.4rem] lg:text-[5.6rem]">{s.title.split(/(?<=\.)\s+/).map((line, j) => <span key={j} className="block">{line}</span>)}</h1>
           {s.sub && <p className="rise rise-3 mt-4 max-w-xl font-sans text-[15px] leading-relaxed text-white/80 sm:text-[16px]">{s.sub}</p>}
           <div className="rise rise-3 mt-7 flex flex-wrap gap-3">
             <Link href={s.cta.href} className="btn-accent">{s.cta.label}</Link>

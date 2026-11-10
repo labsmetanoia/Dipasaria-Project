@@ -11,34 +11,34 @@ export const metadata: Metadata = { title: "Untuk restoran" };
 
 const copy = {
   id: {
-    eyebrow: "Untuk restoran & dapur komersial",
-    title: "Pesanan 60 detik pukul 21.00. Ikan dan ayam di dapur pukul 07.00.",
-    sub: "Satu pemasok untuk pusat piring: seafood bergrade, ayam halal, telur dan bumbu, dalam satu pengiriman subuh dan satu invoice.",
-    points: (free: string) => ["Harga grosir di katalog yang sama, tampil setelah login", "Pesan lagi: keranjang terisi dari pesanan terakhir, ubah jumlah, selesai", `Pengiriman gratis dari ${free}; slot dapur 05.00–08.00`, "Prabayar untuk 10 pesanan pertama, lalu tempo 3 hari, lalu mingguan", "Invoice final bernama spesies, grade dan lot untuk pembukuan dan pajak", "Sertifikat halal pemasok ayam tersedia per lot"],
+    eyebrow: "Untuk restoran dan dapur komersial",
+    title: "Pesan dalam 60 detik. Tiba di dapur pukul 07.00.",
+    sub: "Pesan malam ini hingga pukul 20.00, terima besok subuh. Satu pemasok untuk bahan utama menu Anda: seafood dengan ukuran yang jelas, ayam halal, telur dan bumbu, dalam satu pengiriman dan satu tagihan.",
+    points: (free: string) => ["Harga grosir di katalog yang sama, tampil setelah Anda masuk", "Pesan lagi: keranjang terisi otomatis dari pesanan terakhir, cukup sesuaikan jumlahnya", `Gratis ongkos kirim mulai ${free}, dengan pengiriman dapur pukul 05.00–08.00`, "Bayar di muka untuk 10 pesanan pertama, lalu tempo 3 hari, kemudian mingguan", "Tagihan akhir mencantumkan jenis, ukuran dan lot untuk pembukuan dan pajak", "Sertifikat halal pemasok ayam tersedia untuk setiap lot"],
     formTitle: "Daftar akun bisnis",
-    formSub: "Kami tinjau dalam 1 hari kerja dan kirim kode akses via WhatsApp.",
+    formSub: "Kami tinjau dalam 1 hari kerja, lalu kode akses dikirim melalui WhatsApp.",
     flowEyebrow: "Alur kerja",
-    flowTitle: "Dirancang di sekitar jam dapur, bukan jam kantor.",
-    flow: [["21.00", "Pemilik membuka ikon di layar HP, menekan Pesan lagi, menaikkan kakap dari 5 ke 6 kg, checkout. Konfirmasi WhatsApp masuk."], ["03.00", "Kami melelang sesuai daftar, memotret lot, menyiangi sesuai spesifikasi akun Anda."], ["04.30", "Ditimbang. Invoice final dikirim via WhatsApp beserta nama spesies dan grade."], ["05.00–08.00", "Kurir mengantar dengan pembacaan suhu di serah terima. Pembayaran sesuai tempo akun."]],
+    flowTitle: "Dirancang mengikuti jam dapur, bukan jam kantor.",
+    flow: [["19.30", "Pemilik membuka aplikasi dari layar ponsel, menekan Pesan lagi, menambah kakap dari 5 menjadi 6 kg, lalu menyelesaikan pembayaran. Konfirmasi WhatsApp langsung masuk."], ["03.00", "Kami membeli di lelang sesuai daftar, memotret setiap lot dan menyiangi sesuai spesifikasi akun Anda."], ["04.30", "Pesanan ditimbang. Tagihan akhir dikirim melalui WhatsApp lengkap dengan jenis dan ukurannya."], ["05.00–08.00", "Kurir mengantar pesanan dan mengukur suhu saat serah terima. Pembayaran mengikuti ketentuan tempo akun Anda."]],
     mathEyebrow: "Hitungan yang sebenarnya",
-    mathTitle: "Harga per kg kami 5–10% di atas pasar. Biaya per porsi biasanya lebih rendah.",
-    mathBody: "Reject 5–8% di pasar, susut grade yang tidak konsisten, dan 2–3 jam per hari di Muara Baru tidak muncul di harga per kg, tetapi muncul di margin menu Anda. Minta sampel dan hitung dengan menu Anda sendiri.",
-    math: [["5–8%", "reject di pasar tradisional untuk pembeli yang tidak memeriksa setiap ekor"], ["2–3 jam", "per hari yang dihabiskan kepala dapur atau pemilik untuk perjalanan subuh"], ["±45%", "rendemen fillet kakap; grade ukuran tertulis membuatnya konsisten"], ["0", "ikan segar yang menginap di gudang kami; dibeli sesuai pesanan"]],
+    mathTitle: "Harga per kg kami 5–10% di atas pasar. Biaya per porsinya justru biasanya lebih rendah.",
+    mathBody: "Barang tidak layak 5–8% di pasar, susut akibat ukuran yang tidak konsisten, serta 2–3 jam per hari di Muara Baru memang tidak terlihat pada harga per kg, tetapi terasa pada margin menu Anda. Minta sampel dan hitung sendiri berdasarkan menu Anda.",
+    math: [["5–8%", "barang tidak layak di pasar tradisional bagi pembeli yang tidak memeriksa setiap ekor"], ["2–3 jam", "per hari yang dihabiskan kepala dapur atau pemilik untuk ke pasar subuh"], ["±45%", "hasil fillet kakap; ukuran yang tertulis membuatnya konsisten"], ["0", "ikan segar yang menginap di gudang kami, karena semuanya dibeli sesuai pesanan"]],
     segEyebrow: "Siapa yang kami layani",
-    segTitle: "Restoran independen di satu rute yang sama.",
-    segBody: "Rute padat menjaga ongkos per drop rendah dan pengiriman tepat waktu. Kami tumbuh rute demi rute.",
-    segments: [["Restoran seafood & Chinese-Indonesian", "Kakap, kerapu, cumi, udang bergrade; ayam potong; telur per peti."], ["Padang, Sunda, Manado", "Kembung, tongkol, bandeng harian; ayam potong 8/12; bumbu dapur."], ["Ayam geprek & fried chicken", "Ayam potong segar dengan band ukuran konsisten dan dokumen halal; telur; minyak 18 L."], ["Kafe & cloud kitchen", "Dori, salmon portion, dada fillet, frozen food sebagai menu tambahan."], ["Katering", "Volume mingguan dengan spesifikasi tertulis dan jadwal tetap."], ["Warung & reseller frozen", "Pack beku, grade-B pagi itu juga, nugget dan sosis."]],
+    segTitle: "Restoran independen di sepanjang satu rute.",
+    segBody: "Rute yang padat menjaga biaya per titik antar tetap rendah dan pengiriman tepat waktu. Kami tumbuh rute demi rute.",
+    segments: [["Restoran seafood dan masakan Tionghoa", "Kakap, kerapu, cumi dan udang dengan ukuran yang jelas; ayam potong; telur per peti."], ["Rumah makan Padang, Sunda dan Manado", "Kembung, tongkol dan bandeng harian; ayam potong 8 dan 12; bumbu dapur."], ["Ayam geprek dan ayam goreng tepung", "Ayam potong segar dengan ukuran konsisten dan dokumen halal; telur; minyak goreng 18 L."], ["Kafe dan dapur daring", "Dori, potongan salmon, fillet dada ayam dan olahan beku untuk menu tambahan."], ["Katering", "Volume mingguan dengan spesifikasi tertulis dan jadwal tetap."], ["Warung dan pengecer produk beku", "Produk beku dalam kemasan, ikan ukuran B di pagi yang sama, nugget dan sosis."]],
   },
   en: {
     eyebrow: "For restaurants & commercial kitchens",
-    title: "A 60-second order at 9 pm. Fish and chicken in your kitchen by 7 am.",
+    title: "Order in 60 seconds. In your kitchen by 7 am.",
     sub: "One supplier for the centre of the plate: graded seafood, halal chicken, eggs and condiments, in one dawn delivery and one invoice.",
     points: (free: string) => ["Wholesale prices in the same catalogue, shown after sign-in", "Reorder: the cart fills from your last order, adjust quantities, done", `Free delivery from ${free}; 05:00–08:00 kitchen slot`, "Prepaid for the first 10 orders, then 3-day terms, then weekly", "Species-, grade- and lot-named final invoice for bookkeeping and tax", "Supplier halal certificates available per lot"],
     formTitle: "Register a business account",
     formSub: "Reviewed within 1 working day; the access code arrives on WhatsApp.",
     flowEyebrow: "Workflow",
     flowTitle: "Designed around kitchen hours, not office hours.",
-    flow: [["21:00", "The owner opens the home-screen icon, taps Reorder, raises snapper from 5 to 6 kg, checks out. WhatsApp confirmation arrives."], ["03:00", "We bid to the list, photograph lots, clean to your account's specification."], ["04:30", "Weighed. The final invoice goes out on WhatsApp with species and grade."], ["05:00–08:00", "The courier delivers with a temperature reading at hand-off. Payment per your account terms."]],
+    flow: [["19.30", "The owner opens the home-screen icon, taps Reorder, raises snapper from 5 to 6 kg, checks out. WhatsApp confirmation arrives."], ["03:00", "We bid to the list, photograph lots, clean to your account's specification."], ["04:30", "Weighed. The final invoice goes out on WhatsApp with species and grade."], ["05:00–08:00", "The courier delivers with a temperature reading at hand-off. Payment per your account terms."]],
     mathEyebrow: "The real arithmetic",
     mathTitle: "Our price per kg is 5–10% above the market. Cost per portion is usually lower.",
     mathBody: "Market rejects of 5–8%, trim from inconsistent grades and 2–3 hours a day at Muara Baru never show in the price per kg, but they show in your menu margin. Ask for a sample and run the numbers with your own menu.",
@@ -61,7 +61,7 @@ export default async function RestoranPage() {
       <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="shrimp" image={IMAGES.restaurant} />
       <Band>
         <div className="grid gap-10 lg:grid-cols-12">
-          <ul className="space-y-3 lg:col-span-6">{c.points(rupiah(settings.free_delivery_business)).map((p) => <li key={p} className="flex gap-3 font-sans text-[15px] text-ink/85"><Check className="mt-0.5 h-5 w-5 flex-none text-coral-600" />{p}</li>)}</ul>
+          <ul className="space-y-3 lg:col-span-6">{c.points(rupiah(settings.free_delivery_business)).map((p) => <li key={p} className="flex gap-3 font-sans text-[15px] text-ink/85"><Check className="mt-0.5 h-5 w-5 flex-none text-gold-ink" />{p}</li>)}</ul>
           <div id="daftar" className="card scroll-mt-28 p-6 lg:col-span-6 lg:p-8"><h2 className="text-[2rem]">{c.formTitle}</h2><p className="mt-1 font-sans text-sm text-mute">{c.formSub}</p><div className="mt-6"><BusinessApplyForm areas={areas} /></div></div>
         </div>
       </Band>

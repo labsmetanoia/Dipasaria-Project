@@ -33,7 +33,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
           <Field label="Bank"><input className="input" value={s.bank_name} onChange={(e) => set("bank_name", e.target.value)} /></Field>
           <Field label="Nomor rekening"><input className="input" value={s.bank_account} onChange={(e) => set("bank_account", e.target.value)} /></Field>
           <Field label="Atas nama"><input className="input" value={s.bank_holder} onChange={(e) => set("bank_holder", e.target.value)} /></Field>
-          <Field label="URL gambar QRIS statis" hint="Unggah gambar QRIS dari bank ke Supabase Storage atau layanan gambar, tempel tautannya."><input className="input" value={s.qris_image_url ?? ""} onChange={(e) => set("qris_image_url", e.target.value || null)} /></Field>
+          <Field label="URL gambar QRIS statis" hint="Unggah gambar QRIS dari bank ke Supabase Storage atau layanan penyimpanan gambar, lalu tempelkan tautannya di sini."><input className="input" value={s.qris_image_url ?? ""} onChange={(e) => set("qris_image_url", e.target.value || null)} /></Field>
           <Field label="Instagram"><input className="input" value={s.instagram} onChange={(e) => set("instagram", e.target.value)} /></Field>
           <Field label="Alamat singkat"><input className="input" value={s.address_line} onChange={(e) => set("address_line", e.target.value)} /></Field>
         </div>
@@ -42,21 +42,21 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
       <div className="card space-y-4 p-5">
         <h2 className="font-semibold text-ocean-900">Aturan pesanan</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Batas pesan (WIB)"><input className="input" value={s.cutoff_time} onChange={(e) => set("cutoff_time", e.target.value)} placeholder="20:00" /></Field>
+          <Field label="Batas pemesanan (WIB)"><input className="input" value={s.cutoff_time} onChange={(e) => set("cutoff_time", e.target.value)} placeholder="20:00" /></Field>
           <Field label="Maks. hari ke depan"><input className="input" type="number" value={s.max_days_ahead} onChange={(e) => set("max_days_ahead", Number(e.target.value))} /></Field>
           <Field label="Min. pesanan rumah tangga"><input className="input" value={s.min_order_retail} onChange={(e) => set("min_order_retail", num(e.target.value))} /></Field>
           <Field label="Min. pesanan bisnis"><input className="input" value={s.min_order_business} onChange={(e) => set("min_order_business", num(e.target.value))} /></Field>
-          <Field label="Gratis ongkir rumah tangga dari"><input className="input" value={s.free_delivery_retail} onChange={(e) => set("free_delivery_retail", num(e.target.value))} /></Field>
-          <Field label="Gratis ongkir bisnis dari"><input className="input" value={s.free_delivery_business} onChange={(e) => set("free_delivery_business", num(e.target.value))} /></Field>
+          <Field label="Gratis ongkos kirim rumah tangga mulai"><input className="input" value={s.free_delivery_retail} onChange={(e) => set("free_delivery_retail", num(e.target.value))} /></Field>
+          <Field label="Gratis ongkos kirim bisnis mulai"><input className="input" value={s.free_delivery_business} onChange={(e) => set("free_delivery_business", num(e.target.value))} /></Field>
           <Field label="Buffer beli ikan segar (%)" hint="Rencana bisnis: mulai 5%, sesuaikan dengan data susut Gate A."><input className="input" type="number" value={s.catch_weight_buffer_pct} onChange={(e) => set("catch_weight_buffer_pct", Number(e.target.value))} /></Field>
         </div>
-        {err && <p className="text-sm text-coral-600">{err}</p>}
+        {err && <p className="text-sm text-gold-ink">{err}</p>}
         <button onClick={save} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <><Check className="h-4 w-4" /> Tersimpan</> : "Simpan pengaturan"}</button>
       </div>
 
       <div className="card p-5">
         <h2 className="font-semibold text-ocean-900">Area pengiriman</h2>
-        <p className="text-xs text-mute">Tiga sampai lima area dengan ongkir tetap lebih jelas bagi pelanggan daripada tarif per km.</p>
+        <p className="text-xs text-mute">Tiga sampai lima wilayah dengan ongkos kirim tetap lebih mudah dipahami pelanggan daripada tarif per km.</p>
         <ul className="mt-3 space-y-2">
           {areas.map((a) => (
             <li key={a.id} className="flex items-center gap-2 text-sm">
@@ -66,7 +66,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
             </li>
           ))}
         </ul>
-        <button onClick={() => { const a: DeliveryArea = { id: `a_${Date.now().toString(36)}`, name: "Area baru", fee: 25000, is_active: false, sort: areas.length + 1 }; setAreas([...areas, a]); saveArea(a); }} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah area</button>
+        <button onClick={() => { const a: DeliveryArea = { id: `a_${Date.now().toString(36)}`, name: "Wilayah baru", fee: 25000, is_active: false, sort: areas.length + 1 }; setAreas([...areas, a]); saveArea(a); }} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah wilayah</button>
       </div>
       <div className="card p-5">
         <h2 className="font-semibold text-ocean-900">Slot pengiriman</h2>
@@ -82,7 +82,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
             </li>
           ))}
         </ul>
-        <button onClick={() => { const sl: DeliverySlot = { id: `s_${Date.now().toString(36)}`, label: "Slot baru", start_time: "13:00", end_time: "15:00", segment: "all", capacity: 10, is_active: true, sort: slots.length + 1 }; setSlots([...slots, sl]); saveSlot(sl); }} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah slot</button>
+        <button onClick={() => { const sl: DeliverySlot = { id: `s_${Date.now().toString(36)}`, label: "Jam pengiriman baru", start_time: "13:00", end_time: "15:00", segment: "all", capacity: 10, is_active: true, sort: slots.length + 1 }; setSlots([...slots, sl]); saveSlot(sl); }} className="btn-secondary mt-3 text-sm"><Plus className="h-4 w-4" /> Tambah jam pengiriman</button>
       </div>
     </div>
   );
