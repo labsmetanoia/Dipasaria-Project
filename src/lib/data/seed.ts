@@ -603,6 +603,10 @@ const PHOTO_SLUGS = new Set([
   "udang-kupas-beku", "dori-fillet", "tuna-saku", "salmon-fillet", "tenggiri-steak", "sayap-ayam-beku", "paha-ayam-beku",
   "dada-fillet-ayam", "ayam-potong-segar", "nugget-ayam", "sosis-ayam", "bakso-ikan", "telur-ayam", "minyak-goreng",
   "kecap-manis", "sambal-bawang", "bawang-putih-kupas", "tepung-bumbu", "kotak-freezer-keluarga", "kotak-seafood-weekend",
+  // round 8: the two former placeholders and every new SKU
+  "cumi-segar", "otak-otak", "kakap-putih", "tenggiri-utuh", "ikan-kuwe", "selar", "udang-windu", "kepiting-bakau", "kerang-hijau",
+  "sotong", "cumi-ring-beku", "fillet-kakap-beku", "ayam-utuh-beku", "paha-fillet-ayam", "siomay", "kentang-goreng-beku",
+  "telur-ayam-kampung", "telur-bebek", "telur-puyuh", "saus-tiram", "minyak-wijen", "garam-laut", "jeruk-nipis", "paket-ikan-bakar",
 ]);
 
 export const seedProducts: Product[] = orderedSeeds.map((p, pi) => ({

@@ -28,7 +28,7 @@ export function MinOrderBar({ subtotal, min, free }: { subtotal: number; min: nu
           <span className="text-mute">{rupiah(free)}</span>
         </div>
         <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-sand-200"><div className={`h-full rounded-full transition-all ${leftFree > 0 ? "bg-ocean-950" : "bg-success-600"}`} style={{ width: `${pctFree}%` }} /></div>
-        {leftFree > 0 && <p className="mt-1 text-[11px] font-semibold text-success-600">✓ {t.cart.minMet}</p>}
+        <p className="mt-1 text-[11px] font-semibold text-success-600">✓ {t.cart.minMet}</p>
       </div>
     );
   }

@@ -2,7 +2,7 @@
 
 These images are placeholders until Dipasaria's own product and sourcing photography is ready. All are from [Pexels](https://www.pexels.com) under the [Pexels licence](https://www.pexels.com/license/): free for commercial use, modification allowed, attribution not required (credited here as a courtesy). They are self-hosted under `public/images`, so the site does not depend on Pexels at runtime.
 
-Two products have no accurate free photo and keep the illustrated placeholder: **Cumi Segar** and **Otak-otak Tenggiri**. Add your own photos for these first.
+Every product now has a photo. Where no accurate free photo exists, a close or substitute image is used (see the table at the end). **Replace these first with your own photography**, in this order: Kerang Hijau (shows black mussels), Kuwe (shows a freshwater fish), Sotong and Cumi Segar (show grilled squid), Tenggiri Utuh, Minyak Wijen, Saus Tiram and Otak-otak.
 
 **To replace a photo:** product photos are set per product (`image_url`, the "URL foto" field in Back-office → Produk & stok → product), so upload your image to Supabase Storage and paste its link there, or overwrite the file in `public/images/products/` keeping the same name. Page photos (heroes, category tiles, story sections) are listed in `src/lib/content/images.ts`.
 
@@ -58,3 +58,34 @@ Note: Pexels' licence does not grant rights to identifiable people or brands sho
 | `public/images/site/market-woman.jpg` | [1838591](https://www.pexels.com/photo/1838591/) | see Pexels page |
 | `public/images/site/chef-butcher.jpg` | [8792849](https://www.pexels.com/photo/8792849/) | see Pexels page |
 | `public/images/site/fish-display.jpg` | [29969426](https://www.pexels.com/photo/29969426/) | Mehmet Turgut Kirkgoz |
+
+## Added in round 8 (catalogue expansion)
+
+Photographer names come from Pexels search listings; where none was listed, check the Pexels page before crediting. Some images were cropped to landscape or to remove stray text.
+
+| File | Pexels photo | Photographer | Match |
+| --- | --- | --- | --- |
+| `public/images/products/cumi-segar.jpg` | [19316738](https://www.pexels.com/photo/19316738/) | see Pexels page | substitute: squid on a charcoal grill (serving suggestion), not raw |
+| `public/images/products/otak-otak.jpg` | [5948999](https://www.pexels.com/photo/5948999/) | see Pexels page | substitute: banana-leaf parcels (Vietnamese bánh bột lọc), not fish cake |
+| `public/images/products/kakap-putih.jpg` | [14062105](https://www.pexels.com/photo/14062105/) | Deane Bayas | close: European sea bass on ice |
+| `public/images/products/tenggiri-utuh.jpg` | [28916474](https://www.pexels.com/photo/28916474/) | Soner Arkan | substitute: striped mackerel/tuna-type fish, cropped |
+| `public/images/products/ikan-kuwe.jpg` | [3731945](https://www.pexels.com/photo/3731945/) | see Pexels page | substitute: silver freshwater fish, not trevally |
+| `public/images/products/selar.jpg` | [3650159](https://www.pexels.com/photo/3650159/) | see Pexels page | close: small sardine-type fish on ice |
+| `public/images/products/udang-windu.jpg` | [32230042](https://www.pexels.com/photo/32230042/) | see Pexels page | close: raw prawns, stripes not clearly visible |
+| `public/images/products/kepiting-bakau.jpg` | [10432611](https://www.pexels.com/photo/10432611/) | RDNE Stock project | close: Dungeness crabs |
+| `public/images/products/kerang-hijau.jpg` | [8352388](https://www.pexels.com/photo/8352388/) | Kindel Media | substitute: black/blue mussels, not green |
+| `public/images/products/sotong.jpg` | [15354962](https://www.pexels.com/photo/15354962/) | see Pexels page | substitute: grilled squid skewers, not raw cuttlefish |
+| `public/images/products/cumi-ring-beku.jpg` | [5335919](https://www.pexels.com/photo/5335919/) | bams awey | close: fried calamari rings |
+| `public/images/products/fillet-kakap-beku.jpg` | [8352793](https://www.pexels.com/photo/8352793/) | see Pexels page | close: skinless white fish fillets, cropped |
+| `public/images/products/ayam-utuh-beku.jpg` | [10842249](https://www.pexels.com/photo/10842249/) | Karyna Panchenko | exact |
+| `public/images/products/paha-fillet-ayam.jpg` | [13422436](https://www.pexels.com/photo/13422436/) | see Pexels page | close: raw boneless chicken, seasoned |
+| `public/images/products/siomay.jpg` | [32393811](https://www.pexels.com/photo/32393811/) | Change C.C. | exact |
+| `public/images/products/kentang-goreng-beku.jpg` | [6941042](https://www.pexels.com/photo/6941042/) | Alena Shekhovtcova | close: cooked fries |
+| `public/images/products/telur-ayam-kampung.jpg` | [20779606](https://www.pexels.com/photo/20779606/) | see Pexels page | exact |
+| `public/images/products/telur-bebek.jpg` | [3680159](https://www.pexels.com/photo/3680159/) | see Pexels page | close: duck eggs at a market, cropped |
+| `public/images/products/telur-puyuh.jpg` | [6625279](https://www.pexels.com/photo/6625279/) | Polina Tankilevitch | exact |
+| `public/images/products/saus-tiram.jpg` | [15949775](https://www.pexels.com/photo/15949775/) | see Pexels page | substitute: dark sauce poured from an unlabelled bottle |
+| `public/images/products/minyak-wijen.jpg` | [3682190](https://www.pexels.com/photo/3682190/) | see Pexels page | substitute: jar of sesame seeds, no oil |
+| `public/images/products/garam-laut.jpg` | [4475228](https://www.pexels.com/photo/4475228/) | Maria Petersson | exact |
+| `public/images/products/jeruk-nipis.jpg` | [6431962](https://www.pexels.com/photo/6431962/) | Skylar Kang | exact |
+| `public/images/products/paket-ikan-bakar.jpg` | [19239119](https://www.pexels.com/photo/19239119/) | see Pexels page | close: grilled whole fish platter |

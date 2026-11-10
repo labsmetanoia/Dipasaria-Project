@@ -65,7 +65,7 @@ export function ProductCard({ p, segment, discountPct = 0, locale = "id", quickA
         <div className="mt-auto flex items-end justify-between gap-2 border-t border-line pt-3 mt-3">
           <div className="min-w-0">
             <p className="font-sans text-[10px] font-bold uppercase tracking-[0.18em] text-mute">{variants.length > 1 ? (en ? "From" : "Mulai") : (en ? "Price" : "Harga")}</p>
-            <p className="whitespace-nowrap font-display text-[25px] font-bold leading-none">{rupiah(price)}<span className="ml-1 font-sans text-[11px] font-semibold text-mute">/{t.unit[v.unit]}</span></p>
+            <p className="font-display text-[21px] font-bold leading-none sm:text-[25px]"><span className="whitespace-nowrap">{rupiah(price)}</span><span className="ml-1 whitespace-nowrap font-sans text-[11px] font-semibold text-mute">/{t.unit[v.unit]}</span></p>
             {retail !== null && <p className="font-sans text-[11px] text-mute line-through">{rupiah(retail)}</p>}
           </div>
           {quickAdd && <QuickAdd product={p} variant={v} disabled={off || out} />}
