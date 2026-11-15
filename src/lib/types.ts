@@ -32,6 +32,8 @@ export interface Settings {
   announcement_en: string | null;
   hero_image_url: string | null;
   about_image_url: string | null;
+  /** Minutes a household transfer/QRIS order with a known total has to be paid before automatic cancellation (0 = never). */
+  payment_window_minutes: number;
 }
 
 export interface Category {
@@ -213,6 +215,8 @@ export interface Order {
   promo_type?: Promo["type"] | null;
   promo_value?: number | null;
   client_ref?: string | null;
+  /** Unpaid by this time → cancelled automatically (null = never). */
+  pay_by?: string | null;
   customer_note: string;
   internal_note: string;
   created_at: string;
@@ -337,7 +341,25 @@ export interface StandingOrderRun {
   order_id: string | null;
   order_code: string | null;
   error: string | null;
+  /** Items left out that night because they were unavailable (the rest was still placed). */
+  note: string | null;
   created_at: string;
 }
 
 export type StandingOrderInput = Pick<StandingOrder, "name" | "weekdays" | "slot_id" | "payment_method" | "lines" | "note"> & { id?: string };
+
+/** A grouped application error (server or browser) for the back-office system page. */
+export interface AppError {
+  fingerprint: string;
+  source: "server" | "client" | "action" | "job";
+  message: string;
+  path: string;
+  digest: string | null;
+  detail: string | null;
+  count: number;
+  first_at: string;
+  last_at: string;
+  resolved: boolean;
+}
+
+export interface JobRun { job: string; last_at: string; result: string }

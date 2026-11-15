@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { expireIfDue } from "@/lib/expiry";
 import Link from "next/link";
 import { Scale } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -13,6 +14,7 @@ const STATUSES: OrderStatus[] = ["new", "confirmed", "packing", "delivering", "c
 
 export default async function OrdersAdmin({ searchParams }: { searchParams: Promise<{ date?: string; status?: string; q?: string; weigh?: string; unpaid?: string; all?: string }> }) {
   await requireAdmin();
+  await expireIfDue(); // unpaid orders past their deadline must not reach the buying list or the route
   const sp = await searchParams;
   const date = pickDate(sp.date);
   const repo = await getRepo();

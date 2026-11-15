@@ -2,6 +2,8 @@
 // It applies the same business rules as the SQL functions, via src/lib/pricing.ts.
 
 import type {
+  AppError,
+  JobRun,
   AccountApplication,
   BusinessAccount,
   BuyingLine,
@@ -176,7 +178,18 @@ function getStore(): Store {
   return globalThis.__dipasariaStore;
 }
 
-const loginFailures = new Map<string, number[]>();
+// Kept on globalThis like the store: Next.js may load this module once per route bundle, and these must be shared.
+const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun> } };
+g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map() };
+const { loginFailures, rateHits, errorLog, jobs } = g.__dpMem;
+
+/** Same rule as place_order in SQL: households paying a known total by transfer/QRIS pay within the window, before the delivery day starts. */
+function payByFor(o: Pick<Order, "segment" | "payment_method" | "has_catch_weight" | "delivery_date">, settings: Settings, nowMs = Date.now()): string | null {
+  const win = settings.payment_window_minutes ?? 0;
+  if (o.segment !== "retail" || (o.payment_method !== "transfer" && o.payment_method !== "qris") || o.has_catch_weight || win <= 0) return null;
+  const dayStart = Date.parse(`${o.delivery_date}T00:00:00+07:00`);
+  return new Date(Math.min(nowMs + win * 60_000, dayStart)).toISOString();
+}
 const ok = <T,>(data: T): Result<T> => ({ ok: true, data });
 const fail = <T,>(error: string): Result<T> => ({ ok: false, error });
 
@@ -333,12 +346,14 @@ export const memoryRepo: Repo = {
       promo_type: q.promo?.type ?? null,
       promo_value: q.promo?.value ?? null,
       client_ref: ref || null,
+      pay_by: null,
       customer_note: input.customer_note?.trim() ?? "",
       internal_note: "",
       created_at: created,
       history: [{ status: "new", at: created }],
       items,
     };
+    order.pay_by = payByFor(order, store.settings);
     store.orders.unshift(order);
     return ok(clone(order));
   },
@@ -354,6 +369,7 @@ export const memoryRepo: Repo = {
     // only once the final amount is known (weighed orders are paid on the final invoice)
     if (o.payment_status === "unpaid" && o.total_final !== null && o.status !== "cancelled") {
       o.payment_status = "awaiting_confirmation";
+      o.pay_by = null;
     }
     return ok(clone(o));
   },
@@ -477,6 +493,7 @@ export const memoryRepo: Repo = {
     const err = paymentChangeError(o, status);
     if (err) return fail(err);
     o.payment_status = status;
+    if (status === "paid" || status === "awaiting_confirmation") o.pay_by = null;
     if (status === "paid") o.history.push({ status: "paid", at: new Date().toISOString() });
     return ok(clone(o));
   },
@@ -734,12 +751,60 @@ export const memoryRepo: Repo = {
     // a run that failed may be retried (after the problem is fixed); one that placed an order, or is in progress, may not
     if (prev && prev.order_id === null && prev.error !== null) { prev.error = null; prev.created_at = new Date().toISOString(); return clone(prev); }
     if (prev) return null;
-    const run: StandingOrderRun = { id: newId("sr"), standing_order_id: standingOrderId, delivery_date: date, order_id: null, order_code: null, error: null, created_at: new Date().toISOString() };
+    const run: StandingOrderRun = { id: newId("sr"), standing_order_id: standingOrderId, delivery_date: date, order_id: null, order_code: null, error: null, note: null, created_at: new Date().toISOString() };
     store.standingRuns.push(run);
     return clone(run);
   },
   async finishStandingRun(runId, patch) {
     const run = getStore().standingRuns.find((r) => r.id === runId);
-    if (run) Object.assign(run, { order_id: patch.order_id ?? null, order_code: patch.order_code ?? null, error: patch.error ?? null });
+    if (run) Object.assign(run, { order_id: patch.order_id ?? null, order_code: patch.order_code ?? null, error: patch.error ?? null, note: patch.note ?? null });
+  },
+
+  async hitRateLimit(key, windowSeconds, max) {
+    const since = Date.now() - windowSeconds * 1000;
+    const recent = (rateHits.get(key) ?? []).filter((t) => t > since);
+    if (recent.length >= max) { rateHits.set(key, recent); return false; }
+    recent.push(Date.now());
+    rateHits.set(key, recent);
+    return true;
+  },
+  async expireUnpaidOrders() {
+    const now = Date.now();
+    const due = getStore().orders.filter((o) => o.pay_by && Date.parse(o.pay_by) < now && o.payment_status === "unpaid" && (o.status === "new" || o.status === "confirmed"));
+    for (const o of due) await this.updateOrderStatus(o.id, "cancelled", "Dibatalkan otomatis: pembayaran belum diterima sampai batas waktu.");
+    jobs.set("expire_unpaid", { job: "expire_unpaid", last_at: new Date().toISOString(), result: `${due.length} dibatalkan` });
+    return due.length;
+  },
+  async setOrderPayBy(id, payBy) {
+    const o = getStore().orders.find((x) => x.id === id);
+    if (!o) return fail("Pesanan tidak ditemukan.");
+    o.pay_by = payBy;
+    return ok(clone(o));
+  },
+  async logError(e) {
+    const fp = `${e.source}|${e.message.slice(0, 300)}|${e.path ?? ""}`;
+    const now = new Date().toISOString();
+    const cur = errorLog.get(fp);
+    if (!cur || cur.resolved) {
+      errorLog.set(fp, { fingerprint: fp, source: e.source, message: e.message.slice(0, 1000), path: (e.path ?? "").slice(0, 300), digest: e.digest ?? null, detail: e.detail?.slice(0, 4000) ?? null, count: 1, first_at: now, last_at: now, resolved: false });
+      return 1;
+    }
+    Object.assign(cur, { count: cur.count + 1, last_at: now, digest: e.digest ?? null, detail: e.detail?.slice(0, 4000) ?? null });
+    return cur.count;
+  },
+  async listErrors(opts) {
+    return clone([...errorLog.values()].filter((e) => opts?.includeResolved || !e.resolved).sort((a, b) => b.last_at.localeCompare(a.last_at)).slice(0, opts?.limit ?? 100));
+  },
+  async resolveErrors(fingerprints) {
+    for (const e of errorLog.values()) if (fingerprints === "all" || fingerprints.includes(e.fingerprint)) e.resolved = true;
+  },
+  async recordJob(job, result) {
+    jobs.set(job, { job, last_at: new Date().toISOString(), result });
+  },
+  async listJobs() {
+    return clone([...jobs.values()]);
+  },
+  async ping() {
+    return true;
   },
 };

@@ -9,6 +9,10 @@ import { nowJakarta } from "@/lib/format";
 import type { StandingOrder, StandingOrderInput } from "@/lib/types";
 import { validateStanding } from "@/lib/standing";
 import { revalidatePath } from "next/cache";
+import { allow, clientIp, NOT_HUMAN, TOO_MANY, verifyHuman } from "@/lib/guard";
+import { reportError } from "@/lib/monitor";
+import { expireIfDue } from "@/lib/expiry";
+import { normalizePhone } from "@/lib/format";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -22,33 +26,48 @@ export async function quoteCart(input: { lines: CartLine[]; area_id?: string | n
     const p = await repo.getPromoByCode(input.promo_code);
     if (p) promos.push(p);
   }
-  const isFirst = input.phone ? !(await repo.hasOrderedBefore(input.phone)) : undefined;
+  // Whether a phone has ordered before is only revealed at a human pace (it decides first-order promos).
+  const isFirst = input.phone && (await allow("quotePhone", await clientIp())) ? !(await repo.hasOrderedBefore(input.phone)) : undefined;
   return quote({ settings, products, areas, promos, account, now: nowJakarta(), isFirstOrder: isFirst }, input);
 }
 
-export async function placeOrderAction(input: PlaceOrderInput): Promise<ActionResult<Order>> {
+export async function placeOrderAction(input: PlaceOrderInput, opts?: { turnstileToken?: string | null }): Promise<ActionResult<Order>> {
   // Server actions are public endpoints: reject malformed payloads before any work.
-  if (!input || !Array.isArray(input.lines) || input.lines.length === 0 || input.lines.length > 60) return { ok: false, error: "Isi keranjang tidak valid." };
+  if (!input || !Array.isArray(input.lines) || input.lines.length === 0 || input.lines.length > 60 || typeof input.phone !== "string") return { ok: false, error: "Isi keranjang tidak valid." };
   const repo = await getRepo();
   const account = await getCurrentAccount();
+  const ip = await clientIp();
+  // Signed-in business accounts are vetted; households prove they are human and are rate-limited per device and per phone.
+  if (!account) {
+    if (!(await verifyHuman(opts?.turnstileToken, ip))) return { ok: false, error: NOT_HUMAN };
+    if (!(await allow("orderPhone", normalizePhone(input.phone)))) return { ok: false, error: "Nomor WhatsApp ini sudah membuat banyak pesanan hari ini. Hubungi kami melalui WhatsApp bila ingin menambah pesanan." };
+  }
+  if (!(await allow("order", ip))) return { ok: false, error: TOO_MANY };
+  await expireIfDue(); // frees slots and stock held by orders that were never paid
   try {
     const r = await repo.placeOrder(input, account);
     return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
   } catch (e) {
-    return { ok: false, error: (e as Error).message || "Gagal membuat pesanan." };
+    await reportError("action", e, { path: "/checkout (placeOrder)" });
+    return { ok: false, error: "Pesanan belum dapat dibuat karena gangguan sistem. Coba lagi sebentar, atau pesan melalui WhatsApp." };
   }
 }
 
 export async function lookupOrderAction(code: string, phone: string): Promise<Order | null> {
   const repo = await getRepo();
-  if (!code?.trim() || !phone?.trim()) return null;
+  if (typeof code !== "string" || typeof phone !== "string" || !code.trim() || !phone.trim()) return null;
+  if (!(await allow("lookup", await clientIp()))) return null;
+  await expireIfDue();
   return repo.lookupOrder(code, phone);
 }
 
 export async function lookupOrdersAction(refs: Array<{ code: string; phone: string }>): Promise<Order[]> {
   const repo = await getRepo();
+  if (!Array.isArray(refs) || !(await allow("lookup", await clientIp()))) return [];
+  await expireIfDue();
   const out: Order[] = [];
   for (const r of refs.slice(0, 30)) {
+    if (typeof r?.code !== "string" || typeof r?.phone !== "string") continue;
     const o = await repo.lookupOrder(r.code, r.phone);
     if (o) out.push(o);
   }
@@ -57,18 +76,25 @@ export async function lookupOrdersAction(refs: Array<{ code: string; phone: stri
 
 export async function confirmPaymentAction(code: string, phone: string): Promise<ActionResult<Order>> {
   const repo = await getRepo();
+  if (!(await allow("lookup", await clientIp()))) return { ok: false, error: TOO_MANY };
   const r = await repo.customerConfirmPayment(code, phone);
   return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
 }
 
-export async function applyAccountAction(input: AccountApplication): Promise<ActionResult<{ id: string }>> {
+export async function applyAccountAction(input: AccountApplication, opts?: { turnstileToken?: string | null }): Promise<ActionResult<{ id: string }>> {
   const repo = await getRepo();
+  const ip = await clientIp();
+  if (!(await verifyHuman(opts?.turnstileToken, ip))) return { ok: false, error: NOT_HUMAN };
+  if (!(await allow("apply", ip))) return { ok: false, error: TOO_MANY };
   const r = await repo.applyAccount(input);
   return r.ok ? { ok: true, data: { id: r.data.id } } : { ok: false, error: r.error };
 }
 
-export async function businessLoginAction(phone: string, code: string): Promise<ActionResult<{ name: string }>> {
+export async function businessLoginAction(phone: string, code: string, opts?: { turnstileToken?: string | null }): Promise<ActionResult<{ name: string }>> {
   const repo = await getRepo();
+  const ip = await clientIp();
+  if (!(await verifyHuman(opts?.turnstileToken, ip))) return { ok: false, error: NOT_HUMAN };
+  if (!(await allow("login", ip))) return { ok: false, error: TOO_MANY };
   let res: Awaited<ReturnType<typeof repo.businessLogin>>;
   try { res = await repo.businessLogin(phone, code); } catch (e) { return { ok: false, error: (e as Error).message }; }
   if (!res) return { ok: false, error: "Nomor WhatsApp atau kode akses tidak cocok. Kode akses dikirim melalui WhatsApp setelah akun disetujui." };

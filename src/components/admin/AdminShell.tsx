@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ClipboardList, ShoppingBasket, Route, Package, Users, Tag, Settings, BarChart3, LogOut, ExternalLink, Repeat } from "lucide-react";
+import { LayoutDashboard, ClipboardList, ShoppingBasket, Route, Package, Users, Tag, Settings, BarChart3, LogOut, ExternalLink, Repeat, Activity } from "lucide-react";
 import { Logo, LogoMark } from "@/components/Logo";
 import { adminLogoutAction } from "@/actions/admin";
 
@@ -16,6 +16,7 @@ const NAV = [
   { href: "/admin/promo", label: "Promo", Icon: Tag },
   { href: "/admin/laporan", label: "Laporan", Icon: BarChart3 },
   { href: "/admin/pengaturan", label: "Pengaturan", Icon: Settings },
+  { href: "/admin/sistem", label: "Sistem", Icon: Activity },
 ];
 const MOBILE = ["/admin", "/admin/pesanan", "/admin/belanja-subuh", "/admin/rute", "/admin/produk"];
 

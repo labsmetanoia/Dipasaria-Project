@@ -1,15 +1,17 @@
 import type { NextConfig } from "next";
 
-// Content-Security-Policy: same-origin by default; Google Fonts for type; Supabase for uploaded product photos.
+// Content-Security-Policy: same-origin by default; Google Fonts for type; Supabase for uploaded product photos;
+// Cloudflare Turnstile (bot check) script and frame.
 // 'unsafe-inline' is needed for Next.js' inline bootstrap scripts; 'unsafe-eval' only in development (React refresh).
 const dev = process.env.NODE_ENV !== "production";
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${dev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
-  "connect-src 'self' https://*.supabase.co",
+  "connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self' https://wa.me https://api.whatsapp.com",

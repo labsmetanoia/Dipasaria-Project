@@ -3,6 +3,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  AppError,
   BusinessAccount,
   BuyingLine,
   DailySummary,
@@ -157,6 +158,7 @@ function mapOrder(r: Row): Order {
     total_final: numOrNull(r.total_final),
     has_catch_weight: Boolean(r.has_catch_weight),
     weighed_at: (r.weighed_at as string | null) ?? null,
+    pay_by: (r.pay_by as string | null) ?? null,
     promo_code: (r.promo_code as string | null) ?? null,
     customer_note: (r.customer_note as string) ?? "",
     internal_note: (r.internal_note as string) ?? "",
@@ -234,6 +236,7 @@ export const supabaseRepo: Repo = {
       free_delivery_business: num(r.free_delivery_business),
       catch_weight_buffer_pct: num(r.catch_weight_buffer_pct),
       max_days_ahead: num(r.max_days_ahead),
+      payment_window_minutes: num(r.payment_window_minutes),
     };
   },
   async getCategories() {
@@ -571,8 +574,56 @@ export const supabaseRepo: Repo = {
     return mapRun(data as Row);
   },
   async finishStandingRun(runId, patch) {
-    const { error } = await sb().from("standing_order_runs").update({ order_id: patch.order_id ?? null, order_code: patch.order_code ?? null, error: patch.error ?? null }).eq("id", runId);
+    const { error } = await sb().from("standing_order_runs").update({ order_id: patch.order_id ?? null, order_code: patch.order_code ?? null, error: patch.error ?? null, note: patch.note ?? null }).eq("id", runId);
     if (error) throw error;
+  },
+
+  async hitRateLimit(key, windowSeconds, max) {
+    const { data, error } = await sb().rpc("hit_rate_limit", { p_key: key, p_window_seconds: windowSeconds, p_max: max });
+    if (error) throw error;
+    return Boolean(data);
+  },
+  async expireUnpaidOrders() {
+    const { data, error } = await sb().rpc("expire_unpaid_orders");
+    if (error) throw error;
+    return num(data);
+  },
+  async setOrderPayBy(id, payBy) {
+    const { error } = await sb().from("orders").update({ pay_by: payBy }).eq("id", id);
+    if (error) return fail(msg(error));
+    const o = await fetchOrder(id);
+    return o ? ok(o) : fail("Pesanan tidak ditemukan.");
+  },
+  async logError(e) {
+    const { data, error } = await sb().rpc("log_error", { p_source: e.source, p_message: e.message, p_path: e.path ?? "", p_digest: e.digest ?? null, p_detail: e.detail ?? null });
+    if (error) throw error;
+    return num(data);
+  },
+  async listErrors(opts) {
+    let q = sb().from("error_events").select("*").order("last_at", { ascending: false }).limit(opts?.limit ?? 100);
+    if (!opts?.includeResolved) q = q.eq("resolved", false);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map((r) => ({ ...(r as unknown as AppError), count: num(r.count) }));
+  },
+  async resolveErrors(fingerprints) {
+    let q = sb().from("error_events").update({ resolved: true });
+    q = fingerprints === "all" ? q.eq("resolved", false) : q.in("fingerprint", fingerprints);
+    const { error } = await q;
+    if (error) throw error;
+  },
+  async recordJob(job, result) {
+    const { error } = await sb().from("job_runs").upsert({ job, last_at: new Date().toISOString(), result });
+    if (error) throw error;
+  },
+  async listJobs() {
+    const { data, error } = await sb().from("job_runs").select("*");
+    if (error) throw error;
+    return (data as Row[]).map((r) => ({ job: String(r.job), last_at: String(r.last_at), result: String(r.result ?? "") }));
+  },
+  async ping() {
+    const { error } = await sb().from("settings").select("id").eq("id", 1).single();
+    return !error;
   },
 };
 
@@ -589,6 +640,6 @@ function mapStanding(r: Row): StandingOrder {
 function mapRun(r: Row): StandingOrderRun {
   return {
     id: String(r.id), standing_order_id: String(r.standing_order_id), delivery_date: String(r.delivery_date).slice(0, 10),
-    order_id: (r.order_id as string | null) ?? null, order_code: (r.order_code as string | null) ?? null, error: (r.error as string | null) ?? null, created_at: String(r.created_at),
+    order_id: (r.order_id as string | null) ?? null, order_code: (r.order_code as string | null) ?? null, error: (r.error as string | null) ?? null, note: (r.note as string | null) ?? null, created_at: String(r.created_at),
   };
 }

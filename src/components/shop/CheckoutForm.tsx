@@ -12,6 +12,7 @@ import { useCart } from "@/store/cart";
 import { placeOrderAction, quoteCart } from "@/actions/shop";
 import { Field } from "@/components/ui";
 import { MinOrderBar } from "./CartView";
+import { Turnstile, useTurnstileOn } from "@/components/Turnstile";
 
 interface Props { products: Product[]; settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[]; slotUsage: Record<string, number>; account: BusinessAccount | null }
 
@@ -32,6 +33,9 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  const [maps, setMaps] = useState("");
  const [areaId, setAreaId] = useState("");
  const [date, setDate] = useState(dates[0]);
+ const turnstileOn = useTurnstileOn();
+ const [tsToken, setTsToken] = useState<string | null>(null);
+ const [tsReset, setTsReset] = useState(0);
  const [slotId, setSlotId] = useState("");
  const [payment, setPayment] = useState<PaymentMethod>("qris");
  const [note, setNote] = useState("");
@@ -83,15 +87,16 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
   };
  const step1ok = Boolean(name.trim() && isValidPhone(phone) && address.trim() && areaId);
  const step2ok = Boolean(date && slotId);
- const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && step1ok && step2ok && !pending;
+ const needHuman = turnstileOn && !account;
+ const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && step1ok && step2ok && !pending && (!needHuman || Boolean(tsToken));
 
  const submit = () => {
  if (submitting.current) return; // synchronous guard: the disabled state only applies after a re-render
  submitting.current = true;
  setError(null);
  start(async () => {
- const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current });
- if (!r.ok) { submitting.current = false; setError(r.error); return; }
+ const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current }, { turnstileToken: tsToken });
+ if (!r.ok) { submitting.current = false; setError(r.error); setTsReset((n) => n + 1); return; }
  if (!account) saveCustomer({ name, phone, address, area_id: areaId, maps_url: maps });
  rememberOrder({ code: r.data.code, phone: r.data.phone, at: new Date().toISOString() });
  clear();
@@ -212,7 +217,10 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
           {q.errors.length > 0 && <div className="mt-3 bg-coral-50 px-3 py-2 text-xs text-gold-ink">{q.errors.map((e) => <p key={e}>{e}</p>)}</div>}
           {error && <div className="mt-3 bg-coral-50 px-3 py-2 text-sm text-gold-ink">{error}</div>}
           {step === 2 ? (
-            <button type="button" onClick={submit} disabled={!canSubmit} className="btn-accent mt-4 w-full py-3 text-base">{pending ? <Loader2 className="h-5 w-5 animate-spin" /> : t.checkout.placeOrder}</button>
+            <>
+              {needHuman && <div className="mt-4"><Turnstile action="checkout" onToken={setTsToken} resetKey={tsReset} /></div>}
+              <button type="button" onClick={submit} disabled={!canSubmit} className="btn-accent mt-4 w-full py-3 text-base">{pending ? <Loader2 className="h-5 w-5 animate-spin" /> : t.checkout.placeOrder}</button>
+            </>
           ) : (
             <p className="mt-4 text-xs text-mute">{steps[step + 1] ? `${t.checkout.next}: ${steps[step + 1]}` : ""}</p>
           )}

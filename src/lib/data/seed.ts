@@ -35,6 +35,7 @@ export const seedSettings: Settings = {
   announcement: null,
   announcement_en: null,
   hero_image_url: null,
+  payment_window_minutes: 120,
   about_image_url: null,
 };
 

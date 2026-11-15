@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { expireIfDue } from "@/lib/expiry";
 import { getRepo } from "@/lib/data";
 import { pickDate } from "@/lib/ops";
 import { DateSelector } from "@/components/admin/DateSelector";
@@ -17,6 +18,7 @@ const GROUPS: Array<{ key: StorageClass; title: string; hint: string }> = [
 
 export default async function BuyingListPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   await requireAdmin();
+  await expireIfDue(); // unpaid orders past their deadline must not reach the buying list or the route
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();

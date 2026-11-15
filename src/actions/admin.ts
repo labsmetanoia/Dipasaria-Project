@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getRepo } from "@/lib/data";
 import { adminLogin, adminLogout, isAdmin } from "@/lib/auth";
-import type { BusinessAccount, DeliveryArea, DeliverySlot, OrderStatus, PaymentStatus, PrepOption, Product, Promo, Settings, Variant } from "@/lib/types";
+import type { BusinessAccount, DeliveryArea, DeliverySlot, Order, OrderStatus, PaymentStatus, PrepOption, Product, Promo, Settings, Variant } from "@/lib/types";
 import { runStandingOrders, type RunOutcome } from "@/lib/standing";
 import type { StandingOrder } from "@/lib/types";
+import { expireIfDue } from "@/lib/expiry";
 
 export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -49,6 +50,18 @@ export async function weighOrderAction(id: string, items: Array<{ item_id: strin
 export async function setPaymentStatusAction(id: string, status: PaymentStatus) {
   await guard();
   const r = await (await getRepo()).setPaymentStatus(id, status);
+  revalidatePath("/admin", "layout");
+  return wrap(r);
+}
+
+/** Give an unpaid household order 2 more hours, or switch its automatic cancellation off. */
+export async function setOrderPayByAction(id: string, mode: "extend" | "off"): Promise<ActionResult<Order>> {
+  await guard();
+  const repo = await getRepo();
+  const o = await repo.getOrder(id);
+  if (!o) return { ok: false, error: "Pesanan tidak ditemukan." };
+  const base = Math.max(Date.now(), o.pay_by ? Date.parse(o.pay_by) : 0);
+  const r = await repo.setOrderPayBy(id, mode === "off" ? null : new Date(base + 2 * 3600_000).toISOString());
   revalidatePath("/admin", "layout");
   return wrap(r);
 }
@@ -141,6 +154,11 @@ export async function deletePromoAction(id: string) {
 
 export async function updateSettingsAction(patch: Partial<Settings>) {
   await guard();
+  if (patch.payment_window_minutes !== undefined) {
+    const m = Math.round(Number(patch.payment_window_minutes));
+    if (!Number.isFinite(m) || m < 0 || m > 10080) return wrap({ ok: false as const, error: "Batas waktu pembayaran harus 0–10.080 menit (0 = tidak dibatalkan otomatis)." });
+    patch = { ...patch, payment_window_minutes: m };
+  }
   const r = await (await getRepo()).updateSettings(patch);
   revalidatePath("/", "layout");
   return wrap(r);
@@ -158,6 +176,22 @@ export async function upsertSlotAction(s: DeliverySlot) {
   const r = await (await getRepo()).upsertSlot(s);
   revalidatePath("/", "layout");
   return wrap(r);
+}
+
+// ---------- System ----------
+
+export async function resolveErrorsAction(fingerprints: string[] | "all"): Promise<ActionResult<null>> {
+  await guard();
+  await (await getRepo()).resolveErrors(fingerprints === "all" ? "all" : fingerprints.filter((f) => typeof f === "string").slice(0, 200));
+  revalidatePath("/admin", "layout");
+  return { ok: true, data: null };
+}
+
+export async function runExpiryNowAction(): Promise<ActionResult<number>> {
+  await guard();
+  const n = await expireIfDue(true);
+  revalidatePath("/admin", "layout");
+  return { ok: true, data: n };
 }
 
 // ---------- Standing orders ----------

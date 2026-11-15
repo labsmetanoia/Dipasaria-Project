@@ -81,7 +81,7 @@ Severity scale:
 | P4 | Standing-order runs that failed (for example a product out of stock) could never be retried. One failure also aborted the rest of the batch. | Medium | **Fixed.** Each standing order runs in isolation, and failed runs can be re-claimed. |
 | P5 | The standing-order cron computed "tomorrow" from the checkout cut-off. Changing the cut-off in settings shifted the date. | Medium | **Fixed.** It uses the Jakarta calendar date + 1. |
 | P6 | Every page is server-rendered on demand; the catalogue is not cached. This costs TTFB on each visit. | Low | **Open.** Recommendation R13: incremental static regeneration for catalogue pages. |
-| P7 | No error monitoring or uptime alerting. | Medium | **Open.** Recommendation R5. |
+| P7 | No error monitoring or uptime alerting. | Medium | **Done (R5).** Errors are grouped on Back-office → Sistem, with chat alerts and `/api/health` for uptime monitors. |
 
 ### 3.2 User experience and interface
 
@@ -109,10 +109,10 @@ Severity scale:
 | E5 | Name, address and notes had no length limit. | Low | **Fixed.** 80 / 400 / 400 characters. |
 | E6 | **Order lookup in Supabase mode used a pattern match.** A code with `%` could match another customer's order. | High | **Fixed.** Exact, case-normalised match. |
 | E7 | The "I have paid" button appeared before the final weighed total was known, and on cancelled orders. | Medium | **Fixed.** |
-| E8 | Bots can fill delivery slots or burn first-order promos with fake orders. There is no CAPTCHA or rate limit. | Medium | **Open.** Recommendation R2 (Turnstile + rate limit). |
-| E9 | Unpaid prepaid orders never expire, so they hold stock and slot capacity. | Medium | **Open.** Recommendation R3. |
+| E8 | Bots can fill delivery slots or burn first-order promos with fake orders. There is no CAPTCHA or rate limit. | Medium | **Done (R2).** Turnstile plus per-device and per-phone rate limits. |
+| E9 | Unpaid prepaid orders never expire, so they hold stock and slot capacity. | Medium | **Done (R3).** Configurable payment window, automatic cancellation and a visible deadline. |
 | E10 | The tracking link carries the phone number in the URL (`?hp=`). | Low | Open. The referrer policy already strips it from outbound links. Recommendation: a signed tracking token. |
-| E11 | The checkout quote reveals whether a phone number has ordered before (first-order promo eligibility). | Low | Open (accepted trade-off; fixed by R2's rate limiting). |
+| E11 | The checkout quote reveals whether a phone number has ordered before (first-order promo eligibility). | Low | **Mitigated (R2).** The lookup is rate-limited to a human pace. |
 
 ### 3.4 Business logic and operational workflows
 
@@ -131,7 +131,7 @@ Severity scale:
 | B11 | TypeScript and PostgreSQL rounded tier discounts differently. The cart preview could differ from the invoice by Rp1. | Low | **Fixed.** Both use integer arithmetic. |
 | B12 | **Restaurants could "skip" a standing-order date after the order had already been created.** The UI showed skipped while the delivery still went out. | High | **Fixed.** Refused with the order code; the date shows as already placed. |
 | B13 | Standing orders below the business minimum were accepted, then failed every night. | Medium | **Fixed.** Validated against the minimum when saved. |
-| B14 | One unavailable item fails the whole standing order for that night. | Low | **Open.** Recommendation R12 (partial placement plus WhatsApp alert). |
+| B14 | One unavailable item fails the whole standing order for that night. | Low | **Done (R12).** Partial placement; the missing item is noted, with a WhatsApp note to the restaurant. |
 | B15 | A promo minimum spend is not re-checked when weighing brings the total below it. | Low | **Open (policy decision).** The current behaviour favours the customer. |
 | B16 | Weighing a line to 0 kg (item unavailable) still charges the delivery fee. | Low | **Open (policy decision).** |
 
@@ -191,10 +191,10 @@ Complexity: **S** = up to 2 days · **M** = 3–7 days · **L** = 2+ weeks. Cost
 | # | Feature | Business value | Functional requirements | Complexity | Running cost |
 |---|---|---|---|---|---|
 | R1 | **Launch hardening pack:** live Supabase smoke test, real bank/QRIS details, secrets | Avoids losing the first orders to a configuration error | Checklist in §6; one full order cycle on production | S | Rp 0 |
-| R2 | **Bot and abuse protection:** Cloudflare Turnstile + rate limiting | Protects slot capacity and promo budget from fake orders; stops access-code guessing at the network edge | Invisible challenge on checkout and business login; server verifies token; per-IP and per-phone limits (e.g. 5 orders/hour) in a Supabase table | S | Free |
-| R3 | **Auto-expire unpaid orders** | Frees stock and delivery slots held by customers who never pay | Scheduled job every 15 min. Cancels transfer/QRIS orders still unpaid X hours after the final invoice (setting). WhatsApp reminder at half-time. Stock and promo returned automatically. | S | Rp 0 (Vercel Cron) |
+| R2 ✅ | **Bot and abuse protection:** Cloudflare Turnstile + rate limiting | Protects slot capacity and promo budget from fake orders; stops access-code guessing at the network edge | Invisible challenge on checkout and business login; server verifies token; per-IP and per-phone limits (e.g. 5 orders/hour) in a Supabase table | S | Free |
+| R3 ✅ | **Auto-expire unpaid orders** | Frees stock and delivery slots held by customers who never pay | Scheduled job every 15 min. Cancels transfer/QRIS orders still unpaid X hours after the final invoice (setting). WhatsApp reminder at half-time. Stock and promo returned automatically. | S | Rp 0 (Vercel Cron) |
 | R4 | **QRIS / VA payments with automatic confirmation** (Midtrans or Xendit) | Removes manual checking of transfer screenshots; customers pay in one tap; cash arrives faster; fewer payment disputes | Payment link generated after weighing (final amount). Webhook marks the order paid (signature verified). Refunds recorded against `refund_due`. | M | ~0.7% per QRIS transaction; VA ~Rp4,000 |
-| R5 | **Error monitoring and uptime** (Sentry free tier + uptime check) | You learn about a broken checkout before customers tell you | Server and browser errors with release tags; alert to WhatsApp/email; daily uptime ping of `/belanja` and the cron | S | Free tier |
+| R5 ✅ | **Error monitoring and uptime** (built in, no Sentry needed; uptime via `/api/health`) | You learn about a broken checkout before customers tell you | Server and browser errors with release tags; alert to WhatsApp/email; daily uptime ping of `/belanja` and the cron | S | Free tier |
 | R6 | **Daily backups** | Recover from an accidental delete or bad import | Supabase Pro with daily backups; monthly restore test | S | US$25 |
 
 ### Should-have (months 2–3)
@@ -206,7 +206,7 @@ Complexity: **S** = up to 2 days · **M** = 3–7 days · **L** = 2+ weeks. Cost
 | R9 | **B2B invoicing and receivables** | Restaurants on payment terms need proper invoices; you need to see who owes what | Monthly statement PDF per account; aging report (0–30 / 31–60 / 60+); credit limit blocking new orders when overdue; optional e-Faktur fields | M | Rp 0 |
 | R10 | **Inventory movements and shrinkage** | Fresh seafood loses weight and spoils. Knowing the real margin per SKU drives buying decisions. | Stock in (dawn purchase with cost), stock out (orders), adjustments (waste, drip loss) with reason; shrinkage % report per product | M | Rp 0 |
 | R11 | **Courier booking for out-of-zone areas** (Biteship) | Sell beyond your own fleet's routes without hiring drivers | Rates at checkout for extra areas; booking from the admin route sheet; tracking link in WhatsApp | M | Per shipment |
-| R12 | **Partial standing orders** | A restaurant still gets 9 of 10 items instead of nothing | Place available lines; alert the account and admin about the missing item with a substitute suggestion | S | Rp 0 |
+| R12 ✅ | **Partial standing orders** | A restaurant still gets 9 of 10 items instead of nothing | Place available lines; alert the account and admin about the missing item with a substitute suggestion | S | Rp 0 |
 | R13 | **Catalogue caching (ISR)** | Faster pages, better Google ranking, lower server load | Cache product and collection pages; invalidate on price or stock edit in admin | S | Rp 0 |
 | R14 | **Admin roles and 2-step login** | Packers can weigh and pack without seeing profits or changing prices | Roles: owner, admin, packer, driver. Supabase MFA for owner. Audit log of price, status and payment changes. | M | Rp 0 |
 
@@ -322,3 +322,22 @@ All suites were run on the final build of this branch.
 - **Platform:**
   - `next.config.ts`: CSP and headers, image policy.
   - `public/sw.js`: no page caching.
+
+---
+
+## 9. Implemented after approval: R2, R3, R5, R12
+
+These are built, tested and documented in the README ("Protection and monitoring"). Database change: `supabase/migrations/005_protection_and_monitoring.sql`.
+
+| Item | What was built | How it was verified |
+|---|---|---|
+| **R2: Bot protection** | **Rate limits** (`hit_rate_limit`, table `rate_hits`):<br>• per device: 10 orders/hour, 20 logins per 15 min, 5 applications/hour, 60 lookups per 10 min<br>• per phone: 6 household orders/day<br>• first-order checks (which reveal if a phone has ordered) are rate-limited<br><br>**Cloudflare Turnstile** on household checkout, business login and the account application:<br>• keys are read at runtime, so no rebuild is needed<br>• the form explains itself if the widget cannot load<br>• the server fails open only if Cloudflare is unreachable, and logs the outage | **SQL:** limit enforced, keys independent.<br>**E2E:** a script guessing logins from one device is stopped after 20 tries.<br>**Separate run with Turnstile keys:**<br>• CSP allows the widget<br>• login and checkout stay disabled until the check passes<br>• a blocked widget shows a WhatsApp fallback |
+| **R3: Unpaid orders expire** | **Scope:** household transfer/QRIS orders with a known total get `pay_by`:<br>• window set in Pengaturan (default 120 min)<br>• never later than midnight before delivery day<br><br>**Expiry** (`expire_unpaid_orders()`) cancels unpaid orders and releases stock, slot and promo use. It runs:<br>• on checkout, order lookups and back-office pages<br>• via `/api/cron/expire-unpaid`<br>• via pg_cron<br><br>**Payments:** "I have paid" or "paid" removes the deadline permanently.<br><br>**Customer:** the deadline and the reason for cancellation are shown on the tracking page.<br><br>**Admin:** WhatsApp reminder, +2 h, or switch off per order.<br><br>**Not affected:** weighed orders, restaurants, COD and terms. | **SQL:**<br>• deadline set and capped<br>• no early expiry<br>• expiry cancels and returns stock<br>• a payment claim protects the order<br>• weighed orders and window 0 are exempt<br><br>**E2E:** a real order with a 1-minute window is cancelled after the window, and the customer sees why. |
+| **R5: Monitoring** | **Errors captured** in table `error_events`, grouped by fingerprint, from:<br>• server errors (`instrumentation.ts`)<br>• browser crashes and uncaught errors (`ErrorReporter`, `error.tsx`, `global-error.tsx`)<br>• failed standing orders<br><br>**Back-office → Sistem:**<br>• launch checks: database, bot check, alerts, cron secret, bank placeholder, QRIS, payment window<br>• last job runs<br>• the error list with resolve buttons<br><br>**Also:**<br>• red banner on the dashboard<br>• new errors pushed to Telegram/Slack/Discord via `ALERT_WEBHOOK_URL`<br>• `/api/health` for UptimeRobot | **SQL:** grouping and re-opening.<br><br>**E2E:**<br>• a browser error appears on Sistem and the dashboard banner<br>• "resolve all" clears it<br>• the placeholder bank account is flagged<br>• health answers 200<br>• the expiry cron needs its secret |
+| **R12: Partial standing orders** | Each line is checked against tonight's catalogue and stock. Unavailable lines are dropped, and the rest is placed. A stock race is retried without the line.<br><br>The missing items are recorded:<br>• on the run<br>• on the order note<br>• on the restaurant's account page<br>• in Pesanan rutin, with a "Kabari via WA" message<br><br>If what remains is below the business minimum, the run fails visibly and can be retried. | **E2E:** with eggs switched off, the standing order is placed without them; "Dikirim sebagian. Telur Ayam Negeri habis hari ini." and the WhatsApp button appear; a second run does not duplicate. |
+
+**Updated test totals:**
+- SQL: all pass, including sections 15–17.
+- End-to-end: 47 checks pass.
+- Turnstile run: 5 checks pass.
+- Migration 005: tested on a copy of the previous schema with data.

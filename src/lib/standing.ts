@@ -2,7 +2,7 @@
 import type { BusinessAccount, DeliveryArea, DeliverySlot, PaymentMethod, Product, Settings, StandingOrder, StandingOrderInput, StandingOrderRun } from "./types";
 import { quote } from "./pricing";
 import type { Repo, Result } from "./data/repo";
-import { addDays } from "./format";
+import { addDays, nowJakarta } from "./format";
 
 export const WEEKDAYS = {
   id: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
@@ -67,28 +67,52 @@ export function validateStanding(input: StandingOrderInput, account: BusinessAcc
   return null;
 }
 
-export interface RunOutcome { standing_order_id: string; account_name: string; status: "placed" | "skipped" | "failed" | "already"; order_code?: string; error?: string }
+/** `note` lists items left out because they were unavailable that night; the rest of the order was still placed. */
+export interface RunOutcome { standing_order_id: string; account_name: string; status: "placed" | "skipped" | "failed" | "already"; order_code?: string; error?: string; note?: string }
 
 /**
  * Turn every standing order due on `date` into a real order. Idempotent: a run is claimed per (standing order, date)
  * before placing, so a second call for the same date does nothing for orders already processed.
  */
 export async function runStandingOrders(repo: Repo, date: string): Promise<RunOutcome[]> {
-  const [all, products] = await Promise.all([repo.listStandingOrders(), repo.getProducts()]);
-  const productOf = (variantId: string) => products.find((p) => p.variants.some((v) => v.id === variantId))?.id ?? "";
+  const [all, products, settings, areas] = await Promise.all([repo.listStandingOrders(), repo.getProducts(), repo.getSettings(), repo.getAreas()]);
+  const ctx: RunContext = { products, settings, areas };
   const out: RunOutcome[] = [];
   for (const so of all) {
     try {
-      out.push(...(await runOne(repo, so, date, productOf)));
+      out.push(...(await runOne(repo, so, date, ctx)));
     } catch (e) {
       // One failure (network, database) must not stop the rest of the evening's run.
       out.push({ standing_order_id: so.id, account_name: so.account_id, status: "failed", error: e instanceof Error ? e.message : String(e) });
     }
   }
+  const placed = out.filter((r) => r.status === "placed").length;
+  const failed = out.filter((r) => r.status === "failed").length;
+  const partial = out.filter((r) => r.status === "placed" && r.note).length;
+  try { await repo.recordJob("standing_orders", `${date}: ${placed} dibuat${partial ? ` (${partial} sebagian)` : ""}, ${failed} gagal`); } catch { /* informational only */ }
   return out;
 }
 
-async function runOne(repo: Repo, so: StandingOrder, date: string, productOf: (variantId: string) => string): Promise<RunOutcome[]> {
+interface RunContext { products: Product[]; settings: Settings; areas: DeliveryArea[] }
+
+/**
+ * Split a standing order's lines into those that can be delivered tonight and those that cannot
+ * (product switched off, sold out today, not enough stock). Each line is checked on its own, with the same rules as checkout.
+ */
+export function availableLines(so: Pick<StandingOrder, "lines">, account: BusinessAccount, ctx: RunContext) {
+  const ok: StandingOrder["lines"] = [];
+  const missing: string[] = [];
+  for (const l of so.lines) {
+    const q = quote({ settings: ctx.settings, products: ctx.products, areas: ctx.areas, promos: [], account, now: nowJakarta() },
+      { lines: [{ product_id: "", variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id }], area_id: account.area_id });
+    if (q.errors.length) missing.push(q.errors[0]);
+    else ok.push(l);
+  }
+  return { ok, missing };
+}
+
+async function runOne(repo: Repo, so: StandingOrder, date: string, ctx: RunContext): Promise<RunOutcome[]> {
+  const productOf = (variantId: string) => ctx.products.find((p) => p.variants.some((v) => v.id === variantId))?.id ?? "";
   const out: RunOutcome[] = [];
   {
     const account = await repo.getAccount(so.account_id);
@@ -105,23 +129,39 @@ async function runOne(repo: Repo, so: StandingOrder, date: string, productOf: (v
       out.push({ standing_order_id: so.id, account_name: name, status: "failed", error });
       return out;
     }
-    const res = await repo.placeOrder({
-      lines: so.lines.map((l) => ({ product_id: productOf(l.variant_id), variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id })),
-      customer_name: account.business_name,
-      phone: account.phone,
-      address: account.address,
-      area_id: account.area_id,
-      delivery_date: date,
-      slot_id: so.slot_id,
-      payment_method: so.payment_method,
-      customer_note: `Pesanan rutin: ${so.name}${so.note ? ` · ${so.note}` : ""}`,
-    }, account);
+    // Partial delivery: a sold-out item is left out and noted, the rest of the kitchen's order still goes out.
+    let { ok: lines, missing } = availableLines(so, account, ctx);
+    let res: Awaited<ReturnType<Repo["placeOrder"]>> = { ok: false, error: "" };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!lines.length) { res = { ok: false, error: "Semua produk dalam pesanan rutin ini tidak tersedia malam ini." }; break; }
+      const note = `Pesanan rutin: ${so.name}${so.note ? ` · ${so.note}` : ""}${missing.length ? ` · Tidak tersedia malam ini: ${missing.join(" ")}` : ""}`;
+      res = await repo.placeOrder({
+        lines: lines.map((l) => ({ product_id: productOf(l.variant_id), variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id })),
+        customer_name: account.business_name,
+        phone: account.phone,
+        address: account.address,
+        area_id: account.area_id,
+        delivery_date: date,
+        slot_id: so.slot_id,
+        payment_method: so.payment_method,
+        customer_note: note.slice(0, 400),
+      }, account);
+      if (res.ok) break;
+      // Stock can change between the check and the order (another customer bought the last kilo): drop that line and retry.
+      const err = res.error;
+      const hit = lines.find((l) => { const p = ctx.products.find((x) => x.id === productOf(l.variant_id)); return p && err.startsWith(p.name); });
+      if (!hit) break;
+      lines = lines.filter((l) => l !== hit);
+      missing = [...missing, err];
+    }
+    const note = missing.length ? missing.join(" ") : undefined;
     if (res.ok) {
-      await repo.finishStandingRun(run.id, { order_id: res.data.id, order_code: res.data.code });
-      out.push({ standing_order_id: so.id, account_name: name, status: "placed", order_code: res.data.code });
+      await repo.finishStandingRun(run.id, { order_id: res.data.id, order_code: res.data.code, note: note ?? null });
+      out.push({ standing_order_id: so.id, account_name: name, status: "placed", order_code: res.data.code, note });
     } else {
-      await repo.finishStandingRun(run.id, { error: res.error });
-      out.push({ standing_order_id: so.id, account_name: name, status: "failed", error: res.error });
+      const error = missing.length && !res.error.startsWith("Semua produk") ? `${res.error} (Tidak tersedia: ${missing.join(" ")})` : res.error;
+      await repo.finishStandingRun(run.id, { error, note: note ?? null });
+      out.push({ standing_order_id: so.id, account_name: name, status: "failed", error });
     }
   }
   return out;

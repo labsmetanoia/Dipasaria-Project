@@ -3,7 +3,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2, MessageCircle, Scale, XCircle, ExternalLink, Save } from "lucide-react";
 import type { Order, OrderStatus, Settings } from "@/lib/types";
-import { setOrderStatusAction, setPaymentStatusAction, weighOrderAction, updateInternalNoteAction } from "@/actions/admin";
+import { setOrderStatusAction, setPaymentStatusAction, weighOrderAction, updateInternalNoteAction, setOrderPayByAction } from "@/actions/admin";
 import { msgFinalInvoice, msgOrderConfirmed, msgOutForDelivery, waTo } from "@/lib/wa";
 import { formatDate, formatDateTime, rupiah } from "@/lib/format";
 import { PAYMENT_LABEL, STATUS_LABEL, UNIT_LABEL, TERMS_LABEL } from "@/lib/config";
@@ -129,6 +129,16 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
               {order.payment_status === "paid" && order.status !== "cancelled" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "unpaid"))} className="btn-secondary">Batalkan status lunas</button>}
               {order.payment_status === "refund_due" && <button disabled={pending} onClick={() => { if (confirm("Dana sudah dikembalikan ke pelanggan?")) run(() => setPaymentStatusAction(order.id, "void")); }} className="btn-primary"><Check className="h-4 w-4" /> Dana sudah dikembalikan</button>}
             </div>
+            {order.pay_by && order.payment_status === "unpaid" && order.status !== "cancelled" && (
+              <div className="mt-3 bg-warn-50 px-3 py-2.5 text-sm text-warn-600">
+                <p>Dibatalkan otomatis <b>{formatDateTime(order.pay_by)} WIB</b> bila belum dibayar. Stok dan slot pengiriman lalu dilepas.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <a className="btn-secondary py-1.5 text-xs" target="_blank" rel="noreferrer" href={waTo(order.phone, `Halo ${order.customer_name}, pesanan Dipasaria ${order.code} sebesar ${rupiah(order.total_final ?? order.total_est)} menunggu pembayaran. Mohon selesaikan sebelum ${formatDateTime(order.pay_by)} WIB agar pesanan tidak dibatalkan otomatis. Terima kasih.`)}><MessageCircle className="h-3.5 w-3.5" /> Kirim pengingat</a>
+                  <button disabled={pending} onClick={() => run(() => setOrderPayByAction(order.id, "extend"))} className="btn-secondary py-1.5 text-xs">+2 jam</button>
+                  <button disabled={pending} onClick={() => run(() => setOrderPayByAction(order.id, "off"))} className="btn-secondary py-1.5 text-xs">Jangan batalkan otomatis</button>
+                </div>
+              </div>
+            )}
             <p className="mt-2 text-xs text-mute">Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar.</p>
           </div>
           <div className="card p-4">

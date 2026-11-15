@@ -62,7 +62,9 @@ create table if not exists settings (
   announcement text,
   announcement_en text,
   hero_image_url text,
-  about_image_url text
+  about_image_url text,
+  -- minutes a household transfer/QRIS order with a known total has to be paid before it is cancelled automatically (0 = never)
+  payment_window_minutes int not null default 120 check (payment_window_minutes between 0 and 10080)
 );
 
 create table if not exists categories (
@@ -226,8 +228,11 @@ create table if not exists orders (
   client_ref text unique,
   -- terms frozen at order time, so weighing re-prices with the promo and fee the customer agreed to
   promo_type text,
-  promo_value numeric
+  promo_value numeric,
+  -- unpaid by this time → cancelled automatically by expire_unpaid_orders(); null = never (weighed orders, accounts, COD, terms)
+  pay_by timestamptz
 );
+create index if not exists orders_pay_by_idx on orders(pay_by) where payment_status = 'unpaid';
 create index if not exists orders_delivery_idx on orders(delivery_date, slot_id);
 create index if not exists orders_phone_idx on orders(phone);
 create index if not exists orders_account_idx on orders(account_id);
@@ -281,6 +286,8 @@ create table if not exists standing_order_runs (
   order_id text references orders(id) on delete set null,
   order_code text,
   error text,
+  -- items left out because they were unavailable that night (the rest of the order still goes out)
+  note text,
   created_at timestamptz not null default now(),
   unique (standing_order_id, delivery_date)
 );
@@ -291,6 +298,35 @@ create table if not exists login_attempts (
   at timestamptz not null default now()
 );
 create index if not exists login_attempts_phone_idx on login_attempts(phone, at);
+
+-- Request counters for rate limits on public endpoints (checkout, login, account applications).
+create table if not exists rate_hits (
+  key text not null,
+  at timestamptz not null default now()
+);
+create index if not exists rate_hits_key_idx on rate_hits(key, at);
+
+-- Application errors (server and browser), grouped by fingerprint so a repeating error is one row with a count.
+create table if not exists error_events (
+  fingerprint text primary key,
+  source text not null,
+  message text not null,
+  path text not null default '',
+  digest text,
+  detail text,
+  count int not null default 1,
+  first_at timestamptz not null default now(),
+  last_at timestamptz not null default now(),
+  resolved boolean not null default false
+);
+create index if not exists error_events_last_idx on error_events(resolved, last_at desc);
+
+-- Last run of each scheduled job, for the system page.
+create table if not exists job_runs (
+  job text primary key,
+  last_at timestamptz not null default now(),
+  result text not null default ''
+);
 
 -- Supabase Auth users allowed into the back-office.
 create table if not exists admins (
@@ -310,7 +346,7 @@ $$;
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -506,7 +542,10 @@ begin
          has_catch_weight = has_catch,
          promo_code = case when has_promo then promo.code end,
          promo_type = case when has_promo then promo.type end,
-         promo_value = case when has_promo then promo.value end
+         promo_value = case when has_promo then promo.value end,
+         -- households paying by transfer/QRIS a total known now: pay within the window, and before the delivery day starts
+         pay_by = case when seg = 'retail' and pm in ('transfer', 'qris') and not has_catch and coalesce(s.payment_window_minutes, 0) > 0
+                       then least(now() + make_interval(mins => s.payment_window_minutes), (d::timestamp) at time zone 'Asia/Jakarta') end
    where id = oid;
 
   return oid;
@@ -616,6 +655,8 @@ begin
   end if;
   update orders
      set payment_status = p_status,
+         -- once a payment is recorded the order is never cancelled automatically, even if the status is later corrected
+         pay_by = case when p_status in ('paid', 'awaiting_confirmation') then null else pay_by end,
          history = case when p_status = 'paid' then history || jsonb_build_object('status', 'paid', 'at', now()) else history end
    where id = p_order_id;
 end $$;
@@ -629,8 +670,57 @@ begin
   select id into oid from orders where upper(code) = upper(trim(p_code)) and phone = normalize_phone(p_phone);
   if oid is null then raise exception 'Pesanan tidak ditemukan.'; end if;
   -- only once the final amount is known (weighed orders are paid on the final invoice)
-  update orders set payment_status = 'awaiting_confirmation' where id = oid and payment_status = 'unpaid' and total_final is not null and status <> 'cancelled';
+  update orders set payment_status = 'awaiting_confirmation', pay_by = null where id = oid and payment_status = 'unpaid' and total_final is not null and status <> 'cancelled';
   return oid;
+end $$;
+
+-- Cancel household orders that were not paid by their pay_by time: stock, slot and promo use are released.
+-- Safe to call often (checkout, back-office, cron, pg_cron); returns the number of orders cancelled.
+create or replace function expire_unpaid_orders()
+returns int
+language plpgsql security definer set search_path = public as $$
+declare r record; n int := 0;
+begin
+  for r in select id from orders
+            where pay_by < now() and payment_status = 'unpaid' and status in ('new', 'confirmed')
+            order by pay_by
+            for update skip locked loop
+    perform set_order_status(r.id, 'cancelled', 'Dibatalkan otomatis: pembayaran belum diterima sampai batas waktu.');
+    n := n + 1;
+  end loop;
+  insert into job_runs (job, last_at, result) values ('expire_unpaid', now(), n || ' dibatalkan')
+    on conflict (job) do update set last_at = excluded.last_at, result = excluded.result;
+  return n;
+end $$;
+
+-- Sliding-window rate limit: true (and the hit is counted) while under p_max hits in the last p_window_seconds.
+create or replace function hit_rate_limit(p_key text, p_window_seconds int, p_max int)
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare used int;
+begin
+  perform pg_advisory_xact_lock(hashtext('rl:' || p_key));
+  select count(*) into used from rate_hits where key = p_key and at > now() - make_interval(secs => p_window_seconds);
+  if used >= p_max then return false; end if;
+  insert into rate_hits (key) values (p_key);
+  if random() < 0.02 then delete from rate_hits where at < now() - interval '1 day'; end if;
+  return true;
+end $$;
+
+-- Record an application error; returns how many times this fingerprint has occurred (1 = new, alert worthy).
+create or replace function log_error(p_source text, p_message text, p_path text, p_digest text, p_detail text)
+returns int
+language plpgsql security definer set search_path = public as $$
+declare fp text := md5(coalesce(p_source, '') || '|' || left(coalesce(p_message, ''), 300) || '|' || coalesce(p_path, '')); c int;
+begin
+  insert into error_events (fingerprint, source, message, path, digest, detail)
+  values (fp, left(coalesce(p_source, 'server'), 20), left(coalesce(p_message, ''), 1000), left(coalesce(p_path, ''), 300), left(p_digest, 100), left(p_detail, 4000))
+  on conflict (fingerprint) do update
+    set count = case when error_events.resolved then 1 else error_events.count + 1 end,
+        last_at = now(), resolved = false, digest = excluded.digest, detail = excluded.detail,
+        first_at = case when error_events.resolved then now() else error_events.first_at end
+  returning count into c;
+  return c;
 end $$;
 
 -- ---------- business accounts ----------
@@ -793,7 +883,8 @@ begin
   for f in select unnest(array[
     'place_order(jsonb, text)', 'weigh_order(text, jsonb)', 'set_order_status(text, text, text)', 'set_payment_status(text, text)',
     'customer_confirm_payment(text, text)', 'apply_account(jsonb)', 'approve_account(text, numeric, text, boolean, text)',
-    'regenerate_access_code(text)', 'business_login(text, text)', 'daily_summary(date)', 'buying_list(date)', 'sales_report(date, date)']) loop
+    'regenerate_access_code(text)', 'business_login(text, text)', 'daily_summary(date)', 'buying_list(date)', 'sales_report(date, date)',
+    'expire_unpaid_orders()', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

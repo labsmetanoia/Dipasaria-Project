@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BRAND, SITE_URL } from "@/lib/config";
 import { RegisterSW } from "@/components/RegisterSW";
+import { ErrorReporter } from "@/components/ErrorReporter";
+import { TurnstileProvider } from "@/components/Turnstile";
+import { turnstileEnabled } from "@/lib/guard";
 import { LocaleProvider } from "@/lib/i18n/client";
 import { getT } from "@/lib/i18n/server";
 
@@ -41,8 +44,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_LD) }} />
-        <LocaleProvider locale={locale} t={t}>{children}</LocaleProvider>
+        <LocaleProvider locale={locale} t={t}><TurnstileProvider siteKey={turnstileEnabled() ? process.env.TURNSTILE_SITE_KEY! : ""}>{children}</TurnstileProvider></LocaleProvider>
         <RegisterSW />
+        <ErrorReporter />
       </body>
     </html>
   );

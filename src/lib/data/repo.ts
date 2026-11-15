@@ -1,5 +1,7 @@
 import type {
   AccountApplication,
+  AppError,
+  JobRun,
   BuyingLine,
   BusinessAccount,
   Category,
@@ -107,5 +109,21 @@ export interface Repo {
   listStandingRuns(filter?: { date?: string; standingOrderId?: string; limit?: number }): Promise<StandingOrderRun[]>;
   /** Claim the (standing order, date) run; returns null if it was already claimed. */
   claimStandingRun(standingOrderId: string, date: string): Promise<StandingOrderRun | null>;
-  finishStandingRun(runId: string, patch: { order_id?: string; order_code?: string; error?: string }): Promise<void>;
+  finishStandingRun(runId: string, patch: { order_id?: string; order_code?: string; error?: string; note?: string | null }): Promise<void>;
+
+  // Protection and operations
+  /** Count a hit for `key`; false when `max` hits already happened in the last `windowSeconds` (the hit is then not counted). */
+  hitRateLimit(key: string, windowSeconds: number, max: number): Promise<boolean>;
+  /** Cancel household orders not paid by their pay_by time (stock, slot and promo use are returned). Returns how many. */
+  expireUnpaidOrders(): Promise<number>;
+  /** Back-office: move or remove an order's automatic-cancellation deadline. */
+  setOrderPayBy(id: string, payBy: string | null): Promise<Result<Order>>;
+  /** Record an error, grouped by source + message + path. Returns its occurrence count (1 = new). */
+  logError(e: { source: AppError["source"]; message: string; path?: string; digest?: string | null; detail?: string | null }): Promise<number>;
+  listErrors(opts?: { includeResolved?: boolean; limit?: number }): Promise<AppError[]>;
+  resolveErrors(fingerprints: string[] | "all"): Promise<void>;
+  recordJob(job: string, result: string): Promise<void>;
+  listJobs(): Promise<JobRun[]>;
+  /** Cheap database round-trip for the health check. */
+  ping(): Promise<boolean>;
 }

@@ -152,6 +152,9 @@ export function StandingOrdersPanel({ initial, runs, products, slots, payments, 
                   </div>
                 </div>
               )}
+              {myRuns.filter((r) => r.order_code && r.note).slice(0, 1).map((r) => (
+                <p key={r.id} className="mt-3 bg-warn-50 px-3 py-2 font-sans text-[12px] text-warn-600">{en ? `${formatDate(r.delivery_date, "short", locale)} (${r.order_code}) was sent without some items that were unavailable that night: ` : `${formatDate(r.delivery_date, "short", locale)} (${r.order_code}) dikirim tanpa produk yang tidak tersedia malam itu: `}{r.note}</p>
+              ))}
               {myRuns.length > 0 && <p className="mt-3 font-sans text-[12px] text-mute">{en ? "Recent" : "Terakhir"}: {myRuns.map((r) => `${formatDate(r.delivery_date, "short", locale)} ${r.order_code ?? (en ? "failed" : "gagal")}`).join(" · ")}</p>}
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setDraft({ id: so.id, name: so.name, weekdays: [...so.weekdays], slot_id: so.slot_id, payment_method: so.payment_method, lines: so.lines.map((l) => ({ ...l })), note: so.note ?? "" })} className="btn-outline px-3 py-2 text-[11.5px]"><Pencil className="h-3.5 w-3.5" /> {en ? "Edit" : "Ubah"}</button>

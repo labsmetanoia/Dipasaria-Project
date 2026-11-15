@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { expireIfDue } from "@/lib/expiry";
 import Link from "next/link";
 import { ArrowRight, Scale } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -10,10 +11,11 @@ import { STATUS_LABEL } from "@/lib/config";
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   await requireAdmin();
+  await expireIfDue(); // unpaid orders past their deadline must not reach the buying list or the route
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();
-  const [summary, orders, accounts] = await Promise.all([repo.dailySummary(date), repo.listOrders({ date }), repo.listAccounts()]);
+  const [summary, orders, accounts, errors] = await Promise.all([repo.dailySummary(date), repo.listOrders({ date }), repo.listAccounts(), repo.listErrors({ limit: 50 }).catch(() => [])]);
   const pendingAccounts = accounts.filter((a) => a.status === "pending");
   const toConfirm = orders.filter((o) => o.status === "new");
   const toWeigh = orders.filter((o) => o.has_catch_weight && !o.weighed_at && o.status !== "cancelled");
@@ -26,6 +28,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         <div><p className="eyebrow">Ringkasan harian</p><h1 className="text-2xl text-ocean-900">Pengiriman</h1></div>
         <DateSelector date={date} />
       </div>
+      {errors.length > 0 && <Link href="/admin/sistem" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{errors.length} jenis error belum ditangani ({errors.reduce((s, e) => s + e.count, 0)} kejadian). Lihat Sistem →</Link>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Pesanan" value={summary.orders_total} sub={`${summary.orders_business} bisnis · ${summary.orders_retail} rumah tangga`} />

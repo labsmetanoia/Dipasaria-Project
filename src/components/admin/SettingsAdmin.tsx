@@ -44,6 +44,7 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Batas pemesanan (WIB)"><input className="input" value={s.cutoff_time} onChange={(e) => set("cutoff_time", e.target.value)} placeholder="20:00" /></Field>
           <Field label="Maksimal hari pemesanan ke depan"><input className="input" type="number" value={s.max_days_ahead} onChange={(e) => set("max_days_ahead", Number(e.target.value))} /></Field>
+          <Field label="Batas waktu pembayaran (menit)" hint="Pesanan rumah tangga via transfer/QRIS dengan total pasti dibatalkan otomatis bila belum dibayar dalam waktu ini (paling lambat pukul 00.00 di hari kirim). 0 = tidak pernah. Pesanan timbang, akun bisnis, COD dan tempo tidak terpengaruh."><input className="input" type="number" min={0} max={10080} step={15} value={s.payment_window_minutes} onChange={(e) => set("payment_window_minutes", Number(e.target.value))} /></Field>
           <Field label="Minimal pesanan rumah tangga"><input className="input" value={s.min_order_retail} onChange={(e) => set("min_order_retail", num(e.target.value))} /></Field>
           <Field label="Minimal pesanan bisnis"><input className="input" value={s.min_order_business} onChange={(e) => set("min_order_business", num(e.target.value))} /></Field>
           <Field label="Gratis ongkos kirim rumah tangga mulai"><input className="input" value={s.free_delivery_retail} onChange={(e) => set("free_delivery_retail", num(e.target.value))} /></Field>

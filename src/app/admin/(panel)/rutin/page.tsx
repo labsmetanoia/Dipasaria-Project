@@ -57,7 +57,8 @@ export default async function StandingOrdersAdminPage() {
         <p className="font-semibold text-ocean-900">Riwayat proses</p>
         <ul className="mt-3 divide-y divide-line text-sm">
           {runs.map((r) => { const so = list.find((s) => s.id === r.standing_order_id); const acc = accounts.find((a) => a.id === so?.account_id); return (
-            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><span>{formatDate(r.delivery_date, "short")} · {acc?.business_name ?? "—"}</span>{r.order_code ? <Link href={`/admin/pesanan?q=${r.order_code}`} className="font-semibold text-gold-ink">{r.order_code}</Link> : <span className="text-xs text-gold-ink">{r.error ?? "Sedang diproses"}</span>}</li>); })}
+            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><span>{formatDate(r.delivery_date, "short")} · {acc?.business_name ?? "—"}</span>{r.order_code ? <Link href={`/admin/pesanan?q=${r.order_code}`} className="font-semibold text-gold-ink">{r.order_code}</Link> : <span className="text-xs text-gold-ink">{r.error ?? "Sedang diproses"}</span>}
+              {r.note && r.order_code && <span className="flex w-full flex-wrap items-center justify-between gap-2 bg-warn-50 px-2 py-1 text-xs text-warn-600"><span>Dikirim sebagian. {r.note}</span>{acc && <a className="inline-flex items-center gap-1 font-semibold" target="_blank" rel="noreferrer" href={waLink(acc.phone, `Halo ${acc.contact_name}, pesanan rutin untuk ${formatDate(r.delivery_date)} (${r.order_code}) sudah kami buat, tetapi ada produk yang tidak tersedia malam ini: ${r.note} Produk lainnya tetap dikirim sesuai jadwal. Balas pesan ini bila ingin diganti produk lain. Terima kasih.`)}><MessageCircle className="h-3.5 w-3.5" />Kabari via WA</a>}</span>}</li>); })}
           {runs.length === 0 && <li className="py-2 text-mute">Belum ada proses.</li>}
         </ul>
       </div>

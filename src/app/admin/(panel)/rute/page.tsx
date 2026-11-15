@@ -1,5 +1,6 @@
 import { safeMapsUrl } from "@/lib/orderRules";
 import { requireAdmin } from "@/lib/auth";
+import { expireIfDue } from "@/lib/expiry";
 import Link from "next/link";
 import { MessageCircle, ExternalLink } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -13,6 +14,7 @@ import { PAYMENT_LABEL, UNIT_LABEL } from "@/lib/config";
 
 export default async function RoutePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   await requireAdmin();
+  await expireIfDue(); // unpaid orders past their deadline must not reach the buying list or the route
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();

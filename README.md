@@ -26,12 +26,30 @@ Open http://localhost:3000. `npm run dev` always allows demo mode. A production 
 
 ## Go live on Supabase + Vercel (about two hours)
 
-1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts.)
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes.)
 2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
 3. **Example accounts**: `seed.sql` no longer creates them. On a project seeded before November 2026, migration 004 suspends them; you can also delete them: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
 4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`; generate secrets with `openssl rand -hex 32`). The server refuses to start in production if Supabase or `SESSION_SECRET` is missing, so a typo cannot silently put the shop into demo mode. Deploy, connect your domain. `vercel.json` schedules the standing-order job daily at 19.45 WIB; Vercel sends `CRON_SECRET` with each call.
 5. **Back-office → Pengaturan**: WhatsApp number, bank account (replace the `0000000000` placeholder), QRIS image link, cut-off, minimums, areas and slots. **Produk & stok**: real prices and buying costs.
 6. Place one test order from your own phone, weigh it, mark it paid, cancel it (stock comes back). Then send the first access codes from **Pelanggan**.
+7. **Protection and monitoring** (about 20 minutes, all free; see the next section). Then open **Back-office → Sistem**: every line should read "Baik".
+
+## Protection and monitoring
+
+All four pieces work without a paid service. **Back-office → Sistem** shows which ones are set up.
+
+| What | What it does | Setup |
+|---|---|---|
+| **Rate limits** | Stop scripts placing fake orders, guessing access codes or flooding account applications. Limits per device: 10 orders an hour, 20 logins every 15 minutes, 5 applications an hour. Per phone number: 6 household orders a day. | Always on (table `rate_hits`). |
+| **Bot check** (Cloudflare Turnstile) | A mostly invisible "are you human" check on household checkout, business login and the account application. Signed-in restaurants skip it at checkout. | Cloudflare dashboard → Turnstile → add widget for your domain. Set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in Vercel. No rebuild needed. If Cloudflare itself is down, orders still go through, the rate limits still apply, and the outage is logged. |
+| **Unpaid orders expire** | A household order paid by transfer or QRIS with a known total must be paid within **Pengaturan → Batas waktu pembayaran** (default 120 minutes, and never later than midnight before the delivery day). Otherwise it is cancelled, and its stock, delivery slot and promo use are released. The customer sees the deadline on the tracking page. The admin can send a WhatsApp reminder, add 2 hours or switch it off per order. Orders with weighed items, restaurant accounts, COD and payment terms are never cancelled automatically. | Runs by itself on every checkout, order lookup and back-office visit. To make it punctual overnight, either enable pg_cron in Supabase and run `select cron.schedule('expire-unpaid-orders', '*/10 * * * *', 'select expire_unpaid_orders()');`, or call `GET /api/cron/expire-unpaid` with `Authorization: Bearer $CRON_SECRET` every 10 minutes from cron-job.org. Vercel Hobby runs cron only daily. |
+| **Error monitoring** | Server errors, crashed customer screens and failed standing orders are grouped on **Sistem**, with a count and technical detail. The dashboard shows a red banner while any are unresolved. A new error is pushed to your phone. | Telegram: message @BotFather → `/newbot` → copy the token; send your bot a message, open `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy `chat.id`. Set `ALERT_WEBHOOK_URL=https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>`. Slack and Discord webhooks work too. |
+| **Uptime** | `GET /api/health` answers 200 while the app and the database are up, and 503 otherwise. | UptimeRobot (free): add an HTTP monitor for `https://<your-domain>/api/health` every 5 minutes, with alerts to email or Telegram. |
+
+**Partial standing orders:**
+- If an item in a restaurant's standing order is switched off, sold out today or short on stock at 19:45, the rest of the order is still placed.
+- The missing item is noted on the order and in **Pesanan rutin**, with a "Kabari via WA" button to tell the restaurant. The restaurant also sees it on its account page.
+- If what remains is below the business minimum, the run fails visibly and can be retried after restocking.
 
 The service-role key is used only by the Next.js server; the browser never receives it. Row-level security denies everything to the anon key, so even a leaked anon key reads nothing.
 

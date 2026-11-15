@@ -35,6 +35,7 @@ export function StandingRunner({ defaultDate }: { defaultDate: string }) {
                 {o.order_code && <Link href={`/admin/pesanan?q=${o.order_code}`} className="font-semibold text-gold-ink">{o.order_code}</Link>}
                 <span className={`px-2 py-0.5 text-[11px] font-semibold ${TONE[o.status]}`}>{LABEL[o.status]}</span>
               </span>
+              {o.note && <span className="w-full bg-warn-50 px-2 py-1 text-xs text-warn-600">Dikirim sebagian. {o.note}</span>}
               {o.error && <span className="w-full text-xs text-gold-ink">{o.error}</span>}
             </li>
           ))}

@@ -34,7 +34,7 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
           <div><p className="eyebrow">{t.tracking.orderNo}</p><p className="text-2xl font-bold text-ocean-950">{order.code}</p><p className="mt-1 text-sm text-mute">{formatDate(order.delivery_date, "long", locale)} · {order.slot_label}</p></div>
           <div className="text-right"><PaymentBadge status={order.payment_status} /><p className="mt-1 text-xs text-mute">{t.paymentMethod[order.payment_method]}</p></div>
         </div>
-        {order.status === "cancelled" ? <p className="mt-5 bg-sand-100 px-4 py-3 text-sm">{t.tracking.cancelled}</p> : (
+        {order.status === "cancelled" ? <p className="mt-5 bg-sand-100 px-4 py-3 text-sm">{order.history.some((h) => h.status === "cancelled" && h.note?.startsWith("Dibatalkan otomatis")) ? t.tracking.expired : t.tracking.cancelled}</p> : (
           <ol className="mt-6 grid grid-cols-5 gap-1">
             {STEPS.map((s, i) => {
  const done = i <= idx;
@@ -78,6 +78,7 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
       {payNow && (
         <div className="card p-5">
           <h2 className="font-bold text-ocean-950">{fmt(t.tracking.paymentOf, { amount: rupiah(total) })}</h2>
+          {order.pay_by && order.payment_status === "unpaid" && <p className="mt-2 bg-warn-50 px-3 py-2 text-sm font-medium text-warn-600">{fmt(t.tracking.payBy, { time: formatDateTime(order.pay_by, locale) })}</p>}
           {order.payment_method === "qris" ? (
             <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
               {/* eslint-disable-next-line @next/next/no-img-element */}

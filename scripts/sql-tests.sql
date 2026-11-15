@@ -197,5 +197,51 @@ begin
   if business_login('081200000001', 'BHR123') is null then raise exception 'login after lockout reset'; end if;
   if random_code(6) !~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$' then raise exception 'random_code alphabet'; end if;
 
+  -- 15. Unpaid household orders expire and release stock; any payment clears the deadline; weighed orders get none
+  update delivery_slots set capacity = 100 where id = 's_sore';
+  update variants set stock_qty = 50 where id = 'v_salmon';
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Expire', 'phone', '081277770004', 'address', 'Jl. Uji 4', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  if (select pay_by from orders where id = oid) is null then raise exception 'pay_by not set on a household QRIS order with a known total'; end if;
+  if (select pay_by from orders where id = oid) > (_date()::timestamp at time zone 'Asia/Jakarta') then raise exception 'pay_by later than the start of the delivery day'; end if;
+  select stock_qty into stock_before from variants where id = 'v_salmon';
+  perform expire_unpaid_orders();
+  if (select status from orders where id = oid) = 'cancelled' then raise exception 'order expired before its deadline'; end if;
+  update orders set pay_by = now() - interval '1 minute' where id = oid;
+  if expire_unpaid_orders() < 1 then raise exception 'expire_unpaid_orders cancelled nothing'; end if;
+  if (select status || '/' || payment_status from orders where id = oid) <> 'cancelled/void' then raise exception 'expired order should be cancelled/void'; end if;
+  select stock_qty into stock_after from variants where id = 'v_salmon';
+  if stock_after <> stock_before + 2 then raise exception 'expired order did not return stock'; end if;
+  if not exists (select 1 from orders where id = oid and history::text like '%Dibatalkan otomatis%') then raise exception 'expiry not recorded in history'; end if;
+  if not exists (select 1 from job_runs where job = 'expire_unpaid') then raise exception 'expiry run not recorded'; end if;
+
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Bayar', 'phone', '081277770005', 'address', 'Jl. Uji 5', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'transfer', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  perform customer_confirm_payment((select code from orders where id = oid), '081277770005');
+  if (select pay_by from orders where id = oid) is not null then raise exception '"I have paid" should clear the deadline'; end if;
+  perform set_payment_status(oid, 'unpaid');
+  perform expire_unpaid_orders();
+  if (select status from orders where id = oid) = 'cancelled' then raise exception 'order with a payment claim was auto-cancelled'; end if;
+
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Timbang', 'phone', '081277770006', 'address', 'Jl. Uji 6', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 2))));
+  if (select pay_by from orders where id = oid) is not null then raise exception 'weighed order must not get a payment deadline'; end if;
+  update settings set payment_window_minutes = 0;
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Nol', 'phone', '081277770007', 'address', 'Jl. Uji 7', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  if (select pay_by from orders where id = oid) is not null then raise exception 'window 0 should disable expiry'; end if;
+  update settings set payment_window_minutes = 120;
+
+  -- 16. Rate limits count per key inside the window
+  for i in 1..3 loop if not hit_rate_limit('test:a', 60, 3) then raise exception 'rate limit refused below the limit'; end if; end loop;
+  if hit_rate_limit('test:a', 60, 3) then raise exception 'rate limit not enforced'; end if;
+  if not hit_rate_limit('test:b', 60, 3) then raise exception 'rate limit keys are not independent'; end if;
+
+  -- 17. Errors are grouped by fingerprint; a resolved error that comes back starts a new count
+  if log_error('server', 'Boom', '/x', null, null) <> 1 then raise exception 'new error count'; end if;
+  if log_error('server', 'Boom', '/x', 'd1', 'stack') <> 2 then raise exception 'repeat error count'; end if;
+  update error_events set resolved = true;
+  if log_error('server', 'Boom', '/x', null, null) <> 1 then raise exception 'reopened error should restart at 1'; end if;
+
   raise notice 'all assertions passed';
 end $$;
