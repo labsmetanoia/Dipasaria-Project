@@ -195,7 +195,7 @@ Complexity: **S** = up to 2 days · **M** = 3–7 days · **L** = 2+ weeks. Cost
 | R3 ✅ | **Auto-expire unpaid orders** | Frees stock and delivery slots held by customers who never pay | Scheduled job every 15 min. Cancels transfer/QRIS orders still unpaid X hours after the final invoice (setting). WhatsApp reminder at half-time. Stock and promo returned automatically. | S | Rp 0 (Vercel Cron) |
 | R4 ✅ (QRIS) | **QRIS / VA payments with automatic confirmation** (Midtrans; QRIS built, VA not yet) | Removes manual checking of transfer screenshots; customers pay in one tap; cash arrives faster; fewer payment disputes | Payment link generated after weighing (final amount). Webhook marks the order paid (signature verified). Refunds recorded against `refund_due`. | M | ~0.7% per QRIS transaction; VA ~Rp4,000 |
 | R5 ✅ | **Error monitoring and uptime** (built in, no Sentry needed; uptime via `/api/health`) | You learn about a broken checkout before customers tell you | Server and browser errors with release tags; alert to WhatsApp/email; daily uptime ping of `/belanja` and the cron | S | Free tier |
-| R6 | **Daily backups** | Recover from an accidental delete or bad import | Supabase Pro with daily backups; monthly restore test | S | US$25 |
+| R6 ✅ | **Daily backups** | Recover from an accidental delete or bad import | Supabase Pro with daily backups; monthly restore test | S | US$25 |
 
 ### Should-have (months 2–3)
 
@@ -427,3 +427,31 @@ Main end-to-end suite: 49 checks pass, including the demo-gateway payment.
 - Main E2E: 54 checks pass, including manual sending from Pesan WA.
 
 **Not yet verified.** Meta's live API could not be reached from the build environment, so the first real send happens when you set the token. Template approval is Meta's process.
+
+---
+
+## 12. Implemented after approval: R6, daily backups
+
+**Approach.** Supabase's free plan has no downloadable backups, and Pro (US$25 a month) keeps 7 days. Instead, a free, independent backup runs every night in GitHub Actions. It is checked by actually restoring it.
+
+| Step | What happens |
+|---|---|
+| **Dump** | `pg_dump` of the `public` schema (all shop data, functions and row-level security policies). It runs over the Supabase session pooler (IPv4) with a PostgreSQL 17 client; `pg_dump` must be at least the server's major version. Row counts are taken first. |
+| **Verify** | The dump is restored into a throwaway PostgreSQL 17 database in the same job. Restored counts must be at least the counts taken before. Settings and products must be present, and a schema function must run. Any restore error fails the job. |
+| **Encrypt** | GnuPG, AES-256, with a passphrase held in a GitHub secret and by the owner. The plain dump is deleted before upload. |
+| **Retain** | GitHub artifact, kept 30 days. An optional S3-compatible off-site copy (Cloudflare R2 or Backblaze). |
+| **Report** | `POST /api/backup/report` (CRON_SECRET). Back-office → Sistem shows the last result, for example "OK · 36K · 26 pesanan · terverifikasi". A failure is logged and alerted. A backup older than 36 hours raises an alert, at most twice a day. |
+| **Restore** | `scripts/backup/restore.sh` decrypts and restores into a new, empty project. It refuses a database that already holds tables and rejects a wrong passphrase. The steps for re-creating the admin login and repointing Vercel are at the top of the file. |
+
+**Tests** (`npm run test:backup`, all passing on local PostgreSQL):
+- a good dump restores with matching counts;
+- restoring into a non-empty database is rejected;
+- a truncated dump fails verification;
+- encryption removes the plain copy;
+- a wrong passphrase is refused;
+- a disaster restore brings back every order;
+- a restore over a live database is refused.
+
+The workflow's report step was also run as written against the app, for success, failure and a wrong secret, and the System page shows each state.
+
+**Not yet verified.** The workflow itself runs on GitHub: it starts once it is on the default branch and the secrets are set. Run it once by hand to confirm.

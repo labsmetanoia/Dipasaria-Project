@@ -1,0 +1,101 @@
+# Daily database backup, verified by restoring it, encrypted, kept 30 days (and optionally copied off-site).
+# Runs at 02:17 WIB. Scheduled workflows only run from the repository's default branch.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL     Supabase → Connect → "Session pooler" connection string, with the database password filled in
+#   BACKUP_PASSPHRASE   long random passphrase; keep a copy in your password manager (needed to restore)
+#   APP_URL             e.g. https://dipasaria.id   (the result is shown on Back-office → Sistem)
+#   CRON_SECRET         same value as in Vercel
+# Optional off-site copy (e.g. Cloudflare R2, free up to 10 GB):
+#   BACKUP_S3_ENDPOINT, BACKUP_S3_BUCKET, BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY
+name: Daily database backup
+
+on:
+  schedule:
+    - cron: "17 19 * * *" # 19:17 UTC = 02:17 WIB
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      verify-db:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: verify
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      APP_URL: ${{ secrets.APP_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+      S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      PG_MAJOR: "17" # must be at least the Supabase server's major version
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check configuration
+        run: |
+          missing=""
+          [ -n "$DATABASE_URL" ] || missing="$missing SUPABASE_DB_URL"
+          [ -n "$BACKUP_PASSPHRASE" ] || missing="$missing BACKUP_PASSPHRASE"
+          if [ -n "$missing" ]; then echo "::error::Add repository secrets:$missing"; exit 1; fi
+
+      - name: Install PostgreSQL ${{ env.PG_MAJOR }} client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq "postgresql-client-$PG_MAJOR"
+          echo "/usr/lib/postgresql/$PG_MAJOR/bin" >> "$GITHUB_PATH"
+
+      - name: Dump
+        run: bash scripts/backup/dump.sh backup
+
+      - name: Verify by restoring into a throwaway database
+        run: bash scripts/backup/verify.sh backup postgresql://postgres:verify@localhost:5432/postgres
+
+      - name: Encrypt
+        run: bash scripts/backup/encrypt.sh backup
+
+      - name: Keep 30 days in GitHub
+        uses: actions/upload-artifact@v7
+        with:
+          name: dipasaria-backup-${{ github.run_number }}
+          path: |
+            backup/*.gpg
+            backup/counts.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Copy off-site (optional)
+        if: env.S3_ENDPOINT != '' && env.S3_BUCKET != ''
+        run: aws s3 cp backup/*.gpg "s3://$S3_BUCKET/daily/" --endpoint-url "$S3_ENDPOINT" --only-show-errors
+
+      - name: Report to the shop
+        if: always() && env.APP_URL != '' && env.CRON_SECRET != ''
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          size=$(du -h backup/*.gpg 2>/dev/null | cut -f1 | head -n 1)
+          counts=$(cat backup/counts.json 2>/dev/null || echo '{}')
+          ok=false; [ "$JOB_STATUS" = "success" ] && ok=true
+          body=$(printf '{"ok":%s,"size":"%s","counts":%s,"verified":%s,"run_url":"%s"}' "$ok" "${size:-}" "$counts" "$ok" "$RUN_URL")
+          curl -fsS -X POST "$APP_URL/api/backup/report" -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" -d "$body" || echo "::warning::Could not report to $APP_URL"

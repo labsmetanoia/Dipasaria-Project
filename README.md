@@ -115,6 +115,37 @@ All four pieces work without a paid service. **Back-office → Sistem** shows wh
 
 The service-role key is used only by the Next.js server; the browser never receives it. Row-level security denies everything to the anon key, so even a leaked anon key reads nothing.
 
+## Daily backups
+
+Every night at 02.17 WIB, a GitHub Action (`.github/workflows/backup.yml`):
+1. dumps the database (all shop data: orders, products, accounts, settings, functions and access rules);
+2. **proves the dump works** by restoring it into a throwaway database and comparing row counts;
+3. encrypts it with your passphrase (AES-256) and keeps 30 days of copies in GitHub;
+4. optionally copies it off-site, for example to Cloudflare R2 (free up to 10 GB);
+5. reports to the shop. **Back-office → Sistem** shows the last verified backup, and you get an alert if a backup fails or none has run for 36 hours.
+
+**Cost:** Rp 0. It uses about 2 minutes of the 2,000 free GitHub Actions minutes a month, and a few MB of artifact storage.
+
+**Setup (10 minutes):**
+1. Merge this branch into the repository's default branch. GitHub only runs scheduled workflows from the default branch.
+2. Repository → Settings → Secrets and variables → Actions → **New repository secret**:
+   - **`SUPABASE_DB_URL`:** Supabase → **Connect** → **Session pooler** connection string, with your database password filled in. The session pooler works over IPv4, which GitHub needs.
+   - **`BACKUP_PASSPHRASE`:** a long random passphrase. **Also save it in your password manager: without it a backup cannot be opened.**
+   - **`APP_URL`:** your shop address, for example `https://dipasaria.id`.
+   - **`CRON_SECRET`:** the same value as in Vercel.
+   - Optional off-site copy: `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`.
+3. Actions → **Daily database backup** → **Run workflow** once. Back-office → Sistem should then show "Cadangan harian: Baik".
+
+**Restoring** (if the database is lost or damaged):
+1. Create a new Supabase project.
+2. Download the latest artifact from Actions.
+3. Run `scripts/backup/restore.sh` (the steps are at the top of the file). It decrypts the backup, refuses to write over a database that already has data, and restores everything.
+4. Re-create your admin login and point Vercel at the new project.
+
+Practise once a month: restore into a scratch project and check that your latest orders are there.
+
+**Supabase's own backups:** Supabase Pro (US$25 a month) adds 7 days of automatic daily backups, plus optional point-in-time recovery. Worth it once the shop is busy; this workflow is the independent, free copy either way.
+
 ## The daily loop on your phone
 
 | Time | Screen | What you do |
@@ -162,6 +193,7 @@ Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette 
 | --- | --- |
 | `npm run dev` / `npm run build` / `npm start` | Next.js |
 | `npm run typecheck` | TypeScript |
+| `npm run test:backup` | Dump → verify → encrypt → disaster-restore on a local PostgreSQL, plus the failure cases (run `npm run test:sql` first) |
 | `node scripts/test-whatsapp.cjs` | WhatsApp notifications against a local Cloud API stand-in (see the file header) |
 | `node scripts/test-midtrans.cjs` | QRIS gateway test against a local Midtrans stand-in (see the header of the file for how to start the app) |
 | `npm run test:sql` | Loads schema + seed into a local PostgreSQL and runs `scripts/sql-tests.sql` (needs `psql`; set `PGHOST`/`PGPORT`/`PGUSER`) |

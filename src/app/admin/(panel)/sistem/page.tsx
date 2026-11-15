@@ -6,12 +6,13 @@ import { turnstileEnabled } from "@/lib/guard";
 import { SystemActions, ResolveButton } from "@/components/admin/SystemActions";
 import { getGateway } from "@/lib/payments/gateway";
 import { waApiEnabled } from "@/lib/notify/service";
+import { backupState, BACKUP_MAX_AGE_HOURS } from "@/lib/backup";
 
 export const metadata = { title: "Sistem" };
 
 type Check = { label: string; ok: boolean | "warn"; detail: string };
 
-const JOB_LABEL: Record<string, string> = { expire_unpaid: "Pembatalan otomatis pesanan belum dibayar", standing_orders: "Pesanan rutin restoran" };
+const JOB_LABEL: Record<string, string> = { backup: "Cadangan database harian", expire_unpaid: "Pembatalan otomatis pesanan belum dibayar", standing_orders: "Pesanan rutin restoran" };
 
 export default async function SystemPage() {
   await requireAdmin();
@@ -32,6 +33,14 @@ export default async function SystemPage() {
     { label: "QRIS", ok: settings.qris_image_url ? true : "warn", detail: settings.qris_image_url ? "Gambar QRIS diatur" : "Belum ada gambar QRIS; pelanggan QRIS hanya melihat petunjuk" },
     { label: "QRIS otomatis", ok: getGateway()?.name === "midtrans" ? true : "warn", detail: getGateway()?.name === "midtrans" ? `${getGateway()!.label}: QR sesuai nominal, lunas otomatis. URL notifikasi: ${SITE_URL}/api/payments/midtrans` : getGateway() ? "Gateway demo aktif (tanpa uang sungguhan). Isi MIDTRANS_SERVER_KEY untuk pembayaran nyata" : "Belum diatur: pelanggan QRIS memakai gambar QRIS statis dan konfirmasi manual. Isi MIDTRANS_SERVER_KEY" },
     { label: "WhatsApp otomatis ke pelanggan", ok: waApiEnabled() ? true : "warn", detail: waApiEnabled() ? "WhatsApp Cloud API aktif: pesan terkirim otomatis (lihat menu Pesan WA)" : "Belum diatur: pesan disiapkan di menu Pesan WA untuk dikirim manual. Isi WHATSAPP_TOKEN dan WHATSAPP_PHONE_NUMBER_ID" },
+    (() => {
+      const b = backupState(jobs);
+      const when = b.last ? `${formatDateTime(b.last.last_at)} WIB` : "";
+      if (b.state === "ok") return { label: "Cadangan harian", ok: true as const, detail: `Terakhir ${when}: ${b.last!.result}` };
+      if (b.state === "none") return { label: "Cadangan harian", ok: (repo.mode === "supabase" ? false : "warn") as Check["ok"], detail: "Belum ada cadangan tercatat. Aktifkan workflow “Daily database backup” di GitHub (README → Daily backups)" };
+      if (b.state === "failed") return { label: "Cadangan harian", ok: false as const, detail: `Cadangan terakhir gagal (${when}). ${b.last!.result}` };
+      return { label: "Cadangan harian", ok: false as const, detail: `Cadangan terakhir ${when}, lebih dari ${BACKUP_MAX_AGE_HOURS} jam lalu. Periksa GitHub → Actions` };
+    })(),
     { label: "Batas waktu pembayaran", ok: true, detail: settings.payment_window_minutes > 0 ? `${settings.payment_window_minutes} menit untuk pesanan rumah tangga transfer/QRIS` : "Nonaktif (0): pesanan belum dibayar tidak dibatalkan otomatis" },
   ];
   const tone = (ok: Check["ok"]) => (ok === true ? "bg-success-50 text-success-600" : ok === "warn" ? "bg-warn-50 text-warn-600" : "bg-coral-50 text-gold-ink");
@@ -54,7 +63,7 @@ export default async function SystemPage() {
         <div className="card p-4 text-sm">
           <p className="font-semibold text-ocean-900">Tugas terjadwal</p>
           <ul className="mt-2 space-y-1.5">
-            {["expire_unpaid", "standing_orders"].map((j) => { const r = jobs.find((x) => x.job === j); return (
+            {["backup", "expire_unpaid", "standing_orders"].map((j) => { const r = jobs.find((x) => x.job === j); return (
               <li key={j} className="flex flex-wrap justify-between gap-2"><span>{JOB_LABEL[j]}</span><span className="text-mute">{r ? `${formatDateTime(r.last_at)} WIB · ${r.result}` : "Belum pernah berjalan"}</span></li>); })}
           </ul>
           <SystemActions />

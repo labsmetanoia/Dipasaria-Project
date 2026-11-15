@@ -2,7 +2,7 @@
   "name": "dipasaria-platform",
   "version": "0.1.0",
   "private": true,
-  "description": "Dipasaria — seafood-led protein commerce platform for Jakarta: corporate site, PWA storefront and back-office in one Next.js app on Supabase.",
+  "description": "Dipasaria \u2014 seafood-led protein commerce platform for Jakarta: corporate site, PWA storefront and back-office in one Next.js app on Supabase.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,7 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:sql": "bash scripts/test-sql.sh",
-    "brand": "node scripts/brand/build.cjs && node scripts/export-brand.cjs && node scripts/brand/board.cjs"
+    "brand": "node scripts/brand/build.cjs && node scripts/export-brand.cjs && node scripts/brand/board.cjs",
+    "test:backup": "bash scripts/backup/test.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

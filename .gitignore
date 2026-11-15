@@ -9,3 +9,4 @@ out
 tsconfig.tsbuildinfo
 next-env.d.ts
 .pgtest
+/backup/

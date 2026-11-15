@@ -4,6 +4,7 @@
 import { getRepo } from "./data";
 import { reportError } from "./monitor";
 import { flushOutbox, notify, sweepReminders } from "./notify/service";
+import { checkBackupFreshness } from "./backup";
 
 let lastRun = 0;
 
@@ -22,6 +23,7 @@ export async function expireIfDue(force = false): Promise<number> {
     }
     await sweepReminders(30);
     await flushOutbox(20);
+    await checkBackupFreshness();
   } catch (e) {
     await reportError("job", e, { path: "expire_unpaid_orders" });
   }
