@@ -409,3 +409,28 @@ export interface WaMessage {
   created_at: string;
   sent_at: string | null;
 }
+
+/** A household customer: a phone number verified with a one-time WhatsApp code. */
+export interface Customer {
+  id: string;
+  phone: string;
+  name: string;
+  marketing_opt_in: boolean;
+  marketing_opt_in_at: string | null;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface CustomerAddress {
+  id: string;
+  customer_id: string;
+  label: string;
+  recipient: string;
+  address: string;
+  area_id: string | null;
+  maps_url: string | null;
+  is_default: boolean;
+  created_at: string;
+}
+
+export type CustomerLoginResult = { status: "ok"; customerId: string } | { status: "wrong" | "expired" | "locked" };

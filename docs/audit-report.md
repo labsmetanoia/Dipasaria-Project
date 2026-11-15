@@ -202,7 +202,7 @@ Complexity: **S** = up to 2 days · **M** = 3–7 days · **L** = 2+ weeks. Cost
 | # | Feature | Business value | Functional requirements | Complexity | Running cost |
 |---|---|---|---|---|---|
 | R7 ✅ | **Automated WhatsApp notifications** (WhatsApp Business Platform) | Cuts manual messaging at 05:00. Customers get the final invoice, "on the way" and "delivered" updates automatically. | Approved templates for: order received, final invoice after weighing (with payment link), out for delivery, unpaid reminder. Opt-out respected. | M | Per conversation (utility rates in Indonesia are low; roughly Rp300–500 each) |
-| R8 | **Household customer accounts** (WhatsApp OTP login) | Repeat purchase: saved addresses, order history, one-tap reorder (already loved by B2B) | OTP via WhatsApp template; addresses book; order history; reorder; consent to marketing | M | OTP message cost |
+| R8 ✅ | **Household customer accounts** (WhatsApp OTP login) | Repeat purchase: saved addresses, order history, one-tap reorder (already loved by B2B) | OTP via WhatsApp template; addresses book; order history; reorder; consent to marketing | M | OTP message cost |
 | R9 | **B2B invoicing and receivables** | Restaurants on payment terms need proper invoices; you need to see who owes what | Monthly statement PDF per account; aging report (0–30 / 31–60 / 60+); credit limit blocking new orders when overdue; optional e-Faktur fields | M | Rp 0 |
 | R10 | **Inventory movements and shrinkage** | Fresh seafood loses weight and spoils. Knowing the real margin per SKU drives buying decisions. | Stock in (dawn purchase with cost), stock out (orders), adjustments (waste, drip loss) with reason; shrinkage % report per product | M | Rp 0 |
 | R11 | **Courier booking for out-of-zone areas** (Biteship) | Sell beyond your own fleet's routes without hiring drivers | Rates at checkout for extra areas; booking from the admin route sheet; tracking link in WhatsApp | M | Per shipment |
@@ -455,3 +455,45 @@ Main end-to-end suite: 49 checks pass, including the demo-gateway payment.
 The workflow's report step was also run as written against the app, for success, failure and a wrong secret, and the System page shows each state.
 
 **Not yet verified.** The workflow itself runs on GitHub: it starts once it is on the default branch and the secrets are set. Run it once by hand to confirm.
+
+---
+
+## 13. Implemented after approval: R8, household customer accounts
+
+| Part | Behaviour |
+|---|---|
+| **Sign-in** | Phone number, then a 6-digit code on WhatsApp (Authentication template with a copy-code button), then a session for 90 days. In demo mode the code is shown on screen. Without the API, sign-in is switched off and guests are unaffected. |
+| **Code safety** | The code is random (`crypto.randomInt`), valid 10 minutes and single-use. It locks after 5 wrong tries; wrong tries are counted inside the database, so they persist. Requests are limited to one a minute in SQL, plus 3 per 15 minutes per number and 10 per hour per device; checks are limited to 30 per 15 minutes per device. An optional Turnstile check also applies. Only HMAC hashes of codes (with the server secret) and SHA-256 hashes of session tokens are stored. |
+| **Data** | `customers`, `customer_addresses` (up to 10, one default), `customer_sessions`, `login_codes`, all with row-level security. Orders are linked by the verified phone number, so earlier guest orders appear in the history. |
+| **Checkout** | The verified number is locked. The default address fills in, and saved addresses can be picked; a new address can be saved with a label (no duplicates). The bot check is skipped and rate limits still apply. The server sets the phone from the session, never from the browser. |
+| **Privacy** | Promotional consent is separate from order updates and recorded with a date. "Hapus akun saya" deletes the profile, addresses and sessions; orders remain as the shop's records. |
+| **Back-office** | Pelanggan lists household accounts (name, number linked to their orders, signup and last sign-in, consent). Sistem shows whether sign-in codes can be delivered. |
+
+**Tests**
+- **SQL section 20:**
+  - invalid number;
+  - one minute between requests;
+  - wrong code counted;
+  - right code signs in and creates a session;
+  - a code works once;
+  - lockout after 5 tries, even with the right code;
+  - expiry;
+  - one customer per number.
+- **E2E (65 checks pass)**, the full journey:
+  - code issued;
+  - wrong code refused;
+  - signed in with the earlier guest order in the history;
+  - reorder;
+  - address added and set as default;
+  - name and consent saved;
+  - checkout with the number locked and the default address filled in;
+  - a new address saved during checkout;
+  - the order goes to the verified number;
+  - admin sees the account and its consent;
+  - account deletion.
+- **WhatsApp test (19 checks pass):**
+  - the code is sent with the Authentication template, in the body and in the copy-code button;
+  - it is never shown on screen when the API is on;
+  - the code from WhatsApp signs the customer in.
+
+**Not yet verified.** Meta's exact field for the copy-code button at send time could not be confirmed from the build environment. It defaults to Meta's documented example (`sub_type: "url"`) and can be changed with `WHATSAPP_OTP_BUTTON_SUBTYPE` if Meta's error asks for another value.

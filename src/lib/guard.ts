@@ -21,6 +21,9 @@ export const LIMITS = {
   lookup: { windowSeconds: 600, max: 60 }, // per IP: order lookups, "I have paid", issuing a QR
   paymentPoll: { windowSeconds: 600, max: 400 }, // per IP: payment status polling while a QR is on screen
   clientError: { windowSeconds: 600, max: 30 }, // per IP: browser error reports
+  otpPhone: { windowSeconds: 900, max: 3 }, // per phone: login codes requested
+  otpIp: { windowSeconds: 3600, max: 10 }, // per IP: login codes requested
+  otpVerify: { windowSeconds: 900, max: 30 }, // per IP: login codes checked
 } as const;
 
 export const TOO_MANY = "Terlalu banyak percobaan dari perangkat ini. Coba lagi beberapa menit lagi, atau pesan melalui WhatsApp.";

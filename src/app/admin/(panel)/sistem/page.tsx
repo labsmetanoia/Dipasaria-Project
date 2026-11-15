@@ -7,6 +7,7 @@ import { SystemActions, ResolveButton } from "@/components/admin/SystemActions";
 import { getGateway } from "@/lib/payments/gateway";
 import { waApiEnabled } from "@/lib/notify/service";
 import { backupState, BACKUP_MAX_AGE_HOURS } from "@/lib/backup";
+import { otpChannel } from "@/lib/customer";
 
 export const metadata = { title: "Sistem" };
 
@@ -41,6 +42,7 @@ export default async function SystemPage() {
       if (b.state === "failed") return { label: "Cadangan harian", ok: false as const, detail: `Cadangan terakhir gagal (${when}). ${b.last!.result}` };
       return { label: "Cadangan harian", ok: false as const, detail: `Cadangan terakhir ${when}, lebih dari ${BACKUP_MAX_AGE_HOURS} jam lalu. Periksa GitHub → Actions` };
     })(),
+    { label: "Akun pelanggan (masuk dengan WhatsApp)", ok: otpChannel() === "whatsapp" ? true : "warn", detail: otpChannel() === "whatsapp" ? "Kode masuk dikirim lewat template WhatsApp dipasaria_kode_masuk" : otpChannel() === "demo" ? "Mode demo: kode ditampilkan di layar" : "Belum tersedia: perlu WhatsApp Cloud API dan template autentikasi dipasaria_kode_masuk. Pelanggan tetap bisa memesan sebagai tamu" },
     { label: "Batas waktu pembayaran", ok: true, detail: settings.payment_window_minutes > 0 ? `${settings.payment_window_minutes} menit untuk pesanan rumah tangga transfer/QRIS` : "Nonaktif (0): pesanan belum dibayar tidak dibatalkan otomatis" },
   ];
   const tone = (ok: Check["ok"]) => (ok === true ? "bg-success-50 text-success-600" : ok === "warn" ? "bg-warn-50 text-warn-600" : "bg-coral-50 text-gold-ink");

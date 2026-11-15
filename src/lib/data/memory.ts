@@ -6,6 +6,8 @@ import type {
   GatewayOutcome,
   Payment,
   WaMessage,
+  Customer,
+  CustomerAddress,
   JobRun,
   AccountApplication,
   BusinessAccount,
@@ -182,11 +184,15 @@ function getStore(): Store {
 }
 
 // Kept on globalThis like the store: Next.js may load this module once per route bundle, and these must be shared.
-const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[] } };
-g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [], wa: [] };
+const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }> } };
+g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [], wa: [], customers: [], addresses: [], csessions: new Map(), codes: new Map() };
 g.__dpMem.payments ??= [];
 g.__dpMem.wa ??= [];
-const { loginFailures, rateHits, errorLog, jobs, payments, wa } = g.__dpMem;
+g.__dpMem.customers ??= [];
+g.__dpMem.addresses ??= [];
+g.__dpMem.csessions ??= new Map();
+g.__dpMem.codes ??= new Map();
+const { loginFailures, rateHits, errorLog, jobs, payments, wa, customers, addresses, csessions, codes } = g.__dpMem;
 const cancelOpenPayments = (orderId: string) => { for (const p of payments) if (p.order_id === orderId && p.status === "pending") p.status = "cancelled"; };
 const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 
@@ -886,6 +892,78 @@ export const memoryRepo: Repo = {
   async listOrdersPayBySoon(minutes) {
     const now = Date.now(), until = now + minutes * 60_000;
     return clone(getStore().orders.filter((o) => o.pay_by && Date.parse(o.pay_by) > now && Date.parse(o.pay_by) <= until && o.payment_status === "unpaid" && (o.status === "new" || o.status === "confirmed")));
+  },
+  async customerRequestCode(phone, codeHash) {
+    const p = normalizePhone(phone);
+    if (!/^62\d{8,13}$/.test(p)) return fail("Nomor WhatsApp tidak valid.");
+    const cur = codes.get(p);
+    if (cur && Date.now() - cur.created < 60_000) return fail("Kode baru saja dikirim. Tunggu satu menit sebelum meminta lagi.");
+    codes.set(p, { hash: codeHash, expires: Date.now() + 600_000, attempts: 0, created: Date.now() });
+    return ok(p);
+  },
+  async customerLogin(phone, codeHash, tokenHash) {
+    const p = normalizePhone(phone);
+    const c = codes.get(p);
+    if (!c || c.expires < Date.now()) return { status: "expired" };
+    if (c.attempts >= 5) return { status: "locked" };
+    if (c.hash !== codeHash) { c.attempts++; return { status: c.attempts >= 5 ? "locked" : "wrong" }; }
+    codes.delete(p);
+    let cu = customers.find((x) => x.phone === p);
+    if (!cu) { cu = { id: newId("cu"), phone: p, name: "", marketing_opt_in: false, marketing_opt_in_at: null, created_at: new Date().toISOString(), last_login_at: null }; customers.push(cu); }
+    cu.last_login_at = new Date().toISOString();
+    csessions.set(tokenHash, { customer_id: cu.id, expires: Date.now() + 90 * 86400_000 });
+    return { status: "ok", customerId: cu.id };
+  },
+  async getCustomerBySession(tokenHash) {
+    const s = csessions.get(tokenHash);
+    if (!s || s.expires < Date.now()) return null;
+    const cu = customers.find((x) => x.id === s.customer_id);
+    return cu ? clone(cu) : null;
+  },
+  async endCustomerSession(tokenHash) {
+    csessions.delete(tokenHash);
+  },
+  async updateCustomer(id, patch) {
+    const cu = customers.find((x) => x.id === id);
+    if (!cu) return null;
+    if (patch.name !== undefined) cu.name = patch.name;
+    if (patch.marketing_opt_in !== undefined && patch.marketing_opt_in !== cu.marketing_opt_in) { cu.marketing_opt_in = patch.marketing_opt_in; cu.marketing_opt_in_at = patch.marketing_opt_in ? new Date().toISOString() : null; }
+    return clone(cu);
+  },
+  async deleteCustomer(id) {
+    const i = customers.findIndex((x) => x.id === id);
+    if (i >= 0) customers.splice(i, 1);
+    for (let j = addresses.length - 1; j >= 0; j--) if (addresses[j].customer_id === id) addresses.splice(j, 1);
+    for (const [k, s] of csessions) if (s.customer_id === id) csessions.delete(k);
+  },
+  async listCustomers(limit) {
+    return clone([...customers].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit));
+  },
+  async listAddresses(customerId) {
+    return clone(addresses.filter((a) => a.customer_id === customerId).sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.created_at.localeCompare(b.created_at)));
+  },
+  async saveAddress(customerId, a) {
+    const mine = addresses.filter((x) => x.customer_id === customerId);
+    const existing = a.id ? mine.find((x) => x.id === a.id) : undefined;
+    if (a.id && !existing) return fail("Alamat tidak ditemukan.");
+    if (!existing && mine.length >= 10) return fail("Maksimal 10 alamat tersimpan.");
+    if (a.is_default || mine.length === 0) for (const x of mine) x.is_default = false;
+    const row: CustomerAddress = existing ?? { id: newId("ca"), customer_id: customerId, label: "", recipient: "", address: "", area_id: null, maps_url: null, is_default: false, created_at: new Date().toISOString() };
+    Object.assign(row, { label: a.label, recipient: a.recipient, address: a.address, area_id: a.area_id, maps_url: safeMapsUrl(a.maps_url), is_default: a.is_default || mine.length === 0 });
+    if (!existing) addresses.push(row);
+    return ok(clone(row));
+  },
+  async deleteAddress(customerId, id) {
+    const i = addresses.findIndex((x) => x.id === id && x.customer_id === customerId);
+    if (i < 0) return;
+    const wasDefault = addresses[i].is_default;
+    addresses.splice(i, 1);
+    const next = addresses.find((x) => x.customer_id === customerId);
+    if (wasDefault && next) next.is_default = true;
+  },
+  async getOrdersByPhone(phone, limit) {
+    const p = normalizePhone(phone);
+    return clone(getStore().orders.filter((o) => o.phone === p && o.segment === "retail").sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit));
   },
   async listOrdersPastPayBy() {
     const now = Date.now();

@@ -10,7 +10,7 @@ const NINETY_DAYS = 90 * 24 * 3600;
 
 const KNOWN_DEFAULTS = new Set(["", "dev-secret-change-me", "change-me-to-a-long-random-string"]);
 
-function secret(): string {
+export function secret(): string {
   const s = process.env.SESSION_SECRET ?? "";
   if (KNOWN_DEFAULTS.has(s) || s.length < 16) {
     // In production a missing or published secret would let anyone forge sessions: refuse to run.

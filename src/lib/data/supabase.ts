@@ -7,6 +7,8 @@ import type {
   GatewayOutcome,
   Payment,
   WaMessage,
+  Customer,
+  CustomerAddress,
   BusinessAccount,
   BuyingLine,
   DailySummary,
@@ -701,6 +703,72 @@ export const supabaseRepo: Repo = {
     if (error) throw error;
     return (data as Row[]).map(mapOrder);
   },
+  async customerRequestCode(phone, codeHash) {
+    const { data, error } = await sb().rpc("customer_request_code", { p_phone: phone, p_code_hash: codeHash });
+    return error ? fail(msg(error)) : ok(String(data));
+  },
+  async customerLogin(phone, codeHash, tokenHash) {
+    const { data, error } = await sb().rpc("customer_login", { p_phone: phone, p_code_hash: codeHash, p_token_hash: tokenHash });
+    if (error) throw new Error(msg(error));
+    const s = String(data);
+    return s.startsWith("ok:") ? { status: "ok", customerId: s.slice(3) } : { status: s as "wrong" | "expired" | "locked" };
+  },
+  async getCustomerBySession(tokenHash) {
+    const { data, error } = await sb().from("customer_sessions").select("expires_at, customers(*)").eq("token_hash", tokenHash).maybeSingle();
+    if (error) throw error;
+    if (!data || Date.parse(String((data as Row).expires_at)) < Date.now()) return null;
+    const c = (data as Row).customers as Row | null;
+    return c ? mapCustomer(c) : null;
+  },
+  async endCustomerSession(tokenHash) {
+    await sb().from("customer_sessions").delete().eq("token_hash", tokenHash);
+  },
+  async updateCustomer(id, patch) {
+    const row: Record<string, unknown> = {};
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.marketing_opt_in !== undefined) { row.marketing_opt_in = patch.marketing_opt_in; row.marketing_opt_in_at = patch.marketing_opt_in ? new Date().toISOString() : null; }
+    const { data, error } = await sb().from("customers").update(row).eq("id", id).select("*").maybeSingle();
+    if (error) throw error;
+    return data ? mapCustomer(data as Row) : null;
+  },
+  async deleteCustomer(id) {
+    const { error } = await sb().from("customers").delete().eq("id", id); // addresses and sessions cascade
+    if (error) throw error;
+  },
+  async listCustomers(limit) {
+    const { data, error } = await sb().from("customers").select("*").order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+    return (data as Row[]).map(mapCustomer);
+  },
+  async listAddresses(customerId) {
+    const { data, error } = await sb().from("customer_addresses").select("*").eq("customer_id", customerId).order("is_default", { ascending: false }).order("created_at");
+    if (error) throw error;
+    return (data as Row[]).map(mapAddress);
+  },
+  async saveAddress(customerId, a) {
+    const mine = await this.listAddresses(customerId);
+    if (a.id && !mine.some((x) => x.id === a.id)) return fail("Alamat tidak ditemukan.");
+    if (!a.id && mine.length >= 10) return fail("Maksimal 10 alamat tersimpan.");
+    const isDefault = a.is_default || mine.length === 0;
+    if (isDefault) await sb().from("customer_addresses").update({ is_default: false }).eq("customer_id", customerId);
+    const row = { customer_id: customerId, label: a.label, recipient: a.recipient, address: a.address, area_id: a.area_id, maps_url: a.maps_url, is_default: isDefault };
+    const res = a.id
+      ? await sb().from("customer_addresses").update(row).eq("id", a.id).eq("customer_id", customerId).select("*").single()
+      : await sb().from("customer_addresses").insert({ ...row, id: newId("ca") }).select("*").single();
+    return res.error ? fail(msg(res.error)) : ok(mapAddress(res.data as Row));
+  },
+  async deleteAddress(customerId, id) {
+    const { data } = await sb().from("customer_addresses").delete().eq("id", id).eq("customer_id", customerId).select("is_default").maybeSingle();
+    if ((data as Row | null)?.is_default) {
+      const rest = await this.listAddresses(customerId);
+      if (rest[0]) await sb().from("customer_addresses").update({ is_default: true }).eq("id", rest[0].id);
+    }
+  },
+  async getOrdersByPhone(phone, limit) {
+    const { data, error } = await sb().from("orders").select(ORDER_SELECT).eq("phone", normalizePhone(phone)).eq("segment", "retail").order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+    return (data as Row[]).map(mapOrder);
+  },
   async listOrdersPastPayBy() {
     const { data, error } = await sb().from("orders").select(ORDER_SELECT).eq("payment_status", "unpaid").in("status", ["new", "confirmed"]).lt("pay_by", new Date().toISOString()).limit(200);
     if (error) throw error;
@@ -740,5 +808,19 @@ function mapRun(r: Row): StandingOrderRun {
   return {
     id: String(r.id), standing_order_id: String(r.standing_order_id), delivery_date: String(r.delivery_date).slice(0, 10),
     order_id: (r.order_id as string | null) ?? null, order_code: (r.order_code as string | null) ?? null, error: (r.error as string | null) ?? null, note: (r.note as string | null) ?? null, created_at: String(r.created_at),
+  };
+}
+
+function mapCustomer(r: Row): Customer {
+  return {
+    id: String(r.id), phone: String(r.phone), name: String(r.name ?? ""), marketing_opt_in: Boolean(r.marketing_opt_in),
+    marketing_opt_in_at: (r.marketing_opt_in_at as string | null) ?? null, created_at: String(r.created_at), last_login_at: (r.last_login_at as string | null) ?? null,
+  };
+}
+
+function mapAddress(r: Row): CustomerAddress {
+  return {
+    id: String(r.id), customer_id: String(r.customer_id), label: String(r.label ?? ""), recipient: String(r.recipient ?? ""), address: String(r.address),
+    area_id: (r.area_id as string | null) ?? null, maps_url: (r.maps_url as string | null) ?? null, is_default: Boolean(r.is_default), created_at: String(r.created_at),
   };
 }

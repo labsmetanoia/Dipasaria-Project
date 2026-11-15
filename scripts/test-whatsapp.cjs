@@ -109,6 +109,25 @@ async function order(b, name, phone, optOut = false) {
   await ad.goto(APP + "/admin/sistem", { waitUntil: "networkidle" });
   check((await ad.getByText(/WhatsApp Cloud API aktif/).count()) >= 1, "system page shows the WhatsApp API as active");
 
+  // 6. Household login code through the Authentication template (copy-code button)
+  const lc = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const lp = await lc.newPage();
+  await lp.goto(APP + "/akun", { waitUntil: "networkidle" });
+  const lf = lp.locator("form", { has: lp.getByRole("button", { name: "Kirim kode" }) });
+  await lf.getByLabel("Nomor WhatsApp").fill("0813 5555 0009");
+  await lf.getByRole("button", { name: "Kirim kode" }).click();
+  check(await waitFor(() => ofTemplate("dipasaria_kode_masuk").length === 1), "login code sent with the 'dipasaria_kode_masuk' template");
+  const otpMsg = ofTemplate("dipasaria_kode_masuk")[0]?.body;
+  const comps = otpMsg?.template?.components ?? [];
+  const otpCode = comps[0]?.parameters?.[0]?.text;
+  check(otpMsg?.to === "6281355550009" && /^\d{6}$/.test(otpCode ?? "") && comps[1]?.type === "button" && comps[1]?.index === "0" && comps[1]?.parameters?.[0]?.text === otpCode, "code in the body and in the copy-code button (index 0)");
+  await lp.waitForSelector("text=Kode dikirim ke WhatsApp");
+  check((await lp.getByText(/Mode demo: WhatsApp tidak dikirim/).count()) === 0 && (await lp.getByText(otpCode, { exact: true }).count()) === 0, "with the API on, the code is never shown on screen");
+  await lp.getByLabel("Kode 6 angka").fill(otpCode);
+  await lp.locator("form", { has: lp.getByLabel("Kode 6 angka") }).getByRole("button", { name: "Masuk", exact: true }).click();
+  check(await lp.waitForSelector("text=terverifikasi lewat WhatsApp", { timeout: 15000 }).then(() => true).catch(() => false), "the code from WhatsApp signs the customer in");
+  await lc.close();
+
   await b.close(); srv.close();
   console.log(fails.length ? `\n${fails.length} FAILURES` : "\nALL WHATSAPP CHECKS PASSED");
   process.exit(fails.length ? 1 : 0);

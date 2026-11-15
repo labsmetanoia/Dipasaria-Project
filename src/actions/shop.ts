@@ -14,6 +14,7 @@ import { reportError } from "@/lib/monitor";
 import { expireIfDue } from "@/lib/expiry";
 import { after } from "next/server";
 import { notify } from "@/lib/notify/service";
+import { getCurrentCustomer } from "@/lib/customer";
 import { normalizePhone } from "@/lib/format";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -33,15 +34,18 @@ export async function quoteCart(input: { lines: CartLine[]; area_id?: string | n
   return quote({ settings, products, areas, promos, account, now: nowJakarta(), isFirstOrder: isFirst }, input);
 }
 
-export async function placeOrderAction(input: PlaceOrderInput, opts?: { turnstileToken?: string | null }): Promise<ActionResult<Order>> {
+export async function placeOrderAction(input: PlaceOrderInput, opts?: { turnstileToken?: string | null; saveAddress?: { label?: string } | null }): Promise<ActionResult<Order>> {
   // Server actions are public endpoints: reject malformed payloads before any work.
   if (!input || !Array.isArray(input.lines) || input.lines.length === 0 || input.lines.length > 60 || typeof input.phone !== "string") return { ok: false, error: "Isi keranjang tidak valid." };
   const repo = await getRepo();
   const account = await getCurrentAccount();
   const ip = await clientIp();
+  // A signed-in household customer has proved the phone number with a WhatsApp code: the order goes to that number.
+  const customer = account ? null : await getCurrentCustomer();
+  if (customer) input = { ...input, phone: customer.phone };
   // Signed-in business accounts are vetted; households prove they are human and are rate-limited per device and per phone.
   if (!account) {
-    if (!(await verifyHuman(opts?.turnstileToken, ip))) return { ok: false, error: NOT_HUMAN };
+    if (!customer && !(await verifyHuman(opts?.turnstileToken, ip))) return { ok: false, error: NOT_HUMAN };
     if (!(await allow("orderPhone", normalizePhone(input.phone)))) return { ok: false, error: "Nomor WhatsApp ini sudah membuat banyak pesanan hari ini. Hubungi kami melalui WhatsApp bila ingin menambah pesanan." };
   }
   if (!(await allow("order", ip))) return { ok: false, error: TOO_MANY };
@@ -49,6 +53,13 @@ export async function placeOrderAction(input: PlaceOrderInput, opts?: { turnstil
   try {
     const r = await repo.placeOrder(input, account);
     if (r.ok) { const order = r.data; after(() => notify(order, "received")); } // sent after the response: checkout stays fast
+    if (r.ok && customer) {
+      const known = await repo.listAddresses(customer.id);
+      if (opts?.saveAddress && !known.some((a) => a.address.trim().toLowerCase() === r.data.address.trim().toLowerCase())) {
+        await repo.saveAddress(customer.id, { label: String(opts.saveAddress.label ?? "").slice(0, 30) || (known.length ? "Alamat lain" : "Rumah"), recipient: r.data.customer_name, address: r.data.address, area_id: r.data.area_id, maps_url: r.data.maps_url, is_default: known.length === 0 });
+      }
+      if (!customer.name) await repo.updateCustomer(customer.id, { name: r.data.customer_name });
+    }
     return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
   } catch (e) {
     await reportError("action", e, { path: "/checkout (placeOrder)" });

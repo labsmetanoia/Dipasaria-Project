@@ -4,6 +4,9 @@ import type {
   GatewayOutcome,
   Payment,
   WaMessage,
+  Customer,
+  CustomerAddress,
+  CustomerLoginResult,
   JobRun,
   BuyingLine,
   BusinessAccount,
@@ -153,4 +156,19 @@ export interface Repo {
   listOrdersPayBySoon(minutes: number): Promise<Order[]>;
   /** Unpaid orders already past their payment deadline (about to be cancelled automatically). */
   listOrdersPastPayBy(): Promise<Order[]>;
+
+  // Household customer accounts (codes and session tokens arrive already hashed)
+  customerRequestCode(phone: string, codeHash: string): Promise<Result<string>>;
+  customerLogin(phone: string, codeHash: string, tokenHash: string): Promise<CustomerLoginResult>;
+  getCustomerBySession(tokenHash: string): Promise<Customer | null>;
+  endCustomerSession(tokenHash: string): Promise<void>;
+  updateCustomer(id: string, patch: Partial<Pick<Customer, "name" | "marketing_opt_in">>): Promise<Customer | null>;
+  /** Removes the profile, addresses and sessions; orders stay (they are the shop's records). */
+  deleteCustomer(id: string): Promise<void>;
+  listCustomers(limit: number): Promise<Customer[]>;
+  listAddresses(customerId: string): Promise<CustomerAddress[]>;
+  saveAddress(customerId: string, a: Pick<CustomerAddress, "label" | "recipient" | "address" | "area_id" | "maps_url" | "is_default"> & { id?: string }): Promise<Result<CustomerAddress>>;
+  deleteAddress(customerId: string, id: string): Promise<void>;
+  /** Household orders placed with this phone number, newest first. */
+  getOrdersByPhone(phone: string, limit: number): Promise<Order[]>;
 }

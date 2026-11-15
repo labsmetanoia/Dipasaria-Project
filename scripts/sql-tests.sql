@@ -291,5 +291,23 @@ begin
   if (select count(*) from wa_messages where order_id = oid) <> 3 then raise exception 'a corrected invoice (new amount) should be allowed'; end if;
   if (select wa_events from settings) <> array['received','invoice','paid','delivering','reminder','cancelled','standing'] then raise exception 'default WhatsApp events'; end if;
 
+  -- 20. Household login: one code per phone, a minute between requests, 5 wrong tries lock it, a session on success
+  perform customer_request_code('0812 7777 0030', 'hash-a');
+  perform _expect_error($q$select customer_request_code('081277770030', 'hash-b')$q$, 'Tunggu satu menit');
+  perform _expect_error($q$select customer_request_code('12345', 'x')$q$, 'tidak valid');
+  if customer_login('081277770030', 'nope', 'tok1') <> 'wrong' then raise exception 'wrong code should be wrong'; end if;
+  if (select attempts from login_codes where phone = '6281277770030') <> 1 then raise exception 'wrong try not counted'; end if;
+  if customer_login('081277770030', 'hash-a', 'tok1') !~ '^ok:cu' then raise exception 'right code should log in'; end if;
+  if not exists (select 1 from customer_sessions s join customers c on c.id = s.customer_id where s.token_hash = 'tok1' and c.phone = '6281277770030') then raise exception 'session not created'; end if;
+  if customer_login('081277770030', 'hash-a', 'tok2') <> 'expired' then raise exception 'a code works only once'; end if;
+  update login_codes set created_at = now() - interval '2 minutes' where phone = '6281277770030';
+  perform customer_request_code('081277770030', 'hash-c');
+  for i in 1..4 loop perform customer_login('081277770030', 'bad' || i, 'x'); end loop;
+  if customer_login('081277770030', 'bad5', 'x') <> 'locked' then raise exception 'fifth wrong try should lock'; end if;
+  if customer_login('081277770030', 'hash-c', 'tok3') <> 'locked' then raise exception 'locked code must stay locked even with the right code'; end if;
+  update login_codes set expires_at = now() - interval '1 second' where phone = '6281277770030';
+  if customer_login('081277770030', 'hash-c', 'tok4') <> 'expired' then raise exception 'expired code'; end if;
+  if (select count(*) from customers where phone = '6281277770030') <> 1 then raise exception 'one customer per phone'; end if;
+
   raise notice 'all assertions passed';
 end $$;

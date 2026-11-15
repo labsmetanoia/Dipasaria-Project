@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Tag, ShieldCheck, ArrowRight, ArrowLeft, Check } from "lucide-react";
-import type { BusinessAccount, DeliveryArea, DeliverySlot, PaymentMethod, Product, Promo, Settings } from "@/lib/types";
+import type { BusinessAccount, CustomerAddress, DeliveryArea, DeliverySlot, PaymentMethod, Product, Promo, Settings } from "@/lib/types";
+import Link from "next/link";
 import { availableDates, quote, segmentOf, slotsForSegment } from "@/lib/pricing";
 import { isValidPhone, nowJakarta, relativeDayLabel, rupiah, jam, jamRange, qtyUnit } from "@/lib/format";
 import { pick } from "@/lib/i18n";
@@ -14,9 +15,11 @@ import { Field } from "@/components/ui";
 import { MinOrderBar } from "./CartView";
 import { Turnstile, useTurnstileOn } from "@/components/Turnstile";
 
-interface Props { products: Product[]; settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[]; slotUsage: Record<string, number>; account: BusinessAccount | null }
+/** A signed-in household customer: verified phone and saved addresses. */
+export interface Household { phone: string; name: string; addresses: CustomerAddress[] }
+interface Props { products: Product[]; settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[]; slotUsage: Record<string, number>; account: BusinessAccount | null; household?: Household | null }
 
-export function CheckoutForm({ products, settings, areas, slots, slotUsage, account }: Props) {
+export function CheckoutForm({ products, settings, areas, slots, slotUsage, account, household = null }: Props) {
  const { t, locale } = useT();
  const router = useRouter();
  const { lines, customer, saveCustomer, clear, rememberOrder } = useCart();
@@ -33,6 +36,9 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  const [address, setAddress] = useState("");
  const [maps, setMaps] = useState("");
  const [areaId, setAreaId] = useState("");
+ const [addrId, setAddrId] = useState<string>("new"); // saved address chosen, or "new"
+ const [saveNew, setSaveNew] = useState(true);
+ const [newLabel, setNewLabel] = useState("");
  const [date, setDate] = useState(dates[0]);
  const turnstileOn = useTurnstileOn();
  const [tsToken, setTsToken] = useState<string | null>(null);
@@ -55,6 +61,11 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  setPayment(account.payment_terms !== "prepaid" ? "terms" : account.allow_cod ? "cod" : "qris");
     } else {
  setSlotId(segSlots[0]?.id ?? "");
+ if (household) {
+ setPhone(household.phone);
+ const d = household.addresses.find((a) => a.is_default) ?? household.addresses[0];
+ if (d) pickAddress(d); else setName((v) => v || household.name);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.id]);
@@ -63,11 +74,15 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  // render: fill them in once they are there, without overwriting anything the customer has started typing.
  const prefilled = useRef(false);
  useEffect(() => {
- if (account || prefilled.current || !(customer.name || customer.phone || customer.address)) return;
+ if (account || household || prefilled.current || !(customer.name || customer.phone || customer.address)) return;
  prefilled.current = true;
  setName((v) => v || customer.name); setPhone((v) => v || customer.phone); setAddress((v) => v || customer.address);
  setMaps((v) => v || customer.maps_url); setAreaId((v) => v || customer.area_id || "");
   }, [account, customer]);
+
+ function pickAddress(a: CustomerAddress) {
+ setAddrId(a.id); setName(a.recipient || household?.name || ""); setAddress(a.address); setAreaId(a.area_id ?? ""); setMaps(a.maps_url ?? "");
+ }
 
  // One idempotency key per checkout visit: a double tap or a network retry returns the same order instead of a second one.
  const clientRef = useRef<string>("");
@@ -88,7 +103,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
   };
  const step1ok = Boolean(name.trim() && isValidPhone(phone) && address.trim() && areaId);
  const step2ok = Boolean(date && slotId);
- const needHuman = turnstileOn && !account;
+ const needHuman = turnstileOn && !account && !household;
  const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && step1ok && step2ok && !pending && (!needHuman || Boolean(tsToken));
 
  const submit = () => {
@@ -96,7 +111,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  submitting.current = true;
  setError(null);
  start(async () => {
- const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current, wa_opt_in: waOptIn }, { turnstileToken: tsToken });
+ const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current, wa_opt_in: waOptIn }, { turnstileToken: tsToken, saveAddress: household && addrId === "new" && saveNew ? { label: newLabel } : null });
  if (!r.ok) { submitting.current = false; setError(r.error); setTsReset((n) => n + 1); return; }
  if (!account) saveCustomer({ name, phone, address, area_id: areaId, maps_url: maps });
  rememberOrder({ code: r.data.code, phone: r.data.phone, at: new Date().toISOString() });
@@ -128,18 +143,38 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
           <>
             <section className="card p-5">
               <h2 className="text-lg text-ocean-950">{t.checkout.recipient}</h2>
+              {!account && !household && <p className="mt-1 text-xs text-mute">{t.checkout.loginHint} <Link href="/akun?next=/checkout" className="font-semibold text-gold-ink">{t.checkout.loginLink}</Link></p>}
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Field label={segment === "business" ? t.checkout.businessName : t.checkout.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>
-                <Field label={t.checkout.phone} hint={t.checkout.phoneHint}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xx xxxx xxxx" autoComplete="tel" disabled={Boolean(account)} /></Field>
+                <Field label={t.checkout.phone} hint={t.checkout.phoneHint}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xx xxxx xxxx" autoComplete="tel" disabled={Boolean(account || household)} /></Field>
               </div>
               <label className="mt-3 flex items-start gap-2 text-sm text-ink/80"><input type="checkbox" checked={waOptIn} onChange={(e) => setWaOptIn(e.target.checked)} className="mt-0.5 accent-ocean-950" />{t.checkout.waOptIn}</label>
             </section>
             <section className="card p-5">
               <h2 className="text-lg text-ocean-950">{t.checkout.address}</h2>
+              {household && household.addresses.length > 0 && (
+                <div className="mt-4 space-y-2" role="radiogroup" aria-label={t.checkout.savedAddresses}>
+                  {household.addresses.map((a) => (
+                    <label key={a.id} className={`flex cursor-pointer items-start gap-2 border px-3 py-2.5 text-sm ${addrId === a.id ? "border-ocean-950 bg-ocean-950/5" : "border-line"}`}>
+                      <input type="radio" name="addr" checked={addrId === a.id} onChange={() => pickAddress(a)} className="mt-0.5 accent-ocean-950" />
+                      <span><b>{a.label}</b>{a.recipient ? ` · ${a.recipient}` : ""}<br /><span className="text-mute">{a.address}{a.area_id ? ` · ${areas.find((x) => x.id === a.area_id)?.name ?? ""}` : ""}</span></span>
+                    </label>
+                  ))}
+                  <label className={`flex cursor-pointer items-center gap-2 border px-3 py-2.5 text-sm ${addrId === "new" ? "border-ocean-950 bg-ocean-950/5" : "border-line"}`}>
+                    <input type="radio" name="addr" checked={addrId === "new"} onChange={() => { setAddrId("new"); setAddress(""); setMaps(""); setAreaId(""); }} className="accent-ocean-950" />{t.checkout.newAddress}
+                  </label>
+                </div>
+              )}
               <div className="mt-4 space-y-4">
                 <Field label={t.checkout.area}><select className="input" value={areaId} onChange={(e) => setAreaId(e.target.value)}><option value="">{t.checkout.chooseArea}</option>{areas.map((a) => <option key={a.id} value={a.id}>{a.name} · {t.checkout.fee} {rupiah(a.fee)}</option>)}</select></Field>
                 <Field label={t.checkout.fullAddress}><textarea className="input" rows={3} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t.checkout.addressPlaceholder} /></Field>
                 <Field label={t.checkout.maps}><input className="input" value={maps} onChange={(e) => setMaps(e.target.value)} placeholder="https://maps.app.goo.gl/…" /></Field>
+                {household && addrId === "new" && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={saveNew} onChange={(e) => setSaveNew(e.target.checked)} className="accent-ocean-950" />{t.checkout.saveAddress}</label>
+                    {saveNew && <input className="input w-40 py-1.5 text-sm" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t.checkout.addressLabel} aria-label={t.checkout.addressLabel} maxLength={30} />}
+                  </div>
+                )}
               </div>
             </section>
             <button type="button" disabled={!step1ok} onClick={() => setStep(1)} className="btn-primary w-full sm:w-auto">{t.checkout.next} <ArrowRight className="h-4 w-4" /></button>

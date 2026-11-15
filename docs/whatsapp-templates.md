@@ -157,6 +157,14 @@ Samples:
 - `{{4}}`: Tidak tersedia malam ini: Telur Ayam Negeri habis hari ini. Produk lainnya tetap dikirim.
 - `{{5}}`: https://dipasaria.id/pesanan/DP-261116-BHR1?hp=6281200000001
 
+## Login code: `dipasaria_kode_masuk` (category **Authentication**)
+
+This one is different: in WhatsApp Manager choose category **Authentication**, language Indonesian, name `dipasaria_kode_masuk`, and code delivery **Copy code**. Meta writes the text itself ("*{{1}}* adalah kode verifikasi Anda."). Optionally tick "Add security recommendation" and set the expiry to 10 minutes, matching the app.
+
+The app sends the 6-digit code in the body and in the copy-code button. Customers use it to sign in to their household account (`/akun`). Authentication messages are billed at Meta's authentication rate.
+
+If Meta's API rejects the button format, set `WHATSAPP_OTP_BUTTON_SUBTYPE` to the value Meta's error asks for. The failure appears on Back-office → Sistem.
+
 ## Notes
 
 - Body text may contain line breaks, but variable values may not. The app removes them automatically.

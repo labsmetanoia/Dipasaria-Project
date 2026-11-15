@@ -45,3 +45,39 @@ export async function sendTemplate(to: string, template: string, params: string[
     return { ok: false, error: e instanceof Error ? e.message : String(e), retry: true };
   }
 }
+
+/**
+ * One-time login code through an Authentication template (WhatsApp Manager → category Authentication, "Copy code" button).
+ * Template name WHATSAPP_OTP_TEMPLATE (default dipasaria_kode_masuk). The code goes in the body and in the copy-code button;
+ * the button parameter's sub_type is WHATSAPP_OTP_BUTTON_SUBTYPE (default "url", as in Meta's send examples).
+ */
+export async function sendAuthCode(to: string, code: string): Promise<SendResult> {
+  const version = process.env.WHATSAPP_API_VERSION || "v26.0";
+  const url = `${base()}/${version}/${encodeURIComponent(process.env.WHATSAPP_PHONE_NUMBER_ID!)}/messages`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "template",
+        template: {
+          name: process.env.WHATSAPP_OTP_TEMPLATE || "dipasaria_kode_masuk",
+          language: { code: process.env.WHATSAPP_TEMPLATE_LANG || "id" },
+          components: [
+            { type: "body", parameters: [{ type: "text", text: code }] },
+            { type: "button", sub_type: process.env.WHATSAPP_OTP_BUTTON_SUBTYPE || "url", index: "0", parameters: [{ type: "text", text: code }] },
+          ],
+        },
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body = (await res.json().catch(() => ({}))) as { messages?: Array<{ id: string }>; error?: { message?: string; code?: number } };
+    if (res.ok && body.messages?.[0]?.id) return { ok: true, id: body.messages[0].id };
+    return { ok: false, error: `${res.status} ${body.error?.code ?? ""} ${body.error?.message ?? "unknown error"}`.trim(), retry: res.status >= 500 };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e), retry: true };
+  }
+}

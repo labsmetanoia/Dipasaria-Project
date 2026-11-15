@@ -373,6 +373,45 @@ create table if not exists job_runs (
   result text not null default ''
 );
 
+
+-- Household customer accounts: a phone number verified with a one-time WhatsApp code. Orders stay linked by phone,
+-- so a customer sees every order placed with their number, including guest orders from before they signed in.
+create table if not exists customers (
+  id text primary key default new_id('cu'),
+  phone text unique not null,
+  name text not null default '',
+  marketing_opt_in boolean not null default false,
+  marketing_opt_in_at timestamptz,
+  created_at timestamptz not null default now(),
+  last_login_at timestamptz
+);
+create table if not exists customer_addresses (
+  id text primary key default new_id('ca'),
+  customer_id text not null references customers(id) on delete cascade,
+  label text not null default 'Rumah',
+  recipient text not null default '',
+  address text not null,
+  area_id text references delivery_areas(id) on delete set null,
+  maps_url text,
+  is_default boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists customer_addresses_idx on customer_addresses(customer_id);
+-- Only a hash of the session token and of the login code is stored.
+create table if not exists customer_sessions (
+  token_hash text primary key,
+  customer_id text not null references customers(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+create table if not exists login_codes (
+  phone text primary key,
+  code_hash text not null,
+  expires_at timestamptz not null,
+  attempts int not null default 0,
+  created_at timestamptz not null default now()
+);
+
 -- Supabase Auth users allowed into the back-office.
 create table if not exists admins (
   user_id uuid primary key,
@@ -391,7 +430,7 @@ $$;
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -883,6 +922,47 @@ begin
   return tok;
 end $$;
 
+-- ---------- household customer login (one-time code by WhatsApp) ----------
+-- A new code replaces the previous one; at most one per minute per phone (more limits in the app).
+create or replace function customer_request_code(p_phone text, p_code_hash text)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare v_phone text := normalize_phone(p_phone);
+begin
+  if v_phone !~ '^62[0-9]{8,13}$' then raise exception 'Nomor WhatsApp tidak valid.'; end if;
+  if exists (select 1 from login_codes where phone = v_phone and created_at > now() - interval '60 seconds') then
+    raise exception 'Kode baru saja dikirim. Tunggu satu menit sebelum meminta lagi.';
+  end if;
+  insert into login_codes (phone, code_hash, expires_at, attempts, created_at)
+  values (v_phone, p_code_hash, now() + interval '10 minutes', 0, now())
+  on conflict (phone) do update set code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, created_at = now();
+  delete from login_codes where expires_at < now() - interval '1 day';
+  return v_phone;
+end $$;
+
+-- Check a code. Returns 'ok:<customer id>' (session created), or 'wrong', 'expired', 'locked' (5 wrong tries).
+-- Wrong tries are counted (no exception, so the count is kept).
+create or replace function customer_login(p_phone text, p_code_hash text, p_token_hash text)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare v_phone text := normalize_phone(p_phone); c login_codes%rowtype; cid text;
+begin
+  select * into c from login_codes where phone = v_phone for update;
+  if not found or c.expires_at < now() then return 'expired'; end if;
+  if c.attempts >= 5 then return 'locked'; end if;
+  if c.code_hash <> p_code_hash then
+    update login_codes set attempts = attempts + 1 where phone = v_phone;
+    return case when c.attempts + 1 >= 5 then 'locked' else 'wrong' end;
+  end if;
+  delete from login_codes where phone = v_phone;
+  insert into customers (phone, last_login_at) values (v_phone, now())
+    on conflict (phone) do update set last_login_at = now()
+  returning id into cid;
+  insert into customer_sessions (token_hash, customer_id, expires_at) values (p_token_hash, cid, now() + interval '90 days');
+  delete from customer_sessions where expires_at < now();
+  return 'ok:' || cid;
+end $$;
+
 -- ---------- reporting ----------
 create or replace function daily_summary(p_date date)
 returns jsonb
@@ -972,7 +1052,7 @@ begin
     'place_order(jsonb, text)', 'weigh_order(text, jsonb)', 'set_order_status(text, text, text)', 'set_payment_status(text, text)',
     'customer_confirm_payment(text, text)', 'apply_account(jsonb)', 'approve_account(text, numeric, text, boolean, text)',
     'regenerate_access_code(text)', 'business_login(text, text)', 'daily_summary(date)', 'buying_list(date)', 'sales_report(date, date)',
-    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
+    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

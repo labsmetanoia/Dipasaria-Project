@@ -26,7 +26,7 @@ Open http://localhost:3000. `npm run dev` always allows demo mode. On a deployme
 
 ## Go live on Supabase + Vercel (about two hours)
 
-1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`; `007_whatsapp_notifications.sql` adds WhatsApp opt-in and settings.)
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`; `007_whatsapp_notifications.sql` adds WhatsApp opt-in and settings; `008_customer_accounts.sql` goes with household accounts, whose tables `schema.sql` creates.)
 2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
 3. **Example accounts**: `seed.sql` no longer creates them. On a project seeded before November 2026, migration 004 suspends them; you can also delete them: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
 4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`; generate secrets with `openssl rand -hex 32`). The server refuses to start in production if Supabase or `SESSION_SECRET` is missing, so a typo cannot silently put the shop into demo mode. Deploy, connect your domain. `vercel.json` schedules the standing-order job daily at 19.45 WIB; Vercel sends `CRON_SECRET` with each call.
@@ -45,6 +45,34 @@ All four pieces work without a paid service. **Back-office → Sistem** shows wh
 | **Unpaid orders expire** | A household order paid by transfer or QRIS with a known total must be paid within **Pengaturan → Batas waktu pembayaran** (default 120 minutes, and never later than midnight before the delivery day). Otherwise it is cancelled, and its stock, delivery slot and promo use are released. The customer sees the deadline on the tracking page. The admin can send a WhatsApp reminder, add 2 hours or switch it off per order. Orders with weighed items, restaurant accounts, COD and payment terms are never cancelled automatically. | Runs by itself on every checkout, order lookup and back-office visit. To make it punctual overnight, either enable pg_cron in Supabase and run `select cron.schedule('expire-unpaid-orders', '*/10 * * * *', 'select expire_unpaid_orders()');`, or call `GET /api/cron/expire-unpaid` with `Authorization: Bearer $CRON_SECRET` every 10 minutes from cron-job.org. Vercel Hobby runs cron only daily. |
 | **Error monitoring** | Server errors, crashed customer screens and failed standing orders are grouped on **Sistem**, with a count and technical detail. The dashboard shows a red banner while any are unresolved. A new error is pushed to your phone. | Telegram: message @BotFather → `/newbot` → copy the token; send your bot a message, open `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy `chat.id`. Set `ALERT_WEBHOOK_URL=https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>`. Slack and Discord webhooks work too. |
 | **Uptime** | `GET /api/health` answers 200 while the app and the database are up, and 503 otherwise. | UptimeRobot (free): add an HTTP monitor for `https://<your-domain>/api/health` every 5 minutes, with alerts to email or Telegram. |
+
+**Household accounts (sign in with WhatsApp):**
+
+*What the customer gets at `/akun`*
+- Sign in with their phone number and a 6-digit code sent on WhatsApp. There is no password.
+- All their orders, including guest orders placed with that number before they signed up.
+- One-tap reorder.
+- An address book, with a default address that fills checkout. New addresses can be saved during checkout.
+- Their name, and a separate yes/no for promotional WhatsApp messages (recorded with the date).
+- **Hapus akun saya**, which deletes the profile and addresses, as Indonesia's data protection law (UU PDP) expects. Orders stay as transaction records.
+
+*Signed-in customers at checkout*
+- The order goes to their verified number.
+- They skip the bot check.
+
+*How the code works*
+- Codes expire after 10 minutes, are single-use, and lock after 5 wrong tries.
+- Requests are limited to one a minute and 3 per 15 minutes per number.
+- Only hashes of codes and session tokens are stored.
+
+*Other places it shows up*
+- Restaurant login stays on the same page, below the household login.
+- Back-office → Pelanggan lists household accounts and their consent.
+
+*Delivering the codes*
+- Requires the WhatsApp Cloud API and one **Authentication** template, `dipasaria_kode_masuk` (`docs/whatsapp-templates.md`).
+- Without it, the page says sign-in isn't available yet, and guests can still order.
+- In demo mode the code is shown on screen.
 
 **Automatic WhatsApp messages to customers:**
 
