@@ -8,7 +8,7 @@ Corporate website, installable mobile storefront (PWA) and founder back-office f
 | Corporate pages | `/tentang`, `/restoran`, `/rumah-tangga`, `/panduan`, `/kontak`, `/privasi` | Prospects, partners, search engines |
 | Back-office | `/admin` | The founder, from a phone at 02:30 or a laptop in the afternoon |
 
-Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
+Audit report, fix list and feature roadmap (November 2026): `docs/audit-report.md`. Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
 
 ## Run it in two minutes (demo mode, no database)
 
@@ -18,7 +18,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. Without Supabase credentials the app runs on an in-memory copy of the seed catalogue with four example orders for tomorrow. Data resets when the server restarts.
+Open http://localhost:3000. `npm run dev` always allows demo mode. A production build (`npm run build && npm start`) refuses to start without Supabase unless you set `DEMO_MODE=1`, and needs a real `SESSION_SECRET` (16+ characters, not the example value) and `DEMO_ADMIN_PASSWORD`. Without Supabase credentials the app runs on an in-memory copy of the seed catalogue with four example orders for tomorrow. Data resets when the server restarts.
 
 - Storefront: http://localhost:3000/belanja
 - Restaurant login: phone `081200000001`, code `BHR123` (or `081200000002` / `MNG456`)
@@ -26,11 +26,11 @@ Open http://localhost:3000. Without Supabase credentials the app runs on an in-m
 
 ## Go live on Supabase + Vercel (about two hours)
 
-1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `seed.sql` again.)
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts.)
 2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
-3. **Delete the example accounts** before sharing the link: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
-4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`), deploy, connect your domain. `vercel.json` schedules the standing-order job daily at 19.45 WIB; Vercel sends `CRON_SECRET` with each call.
-5. **Back-office → Pengaturan**: WhatsApp number, bank account, QRIS image link, cut-off, minimums, areas and slots. **Produk & stok**: real prices and buying costs.
+3. **Example accounts**: `seed.sql` no longer creates them. On a project seeded before November 2026, migration 004 suspends them; you can also delete them: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
+4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`; generate secrets with `openssl rand -hex 32`). The server refuses to start in production if Supabase or `SESSION_SECRET` is missing, so a typo cannot silently put the shop into demo mode. Deploy, connect your domain. `vercel.json` schedules the standing-order job daily at 19.45 WIB; Vercel sends `CRON_SECRET` with each call.
+5. **Back-office → Pengaturan**: WhatsApp number, bank account (replace the `0000000000` placeholder), QRIS image link, cut-off, minimums, areas and slots. **Produk & stok**: real prices and buying costs.
 6. Place one test order from your own phone, weigh it, mark it paid, cancel it (stock comes back). Then send the first access codes from **Pelanggan**.
 
 The service-role key is used only by the Next.js server; the browser never receives it. Row-level security denies everything to the anon key, so even a leaked anon key reads nothing.
