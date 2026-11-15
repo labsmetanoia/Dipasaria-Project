@@ -39,6 +39,11 @@ const msg = (e: unknown): string => {
   return m.replace(/^.*?:\s*/, "").trim() || "Terjadi kesalahan.";
 };
 
+/** Escape LIKE wildcards so user input matches literally (case-insensitive exact match with ilike). */
+const likeExact = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+/** Strip characters that carry meaning inside a PostgREST or() filter string. */
+const filterSafe = (s: string) => s.replace(/[,()*%_\\:."]/g, " ").trim();
+
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v));
 const numOrNull = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
@@ -241,12 +246,14 @@ export const supabaseRepo: Repo = {
     if (!opts?.includeInactive) q = q.eq("is_active", true);
     const { data, error } = await q;
     if (error) throw error;
-    return (data as Row[]).map(mapProduct).map((p) => ({ ...p, variants: p.variants.filter((v) => opts?.includeInactive || v.is_active) }));
+    return (data as Row[]).map(mapProduct).map((p) => ({ ...p, variants: p.variants.filter((v) => opts?.includeInactive || v.is_active).map((v) => (opts?.includeCost ? v : { ...v, cost: 0 })) }));
   },
   async getProductBySlug(slug) {
     const { data, error } = await sb().from("products").select("*, variants(*), prep_options(*)").eq("slug", slug).eq("is_active", true).maybeSingle();
     if (error) throw error;
-    return data ? mapProduct(data as Row) : null;
+    if (!data) return null;
+    const p = mapProduct(data as Row);
+    return { ...p, variants: p.variants.map((v) => ({ ...v, cost: 0 })) };
   },
   async getAreas(opts) {
     let q = sb().from("delivery_areas").select("*").order("sort");
@@ -263,7 +270,7 @@ export const supabaseRepo: Repo = {
     return (data as Row[]).map((r) => ({ ...(r as object), capacity: num(r.capacity), sort: num(r.sort) })) as DeliverySlot[];
   },
   async getPromoByCode(code) {
-    const { data, error } = await sb().from("promos").select("*").ilike("code", code.trim()).maybeSingle();
+    const { data, error } = await sb().from("promos").select("*").ilike("code", likeExact(code.trim())).maybeSingle();
     if (error) throw error;
     return data ? mapPromo(data as Row) : null;
   },
@@ -291,7 +298,8 @@ export const supabaseRepo: Repo = {
     return order ? ok(order) : fail("Pesanan tidak ditemukan setelah dibuat.");
   },
   async lookupOrder(code, phone) {
-    const { data, error } = await sb().from("orders").select(ORDER_SELECT).ilike("code", code.trim()).eq("phone", normalizePhone(phone)).maybeSingle();
+    // Exact match: the code is half of the "code + phone" check, so it must never act as a pattern.
+    const { data, error } = await sb().from("orders").select(ORDER_SELECT).eq("code", code.trim().toUpperCase()).eq("phone", normalizePhone(phone)).maybeSingle();
     if (error) throw error;
     return data ? mapOrder(data as Row) : null;
   },
@@ -315,6 +323,7 @@ export const supabaseRepo: Repo = {
   },
   async businessLogin(phone, code) {
     const { data, error } = await sb().rpc("business_login", { p_phone: phone, p_code: code });
+    if (error && /Terlalu banyak/.test(error.message)) throw new Error(msg(error)); // lockout: tell the user, don't look like a wrong code
     if (error || !data) return null;
     const account = await this.getAccountBySession(data as string);
     return account ? { token: data as string, account } : null;
@@ -337,7 +346,7 @@ export const supabaseRepo: Repo = {
     else if (filter.status) q = q.eq("status", filter.status);
     if (filter.segment) q = q.eq("segment", filter.segment);
     if (filter.q) {
-      const s = filter.q.replace(/[%,()]/g, "");
+      const s = filterSafe(filter.q);
       q = q.or(`code.ilike.%${s}%,customer_name.ilike.%${s}%,phone.ilike.%${s}%`);
     }
     const { data, error } = await q;
@@ -551,7 +560,14 @@ export const supabaseRepo: Repo = {
   async claimStandingRun(standingOrderId, date) {
     // The unique (standing_order_id, delivery_date) key makes this the lock: a second claim fails with 23505.
     const { data, error } = await sb().from("standing_order_runs").insert({ id: newId("sr"), standing_order_id: standingOrderId, delivery_date: date }).select("*").single();
-    if (error) { if ((error as { code?: string }).code === "23505") return null; throw error; }
+    if (error) {
+      if ((error as { code?: string }).code !== "23505") throw error;
+      // Already claimed: take it over only if that attempt failed (no order, an error recorded), so failures can be retried.
+      const { data: retry, error: e2 } = await sb().from("standing_order_runs").update({ error: null, created_at: new Date().toISOString() })
+        .eq("standing_order_id", standingOrderId).eq("delivery_date", date).is("order_id", null).not("error", "is", null).select("*").maybeSingle();
+      if (e2) throw e2;
+      return retry ? mapRun(retry as Row) : null;
+    }
     return mapRun(data as Row);
   },
   async finishStandingRun(runId, patch) {

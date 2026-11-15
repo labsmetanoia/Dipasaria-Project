@@ -14,7 +14,7 @@ export async function SiteFrame({ children }: { children: React.ReactNode }) {
  const [settings, categories, products, areas, account, { locale, t }] = await Promise.all([repo.getSettings(), repo.getCategories(), repo.getProducts(), repo.getAreas(), getCurrentAccount(), getT()]);
  return (
     <div className="flex min-h-screen flex-col">
-      {repo.mode === "memory" && <div className="bg-ocean-800 px-3 py-1 text-center font-sans text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/60">{t.common.demoBanner}</div>}
+      {repo.mode === "memory" && <div role="note" className="bg-ocean-800 px-3 py-1 text-center font-sans text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/60">{t.common.demoBanner}</div>}
       <Header categories={categories} cutoff={settings.cutoff_time} accountName={account?.business_name ?? null} />
       <main className="flex-1">{children}</main>
       <Footer settings={settings} t={t} locale={locale} />

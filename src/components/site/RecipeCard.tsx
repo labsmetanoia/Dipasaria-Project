@@ -3,6 +3,7 @@ import { ArrowRight, Clock, Users } from "lucide-react";
 import type { Recipe } from "@/lib/content/recipes";
 import type { Locale } from "@/lib/i18n";
 import { rupiah } from "@/lib/format";
+import { Photo } from "@/components/Photo";
 
 export function RecipeCard({ recipe, locale, total }: { recipe: Recipe; locale: Locale; total: number }) {
   const en = locale === "en";
@@ -10,8 +11,7 @@ export function RecipeCard({ recipe, locale, total }: { recipe: Recipe; locale: 
   return (
     <Link href={`/resep/${recipe.slug}`} className="group card flex flex-col overflow-hidden transition hover:shadow-float">
       <div className="relative aspect-[4/3] overflow-hidden bg-ocean-950">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={recipe.image} alt={c.title} loading="lazy" className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]" />
+        <Photo src={recipe.image} alt={c.title} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="transition duration-700 group-hover:scale-[1.04]" />
         <span className="absolute left-3 top-3 bg-coral-500 px-2.5 py-1 font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-ocean-950">{recipe.tag[locale]}</span>
       </div>
       <div className="flex flex-1 flex-col p-5">

@@ -15,9 +15,12 @@ declare
   alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   out text := '';
   i int;
+  -- gen_random_uuid() uses the cryptographically secure generator; 256 is a multiple of 32, so there is no bias
+  b bytea := uuid_send(gen_random_uuid()) || uuid_send(gen_random_uuid());
 begin
+  if len > 32 then raise exception 'random_code: maximum length is 32'; end if;
   for i in 1..len loop
-    out := out || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+    out := out || substr(alphabet, 1 + (get_byte(b, i - 1) % 32), 1);
   end loop;
   return out;
 end $$;
@@ -204,7 +207,7 @@ create table if not exists orders (
   slot_id text references delivery_slots(id),
   slot_label text not null default '',
   payment_method text not null check (payment_method in ('qris','transfer','cod','terms')),
-  payment_status text not null default 'unpaid' check (payment_status in ('unpaid','awaiting_confirmation','paid','void')),
+  payment_status text not null default 'unpaid' check (payment_status in ('unpaid','awaiting_confirmation','paid','refund_due','void')),
   status text not null default 'new' check (status in ('new','confirmed','packing','delivering','completed','cancelled')),
   subtotal_est numeric not null default 0,
   discount numeric not null default 0,
@@ -218,7 +221,12 @@ create table if not exists orders (
   customer_note text not null default '',
   internal_note text not null default '',
   created_at timestamptz not null default now(),
-  history jsonb not null default '[]'::jsonb
+  history jsonb not null default '[]'::jsonb,
+  -- idempotency key from the checkout page: a retried or double-tapped submit returns the same order
+  client_ref text unique,
+  -- terms frozen at order time, so weighing re-prices with the promo and fee the customer agreed to
+  promo_type text,
+  promo_value numeric
 );
 create index if not exists orders_delivery_idx on orders(delivery_date, slot_id);
 create index if not exists orders_phone_idx on orders(phone);
@@ -277,6 +285,13 @@ create table if not exists standing_order_runs (
   unique (standing_order_id, delivery_date)
 );
 
+-- Failed business logins, for the lockout in business_login (5 failures per phone per 15 minutes).
+create table if not exists login_attempts (
+  phone text not null,
+  at timestamptz not null default now()
+);
+create index if not exists login_attempts_phone_idx on login_attempts(phone, at);
+
 -- Supabase Auth users allowed into the back-office.
 create table if not exists admins (
   user_id uuid primary key,
@@ -295,7 +310,7 @@ $$;
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -343,7 +358,18 @@ declare
   pm text;
   threshold numeric;
   items_count int := 0;
+  existing text;
+  rawq numeric;
+  v_ref text := nullif(trim(coalesce(p->>'client_ref', '')), '');
+  v_maps text := nullif(trim(coalesce(p->>'maps_url', '')), '');
 begin
+  -- Idempotency: the same checkout submission never creates a second order.
+  if v_ref is not null then
+    if length(v_ref) > 64 then raise exception 'Permintaan tidak valid.'; end if;
+    perform pg_advisory_xact_lock(hashtext('ref:' || v_ref));
+    select id into existing from orders where client_ref = v_ref;
+    if existing is not null then return existing; end if;
+  end if;
   select * into s from settings where id = 1;
   if p_account_id is not null then
     select * into acc from business_accounts where id = p_account_id and status = 'approved';
@@ -357,6 +383,13 @@ begin
   v_phone := normalize_phone(p->>'phone');
   if v_phone !~ '^62[0-9]{8,13}$' then raise exception 'Nomor WhatsApp tidak valid.'; end if;
   if coalesce(trim(p->>'address'), '') = '' then raise exception 'Alamat pengiriman wajib diisi.'; end if;
+  if length(p->>'customer_name') > 80 or length(p->>'address') > 400 or length(coalesce(p->>'customer_note', '')) > 400 then
+    raise exception 'Teks terlalu panjang. Nama maksimal 80, alamat dan catatan maksimal 400 karakter.';
+  end if;
+  -- Only Google Maps links are kept (they are shown to the courier as a clickable link).
+  if v_maps is not null and (length(v_maps) > 300 or v_maps !~* '^https://(maps\.app\.goo\.gl|goo\.gl/maps|(www\.)?google\.[a-z.]+/maps|maps\.google\.[a-z.]+)/') then
+    v_maps := null;
+  end if;
   if jsonb_array_length(coalesce(p->'lines', '[]'::jsonb)) = 0 then raise exception 'Keranjang Anda masih kosong.'; end if;
 
   -- delivery date vs cut-off
@@ -386,10 +419,10 @@ begin
     exit when not exists (select 1 from orders where orders.code = v_code);
   end loop;
   insert into orders (id, code, segment, account_id, customer_name, phone, address, area_id, area_name, maps_url, delivery_date,
-    slot_id, slot_label, payment_method, payment_status, status, customer_note, history)
-  values (oid, v_code, seg, acc.id, trim(p->>'customer_name'), v_phone, trim(p->>'address'), area.id, area.name, nullif(trim(p->>'maps_url'), ''), d,
+    slot_id, slot_label, payment_method, payment_status, status, customer_note, history, client_ref)
+  values (oid, v_code, seg, acc.id, trim(p->>'customer_name'), v_phone, trim(p->>'address'), area.id, area.name, v_maps, d,
     slot.id, slot.label || ' ' || replace(slot.start_time, ':', '.') || '–' || replace(slot.end_time, ':', '.'), pm, 'unpaid', 'new', coalesce(trim(p->>'customer_note'), ''),
-    jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())));
+    jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())), v_ref);
 
   -- lines
   for line in select * from jsonb_array_elements(p->'lines') loop
@@ -400,7 +433,11 @@ begin
     if not prod.available_today then raise exception '% habis hari ini.', prod.name; end if;
     if var.business_only and seg <> 'business' then raise exception '% (%) khusus untuk akun bisnis.', prod.name, var.label; end if;
 
-    q := var.min_qty + greatest(0, round(((line->>'qty')::numeric - var.min_qty) / var.step_qty)) * var.step_qty;
+    -- Quantity must be a real, positive number within the per-line ceiling (NaN and Infinity are rejected).
+    begin rawq := (line->>'qty')::numeric; exception when others then rawq := null; end;
+    if rawq is null or rawq = 'NaN'::numeric or rawq <= 0 then raise exception '%: jumlah tidak valid.', prod.name; end if;
+    if rawq > 500 then raise exception '%: maksimal 500 % per pesanan. Untuk jumlah lebih besar, hubungi kami melalui WhatsApp.', prod.name, unit_label(var.unit); end if;
+    q := var.min_qty + greatest(0, round((rawq - var.min_qty) / var.step_qty)) * var.step_qty;
     if q < var.min_qty then raise exception '%: pembelian minimal % %.', prod.name, replace(trim_scale(var.min_qty)::text, '.', ','), unit_label(var.unit); end if;
     if var.stock_qty is not null and q > var.stock_qty then
       raise exception '% (%): stok tersisa % %.', prod.name, var.label, replace(trim_scale(var.stock_qty)::text, '.', ','), unit_label(var.unit);
@@ -467,7 +504,9 @@ begin
          subtotal_final = case when has_catch then null else v_subtotal end,
          total_final = case when has_catch then null else v_total end,
          has_catch_weight = has_catch,
-         promo_code = case when has_promo then promo.code end
+         promo_code = case when has_promo then promo.code end,
+         promo_type = case when has_promo then promo.type end,
+         promo_value = case when has_promo then promo.value end
    where id = oid;
 
   return oid;
@@ -479,49 +518,43 @@ returns void
 language plpgsql security definer set search_path = public as $$
 declare
   o orders%rowtype;
-  s settings%rowtype;
   it jsonb;
+  w numeric;
   v_subtotal numeric;
   v_fee numeric;
   disc numeric;
-  promo promos%rowtype;
-  area_fee numeric;
-  threshold numeric;
 begin
   select * into o from orders where id = p_order_id for update;
   if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
-  select * into s from settings where id = 1;
+  if o.status in ('cancelled', 'completed') then raise exception 'Pesanan yang sudah selesai atau dibatalkan tidak dapat ditimbang ulang.'; end if;
+  if o.payment_status = 'paid' then raise exception 'Pesanan sudah lunas. Batalkan status lunas terlebih dahulu bila perlu menimbang ulang.'; end if;
 
   for it in select * from jsonb_array_elements(p_items) loop
-    if (it->>'qty_final')::numeric < 0 then raise exception 'Berat tidak boleh negatif.'; end if;
+    begin w := (it->>'qty_final')::numeric; exception when others then w := null; end;
+    if w is null or w = 'NaN'::numeric or w < 0 or w > 500 then raise exception 'Berat tidak valid. Isi berat dalam kg, misalnya 1,25.'; end if;
     update order_items
-       set qty_final = (it->>'qty_final')::numeric,
-           line_total_final = round(unit_price * (it->>'qty_final')::numeric)
-     where id = it->>'item_id' and order_id = p_order_id;
+       set qty_final = w, line_total_final = round(unit_price * w)
+     where id = it->>'item_id' and order_id = p_order_id and is_catch_weight;
     if not found then raise exception 'Baris pesanan tidak ditemukan.'; end if;
   end loop;
 
+  -- every weighed line must have a weight before the order counts as weighed
+  if exists (select 1 from order_items where order_id = p_order_id and is_catch_weight and qty_final is null) then
+    raise exception 'Isi berat semua produk yang ditimbang.';
+  end if;
   -- non-weighed lines are final as ordered
   update order_items set qty_final = qty_ordered, line_total_final = line_total_est
-   where order_id = p_order_id and qty_final is null and not is_catch_weight;
-
-  if exists (select 1 from order_items where order_id = p_order_id and qty_final is null) then
-    update orders set weighed_at = now() where id = p_order_id; -- partial weigh: totals stay estimated
-    return;
-  end if;
+   where order_id = p_order_id and not is_catch_weight;
 
   select coalesce(sum(line_total_final), 0) into v_subtotal from order_items where order_id = p_order_id;
-  select coalesce(delivery_areas.fee, 0) into area_fee from delivery_areas where id = o.area_id;
-  threshold := case when o.segment = 'business' then s.free_delivery_business else s.free_delivery_retail end;
-  v_fee := case when v_subtotal >= threshold then 0 else area_fee end;
-  disc := o.discount;
-  if o.promo_code is not null then
-    select * into promo from promos where code = o.promo_code;
-    if found then
-      if promo.type = 'percent' then disc := round(v_subtotal * promo.value / 100);
-      elsif promo.type = 'fixed' then disc := least(promo.value, v_subtotal);
-      else v_fee := 0; end if;
-    end if;
+  -- Re-price with the terms agreed at order time: the delivery fee can only go down (a waived fee is never added
+  -- because the fish weighed lighter), and the promo uses the type and value saved on the order.
+  v_fee := o.delivery_fee;
+  disc := 0;
+  if o.promo_type = 'percent' then disc := round(v_subtotal * o.promo_value / 100);
+  elsif o.promo_type = 'fixed' then disc := least(o.promo_value, v_subtotal);
+  elsif o.promo_type = 'free_delivery' then v_fee := 0;
+  elsif o.promo_code is not null then disc := least(o.discount, v_subtotal); -- orders placed before promo terms were saved
   end if;
 
   update orders
@@ -535,20 +568,31 @@ begin
 end $$;
 
 -- ---------- status changes ----------
+-- Orders move forward only: new → confirmed → packing → delivering → completed (steps may be skipped).
+-- Cancelling is allowed until dispatch; it returns stock and promo usage, and money already received becomes refund_due.
 create or replace function set_order_status(p_order_id text, p_status text, p_note text default null)
 returns void
 language plpgsql security definer set search_path = public as $$
-declare o orders%rowtype; it order_items%rowtype;
+declare
+  o orders%rowtype; it order_items%rowtype;
+  flow text[] := array['new','confirmed','packing','delivering','completed'];
 begin
   if p_status not in ('new','confirmed','packing','delivering','completed','cancelled') then raise exception 'Status tidak valid.'; end if;
   select * into o from orders where id = p_order_id for update;
   if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
   if o.status = 'cancelled' then raise exception 'Pesanan ini sudah dibatalkan.'; end if;
+  if p_status = o.status then return; end if;
   if p_status = 'cancelled' then
+    if o.status in ('delivering', 'completed') then raise exception 'Pesanan yang sudah dikirim tidak dapat dibatalkan. Catat retur atau pengembalian dana di catatan internal.'; end if;
     for it in select * from order_items where order_id = p_order_id loop
       update variants set stock_qty = stock_qty + it.qty_ordered where id = it.variant_id and stock_qty is not null;
     end loop;
-    if o.payment_status <> 'paid' then update orders set payment_status = 'void' where id = p_order_id; end if;
+    if o.promo_code is not null then update promos set used_count = greatest(0, used_count - 1) where code = o.promo_code; end if;
+    update orders set payment_status = case when o.payment_status in ('paid', 'awaiting_confirmation') then 'refund_due' else 'void' end where id = p_order_id;
+  elsif array_position(flow, p_status) < array_position(flow, o.status) then
+    raise exception 'Status pesanan tidak dapat dimundurkan.';
+  elsif p_status in ('delivering', 'completed') and o.has_catch_weight and o.total_final is null then
+    raise exception 'Timbang pesanan ini terlebih dahulu.';
   end if;
   update orders
      set status = p_status,
@@ -559,13 +603,21 @@ end $$;
 create or replace function set_payment_status(p_order_id text, p_status text)
 returns void
 language plpgsql security definer set search_path = public as $$
+declare o orders%rowtype;
 begin
-  if p_status not in ('unpaid','awaiting_confirmation','paid','void') then raise exception 'Status pembayaran tidak valid.'; end if;
+  if p_status not in ('unpaid','awaiting_confirmation','paid','refund_due','void') then raise exception 'Status pembayaran tidak valid.'; end if;
+  select * into o from orders where id = p_order_id for update;
+  if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
+  if o.status = 'cancelled' and not (o.payment_status = 'refund_due' and p_status = 'void') then
+    raise exception 'Pesanan dibatalkan: status pembayaran hanya dapat diubah dari "perlu pengembalian dana" menjadi "dibatalkan" setelah dana dikembalikan.';
+  end if;
+  if p_status = 'paid' and o.has_catch_weight and o.total_final is null then
+    raise exception 'Timbang pesanan terlebih dahulu sebelum menandai lunas, agar jumlah yang dibayar sesuai tagihan akhir.';
+  end if;
   update orders
      set payment_status = p_status,
          history = case when p_status = 'paid' then history || jsonb_build_object('status', 'paid', 'at', now()) else history end
    where id = p_order_id;
-  if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
 end $$;
 
 -- Customer: "I have paid" (only moves unpaid → awaiting confirmation; the owner confirms against the bank app).
@@ -576,7 +628,8 @@ declare oid text;
 begin
   select id into oid from orders where upper(code) = upper(trim(p_code)) and phone = normalize_phone(p_phone);
   if oid is null then raise exception 'Pesanan tidak ditemukan.'; end if;
-  update orders set payment_status = 'awaiting_confirmation' where id = oid and payment_status = 'unpaid';
+  -- only once the final amount is known (weighed orders are paid on the final invoice)
+  update orders set payment_status = 'awaiting_confirmation' where id = oid and payment_status = 'unpaid' and total_final is not null and status <> 'cancelled';
   return oid;
 end $$;
 
@@ -631,12 +684,21 @@ end $$;
 create or replace function business_login(p_phone text, p_code text)
 returns text
 language plpgsql security definer set search_path = public as $$
-declare aid text; tok text;
+declare aid text; tok text; v_phone text := normalize_phone(p_phone);
 begin
+  -- Lockout against guessing access codes: 5 failed attempts per phone number in 15 minutes.
+  if (select count(*) from login_attempts where phone = v_phone and at > now() - interval '15 minutes') >= 5 then
+    raise exception 'Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit atau hubungi kami melalui WhatsApp.';
+  end if;
   select id into aid from business_accounts
-   where phone = normalize_phone(p_phone) and status = 'approved'
+   where phone = v_phone and status = 'approved'
      and access_code is not null and upper(access_code) = upper(trim(p_code));
-  if aid is null then return null; end if;
+  if aid is null then
+    insert into login_attempts (phone) values (v_phone);
+    delete from login_attempts where at < now() - interval '1 day';
+    return null;
+  end if;
+  delete from login_attempts where phone = v_phone;
   tok := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
   insert into business_sessions (token, account_id, expires_at) values (tok, aid, now() + interval '90 days');
   delete from business_sessions where expires_at < now();
@@ -654,8 +716,8 @@ declare
   by_status jsonb;
 begin
   select coalesce(sum(coalesce(total_final, total_est)), 0),
-         coalesce(sum(coalesce(subtotal_final, subtotal_est)), 0),
-         coalesce(sum(case when payment_status <> 'paid' then coalesce(total_final, total_est) else 0 end), 0),
+         coalesce(sum(coalesce(subtotal_final, subtotal_est) - discount), 0),
+         coalesce(sum(case when payment_status not in ('paid', 'void') then coalesce(total_final, total_est) else 0 end), 0),
          count(*) filter (where has_catch_weight and weighed_at is null),
          count(*), count(*) filter (where segment = 'retail'), count(*) filter (where segment = 'business')
     into sales, product_sales, unpaid, to_weigh, n_total, n_retail, n_business
@@ -690,7 +752,7 @@ language sql security definer set search_path = public as $$
   with s as (select catch_weight_buffer_pct from settings where id = 1)
   select oi.product_id, oi.product_name, p.scientific_name, oi.variant_label, oi.unit, oi.storage_class,
          sum(oi.qty_ordered) as qty,
-         case when oi.storage_class = 'chilled'
+         case when bool_or(oi.is_catch_weight)
               then ceil(sum(oi.qty_ordered) * (1 + (select catch_weight_buffer_pct from s) / 100) * 2) / 2
               else sum(oi.qty_ordered) end as qty_with_buffer,
          count(distinct oi.order_id) as order_count,
@@ -706,16 +768,20 @@ $$;
 create or replace function sales_report(p_from date, p_to date)
 returns table (date date, orders bigint, sales numeric, gross_profit numeric, non_seafood_sales numeric)
 language sql security definer set search_path = public as $$
-  select o.delivery_date as date,
-         count(distinct o.id) as orders,
-         sum(distinct_total.t) as sales,
-         sum(coalesce(oi.line_total_final, oi.line_total_est) - oi.unit_cost * coalesce(oi.qty_final, oi.qty_ordered)) as gross_profit,
-         sum(case when not coalesce(c.is_seafood, true) then coalesce(oi.line_total_final, oi.line_total_est) else 0 end) as non_seafood_sales
-    from orders o
-    join order_items oi on oi.order_id = o.id
-    left join categories c on c.id = oi.category_id
-    join lateral (select coalesce(o.total_final, o.total_est) / nullif((select count(*) from order_items x where x.order_id = o.id), 0) as t) distinct_total on true
-   where o.status <> 'cancelled' and o.delivery_date between p_from and p_to
+  -- per-order totals first (no division drift), per-item margin second; promo discounts reduce gross profit
+  with o as (
+    select id, delivery_date, coalesce(total_final, total_est) as total, discount
+      from orders where status <> 'cancelled' and delivery_date between p_from and p_to
+  ), items as (
+    select oi.order_id,
+           sum(coalesce(oi.line_total_final, oi.line_total_est) - oi.unit_cost * coalesce(oi.qty_final, oi.qty_ordered)) as margin,
+           sum(case when not coalesce(c.is_seafood, true) then coalesce(oi.line_total_final, oi.line_total_est) else 0 end) as non_sea
+      from order_items oi left join categories c on c.id = oi.category_id
+     where oi.order_id in (select id from o)
+     group by oi.order_id
+  )
+  select o.delivery_date, count(*), sum(o.total), sum(coalesce(items.margin, 0) - o.discount), sum(coalesce(items.non_sea, 0))
+    from o left join items on items.order_id = o.id
    group by o.delivery_date
    order by o.delivery_date;
 $$;

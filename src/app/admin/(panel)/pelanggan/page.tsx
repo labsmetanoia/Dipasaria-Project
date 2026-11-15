@@ -1,7 +1,9 @@
+import { requireAdmin } from "@/lib/auth";
 import { getRepo } from "@/lib/data";
 import { AccountsAdmin } from "@/components/admin/AccountsAdmin";
 
 export default async function AccountsPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+  await requireAdmin();
   const { id } = await searchParams;
   const repo = await getRepo();
   const [accounts, slots, settings] = await Promise.all([repo.listAccounts(), repo.getSlots(), repo.getSettings()]);

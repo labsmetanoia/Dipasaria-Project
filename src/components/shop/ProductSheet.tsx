@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Scale, Snowflake, MapPin, ShieldCheck, Fish, BadgeCheck, ShoppingBag, Package } from "lucide-react";
 import type { BusinessAccount, Product } from "@/lib/types";
-import { segmentOf, unitPrice } from "@/lib/pricing";
+import { lineTotal, segmentOf, unitPrice } from "@/lib/pricing";
 import { rupiah } from "@/lib/format";
 import { pick } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/dict";
@@ -37,7 +37,7 @@ export function ProductSheet({ product, account }: { product: Product; account: 
  }, [showBar]);
  const prep = product.prep_options.find((p) => p.id === prepId) ?? null;
  const price = useMemo(() => (variant ? unitPrice(variant, segment, account) + (prep?.surcharge ?? 0) : 0), [variant, segment, account, prep]);
- const total = Math.round(price * qty);
+ const total = lineTotal(price, qty);
  const off = !product.available_today;
  const outOfStock = variant?.stock_qty !== null && variant?.stock_qty !== undefined && variant.stock_qty < (variant.min_qty ?? 1);
  if (!variant) return <p className="font-sans text-sm text-mute">{t.shop.businessOnlyProduct}</p>;

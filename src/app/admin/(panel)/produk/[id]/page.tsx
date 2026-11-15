@@ -1,11 +1,13 @@
+import { requireAdmin } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { getRepo } from "@/lib/data";
 import { ProductForm } from "@/components/admin/ProductForm";
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const repo = await getRepo();
-  const [products, categories] = await Promise.all([repo.getProducts({ includeInactive: true }), repo.getCategories()]);
+  const [products, categories] = await Promise.all([repo.getProducts({ includeInactive: true, includeCost: true }), repo.getCategories()]);
   const product = products.find((p) => p.id === id);
   if (!product) notFound();
   return (

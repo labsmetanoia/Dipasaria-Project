@@ -1,9 +1,11 @@
+import { requireAdmin } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { getRepo } from "@/lib/data";
 import { OrderAdmin } from "@/components/admin/OrderAdmin";
 import { TERMS_LABEL } from "@/lib/config";
 
 export default async function OrderAdminPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const repo = await getRepo();
   const [order, settings] = await Promise.all([repo.getOrder(id), repo.getSettings()]);

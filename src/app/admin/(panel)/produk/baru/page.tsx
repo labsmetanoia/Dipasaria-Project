@@ -1,7 +1,9 @@
+import { requireAdmin } from "@/lib/auth";
 import { getRepo } from "@/lib/data";
 import { ProductForm } from "@/components/admin/ProductForm";
 
 export default async function NewProductPage() {
+  await requireAdmin();
   const categories = await (await getRepo()).getCategories();
   return (
     <div className="space-y-4">

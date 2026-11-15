@@ -19,9 +19,10 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
  const [pending, start] = useTransition();
  const [msg, setMsg] = useState<string | null>(null);
  const idx = order.status === "cancelled" ? -1 : STEPS.indexOf(order.status);
- const finalKnown = !order.has_catch_weight || order.weighed_at !== null;
+ // the amount to pay is known only once the final total exists (weighed orders are re-priced after weighing)
+ const finalKnown = order.total_final !== null;
  const total = order.total_final ?? order.total_est;
- const payNow = finalKnown && (order.payment_method === "qris" || order.payment_method === "transfer") && order.payment_status !== "paid" && order.status !== "cancelled";
+ const payNow = finalKnown && (order.payment_method === "qris" || order.payment_method === "transfer") && (order.payment_status === "unpaid" || order.payment_status === "awaiting_confirmation") && order.status !== "cancelled";
  const markPaid = () => start(async () => { const r = await confirmPaymentAction(order.code, order.phone); if (r.ok) { setOrder(r.data); setMsg(t.tracking.paidThanks); } else setMsg(r.error); });
  const unit = (u: Order["items"][number]["unit"]) => t.unit[u];
 

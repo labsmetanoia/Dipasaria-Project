@@ -187,12 +187,5 @@ insert into promos (id, code, type, value, min_spend, segment, quota, used_count
   ('pr_welcome', 'SELAMATDATANG', 'percent', 10, 150000, 'retail', 200, 0, true, null, null, true, 'Diskon 10% untuk pesanan pertama rumah tangga'),
   ('pr_ongkir', 'GRATISONGKIR', 'free_delivery', 0, 200000, 'retail', null, 0, false, null, null, true, 'Gratis ongkos kirim untuk belanja mulai Rp200.000'),
   ('pr_mitra', 'MITRA50', 'fixed', 50000, 1500000, 'business', 50, 0, false, null, null, true, 'Potongan Rp50.000 untuk pesanan akun bisnis mulai Rp1.500.000')
-on conflict (id) do update set code = excluded.code, type = excluded.type, value = excluded.value, min_spend = excluded.min_spend, segment = excluded.segment, quota = excluded.quota, used_count = excluded.used_count, first_order_only = excluded.first_order_only, starts_at = excluded.starts_at, ends_at = excluded.ends_at, is_active = excluded.is_active, description = excluded.description;
-
--- Example business accounts (demo logins: phone + code). Delete before going live.
-insert into business_accounts (id, business_name, contact_name, phone, address, area_id, business_type, discount_pct, payment_terms, allow_cod, status, access_code, preferred_slot_id, notes, applied_at, approved_at) values
-  ('ba_bahari', 'Seafood Bahari Gading', 'Pak Hendra', '6281200000001', 'Jl. Boulevard Raya Blok QA 1 No. 12, Kelapa Gading', 'a_utara', 'Restoran seafood', 0, 'weekly', true, 'approved', 'BHR123', 's_dapur', 'Pesan 5 hari/minggu. Minta kakap 1–2 kg selalu disiangi.', '2026-10-20T09:00:00Z', '2026-10-21T10:00:00Z'),
-  ('ba_minang', 'RM Padang Sinar Minang', 'Uni Ratna', '6281200000002', 'Jl. Danau Sunter Utara No. 45, Sunter', 'a_utara', 'Restoran Padang / Sunda / Manado', 2, 'days3', true, 'approved', 'MNG456', 's_dapur', 'Kembung dan tongkol harian; mulai ambil ayam potong 8.', '2026-10-22T09:00:00Z', '2026-10-23T10:00:00Z'),
-  ('ba_kemang', 'Kopi & Dapur Kemang', 'Mbak Sita', '6281200000003', 'Jl. Kemang Raya No. 8, Jakarta Selatan', 'a_selatan', 'Kafe / dapur daring', 0, 'prepaid', false, 'pending', null, null, '', '2026-10-30T14:30:00Z', null)
-on conflict (id) do update set business_name = excluded.business_name, contact_name = excluded.contact_name, phone = excluded.phone, address = excluded.address, area_id = excluded.area_id, business_type = excluded.business_type, discount_pct = excluded.discount_pct, payment_terms = excluded.payment_terms, allow_cod = excluded.allow_cod, status = excluded.status, access_code = excluded.access_code, preferred_slot_id = excluded.preferred_slot_id, notes = excluded.notes, applied_at = excluded.applied_at, approved_at = excluded.approved_at;
+on conflict (id) do nothing;
 

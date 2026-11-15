@@ -1,7 +1,7 @@
 /* Dipasaria service worker: app shell + offline fallback. Network-first for pages (prices change daily),
    cache-first for static assets. Never caches checkout, admin or API responses. */
 // Bump VERSION whenever icons, brand files or photos change: activation deletes every older cache.
-const VERSION = "dp-2026-11-r9";
+const VERSION = "dp-2026-11-audit";
 const SHELL = ["/offline", "/icons/icon.svg?v=4", "/icons/icon-192.png?v=4"];
 
 self.addEventListener("install", (e) => {
@@ -30,10 +30,8 @@ self.addEventListener("fetch", (e) => {
   }
 
   if (req.mode === "navigate") {
-    e.respondWith(
-      fetch(req)
-        .then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); return res; })
-        .catch(() => caches.match(req).then((hit) => hit || caches.match("/offline"))),
-    );
+    // Pages are network-only: they carry prices, stock and sometimes personal data (account, order tracking),
+    // so they are never stored on the device. When offline, show the offline page.
+    e.respondWith(fetch(req).catch(() => caches.match("/offline")));
   }
 });

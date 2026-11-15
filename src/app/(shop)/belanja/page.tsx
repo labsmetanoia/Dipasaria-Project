@@ -138,7 +138,7 @@ export default async function BelanjaPage() {
             <div className="mt-6 flex flex-wrap gap-3"><Link href="/belanja/kategori/ikan-segar" className="btn-accent">{c.gradeCta}</Link><Link href="/tentang#standar" className="btn-outline">{c.gradeCta2}</Link></div>
           </div>
           <div className="lg:col-span-7">
-            <ImageSlot src={IMAGES.standards ?? settings.about_image_url} alt={c.gradeTitle} icon="fish" className="aspect-[4/3] bg-ocean-950">
+            <ImageSlot src={IMAGES.standards ?? settings.about_image_url} alt={c.gradeTitle} icon="fish" sizes="(max-width: 1024px) 100vw, 58vw" className="aspect-[4/3] bg-ocean-950">
               <div className="absolute bottom-5 right-5 max-w-[16rem] bg-coral-500 p-4 text-ocean-950"><p className="font-display text-[18px] font-bold uppercase leading-none">{c.catchTitle}</p><p className="mt-1 font-sans text-[12px]">{c.catchSub}</p></div>
             </ImageSlot>
           </div>
@@ -153,7 +153,7 @@ export default async function BelanjaPage() {
       <Band tone="parchment">
         <div className="grid gap-10 lg:grid-cols-12 lg:items-center">
           <div className="relative lg:col-span-6">
-            <ImageSlot src={IMAGES.story} alt={c.storyTitle} icon="shrimp" className="aspect-[4/3] bg-ocean-950" />
+            <ImageSlot src={IMAGES.story} alt={c.storyTitle} icon="shrimp" sizes="(max-width: 1024px) 100vw, 50vw" className="aspect-[4/3] bg-ocean-950" />
             <div className="absolute bottom-6 right-6 max-w-[15rem] bg-coral-500 p-5 text-ocean-950 shadow-float"><p className="font-display text-[20px] font-bold uppercase leading-none">{c.storyCard}</p><p className="mt-2 font-sans text-[12px] leading-snug">{c.storyCardSub}</p></div>
           </div>
           <div className="lg:col-span-6 lg:pl-6">

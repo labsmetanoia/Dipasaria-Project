@@ -143,7 +143,8 @@ export function StandingOrdersPanel({ initial, runs, products, slots, payments, 
                 <div className="mt-4">
                   <p className="font-sans text-[10.5px] font-bold uppercase tracking-[0.16em] text-mute">{en ? "Next deliveries · tap to skip" : "Pengiriman berikutnya · ketuk untuk melewati"}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {next.map((d) => { const skipped = so.skip_dates.includes(d); return (
+                    {next.map((d) => { const skipped = so.skip_dates.includes(d); const placed = myRuns.find((r) => r.delivery_date === d && r.order_code); if (placed) return (
+                      <span key={d} className="border border-success-600/40 bg-success-50 px-3 py-2 font-sans text-[12px] font-semibold text-success-600" title={en ? "Already placed" : "Sudah dibuat"}>{formatDate(d, "short", locale)} · {placed.order_code}</span>); return (
                       <button key={d} type="button" disabled={pending} aria-pressed={skipped} onClick={() => act(() => setStandingSkipAction(so.id, d, !skipped), (x) => replace(x as StandingOrder))}
                         className={`border px-3 py-2 font-sans text-[12px] font-semibold ${skipped ? "border-line bg-sand-100 text-mute line-through" : "border-ocean-950 bg-white"}`}>
                         {formatDate(d, "short", locale)}{skipped ? (en ? " · skipped" : " · dilewati") : ""}

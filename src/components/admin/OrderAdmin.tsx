@@ -8,17 +8,24 @@ import { msgFinalInvoice, msgOrderConfirmed, msgOutForDelivery, waTo } from "@/l
 import { formatDate, formatDateTime, rupiah } from "@/lib/format";
 import { PAYMENT_LABEL, STATUS_LABEL, UNIT_LABEL, TERMS_LABEL } from "@/lib/config";
 import { StatusBadge, PaymentBadge, StorageBadge } from "@/components/ui";
-
-const FLOW: OrderStatus[] = ["new", "confirmed", "packing", "delivering", "completed"];
+import { FLOW, nextStatuses, parseWeight, paymentChangeError, safeMapsUrl, weighError } from "@/lib/orderRules";
 
 export function OrderAdmin({ order: initial, settings, accountTerms }: { order: Order; settings: Settings; accountTerms?: string }) {
   const [order, setOrder] = useState(initial);
-  const [weights, setWeights] = useState<Record<string, string>>(() => Object.fromEntries(order.items.filter((i) => i.is_catch_weight).map((i) => [i.id, String(i.qty_final ?? i.qty_ordered)])));
+  const [weights, setWeights] = useState<Record<string, string>>(() => Object.fromEntries(order.items.filter((i) => i.is_catch_weight).map((i) => [i.id, i.qty_final === null ? "" : String(i.qty_final).replace(".", ",")])));
   const [note, setNote] = useState(order.internal_note);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const next = FLOW[FLOW.indexOf(order.status) + 1];
-  const needsWeigh = order.has_catch_weight && !order.weighed_at;
+  const allowed = nextStatuses(order);
+  const next = FLOW.slice(FLOW.indexOf(order.status) + 1).find((s) => allowed.includes(s));
+  const canCancel = allowed.includes("cancelled");
+  const needsWeigh = order.has_catch_weight && order.total_final === null;
+  const weighBlocked = weighError(order);
+  const saveWeights = () => {
+    const entries = Object.entries(weights).map(([item_id, v]) => ({ item_id, qty_final: parseWeight(v) }));
+    if (entries.some((e) => e.qty_final === null)) { setErr("Isi berat setiap produk yang ditimbang dalam kg, misalnya 1,25."); return; }
+    run(() => weighOrderAction(order.id, entries as Array<{ item_id: string; qty_final: number }>));
+  };
 
   const run = (fn: () => Promise<{ ok: true; data: Order } | { ok: false; error: string }>) =>
     start(async () => {
@@ -43,11 +50,11 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
       {/* Status actions */}
       <div className="card p-4">
         <div className="flex flex-wrap items-center gap-2">
-          {order.status !== "cancelled" && order.status !== "completed" && next && (
+          {next && (
             <button disabled={pending} onClick={() => run(() => setOrderStatusAction(order.id, next))} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Tandai {STATUS_LABEL[next].toLowerCase()}</button>
           )}
-          {order.status !== "cancelled" && order.status !== "completed" && (
-            <button disabled={pending} onClick={() => { if (confirm("Batalkan pesanan ini? Stok dikembalikan.")) run(() => setOrderStatusAction(order.id, "cancelled", "Dibatalkan dari panel pengelola")); }} className="btn-secondary text-gold-ink"><XCircle className="h-4 w-4" /> Batalkan</button>
+          {canCancel && (
+            <button disabled={pending} onClick={() => { if (confirm(order.payment_status === "paid" || order.payment_status === "awaiting_confirmation" ? "Batalkan pesanan ini? Stok dikembalikan dan pembayaran ditandai perlu pengembalian dana." : "Batalkan pesanan ini? Stok dan kuota promo dikembalikan.")) run(() => setOrderStatusAction(order.id, "cancelled", "Dibatalkan dari panel pengelola")); }} className="btn-secondary text-gold-ink"><XCircle className="h-4 w-4" /> Batalkan</button>
           )}
           <div className="ml-auto flex flex-wrap gap-2">
             <a className="btn-secondary" target="_blank" rel="noreferrer" href={waTo(order.phone, msgOrderConfirmed(order, settings))}><MessageCircle className="h-4 w-4" /> WA: konfirmasi</a>
@@ -75,8 +82,8 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
                   <td className="py-2 text-right">{i.qty_ordered} {UNIT_LABEL[i.unit]}</td>
                   {order.has_catch_weight && (
                     <td className="py-2 text-right">
-                      {i.is_catch_weight && order.status !== "cancelled" ? (
-                        <input type="number" step="0.01" min="0" inputMode="decimal" value={weights[i.id] ?? ""} onChange={(e) => setWeights({ ...weights, [i.id]: e.target.value })} className="input w-24 py-1 text-right" />
+                      {i.is_catch_weight && !weighBlocked ? (
+                        <input type="text" inputMode="decimal" placeholder={String(i.qty_ordered).replace(".", ",")} aria-label={`Berat ${i.product_name} (kg)`} value={weights[i.id] ?? ""} onChange={(e) => setWeights({ ...weights, [i.id]: e.target.value })} className="input w-24 py-1 text-right" />
                       ) : <span className="text-mute">{i.qty_final ?? i.qty_ordered} {UNIT_LABEL[i.unit]}</span>}
                     </td>
                   )}
@@ -85,12 +92,13 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
               ))}
             </tbody>
           </table>
-          {order.has_catch_weight && order.status !== "cancelled" && (
+          {order.has_catch_weight && !weighBlocked && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 bg-sand-100 px-4 py-3">
-              <p className="text-xs text-mute">Isi berat hasil timbangan (kg). Harga, promo, dan ongkos kirim akan dihitung ulang oleh sistem.</p>
-              <button disabled={pending} onClick={() => run(() => weighOrderAction(order.id, Object.entries(weights).map(([item_id, v]) => ({ item_id, qty_final: Number(v) }))))} className="btn-primary"><Scale className="h-4 w-4" /> Simpan berat dan hitung ulang</button>
+              <p className="text-xs text-mute">Isi berat hasil timbangan (kg, boleh memakai koma). Harga dan promo dihitung ulang; ongkos kirim tidak pernah bertambah.</p>
+              <button disabled={pending} onClick={saveWeights} className="btn-primary"><Scale className="h-4 w-4" /> Simpan berat dan hitung ulang</button>
             </div>
           )}
+          {order.has_catch_weight && weighBlocked && order.status !== "cancelled" && <p className="mt-3 text-xs text-mute">{weighBlocked}</p>}
           <dl className="mt-4 space-y-1 border-t border-line pt-3 text-sm">
             <div className="flex justify-between"><dt className="text-mute">Subtotal {order.subtotal_final === null && "(perkiraan)"}</dt><dd>{rupiah(order.subtotal_final ?? order.subtotal_est)}</dd></div>
             {order.discount > 0 && <div className="flex justify-between text-success-600"><dt>Promo {order.promo_code}</dt><dd>−{rupiah(order.discount)}</dd></div>}
@@ -108,7 +116,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
             <a href={`https://wa.me/${order.phone}`} target="_blank" rel="noreferrer" className="text-sm text-tide-600">+{order.phone}</a>
             <p className="mt-2 text-sm text-ink/80">{order.address}</p>
             <p className="text-xs text-mute">{order.area_name}</p>
-            {order.maps_url && <a href={order.maps_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-tide-600">Buka Maps <ExternalLink className="h-3 w-3" /></a>}
+            {safeMapsUrl(order.maps_url) && <a href={safeMapsUrl(order.maps_url)!} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-tide-600">Buka Maps <ExternalLink className="h-3 w-3" /></a>}
             {order.customer_note && <p className="mt-3 bg-warn-50 px-3 py-2 text-sm text-warn-600">“{order.customer_note}”</p>}
             {accountTerms && <p className="mt-2 text-xs text-mute">Akun: {accountTerms}</p>}
           </div>
@@ -116,8 +124,10 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
             <h2 className="text-ocean-900">Pembayaran</h2>
             <p className="mt-1 text-sm">{PAYMENT_LABEL[order.payment_method]} · <PaymentBadge status={order.payment_status} /></p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {order.payment_status !== "paid" && order.status !== "cancelled" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "paid"))} className="btn-primary"><Check className="h-4 w-4" /> Tandai lunas</button>}
-              {order.payment_status === "paid" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "unpaid"))} className="btn-secondary">Batalkan status lunas</button>}
+              {order.payment_status !== "paid" && paymentChangeError(order, "paid") === null && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "paid"))} className="btn-primary"><Check className="h-4 w-4" /> Tandai lunas</button>}
+              {order.payment_status !== "paid" && order.status !== "cancelled" && paymentChangeError(order, "paid") && <p className="text-xs text-mute">{paymentChangeError(order, "paid")}</p>}
+              {order.payment_status === "paid" && order.status !== "cancelled" && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "unpaid"))} className="btn-secondary">Batalkan status lunas</button>}
+              {order.payment_status === "refund_due" && <button disabled={pending} onClick={() => { if (confirm("Dana sudah dikembalikan ke pelanggan?")) run(() => setPaymentStatusAction(order.id, "void")); }} className="btn-primary"><Check className="h-4 w-4" /> Dana sudah dikembalikan</button>}
             </div>
             <p className="mt-2 text-xs text-mute">Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar.</p>
           </div>

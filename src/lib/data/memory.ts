@@ -23,9 +23,10 @@ import type {
 } from "../types";
 import type { OrderFilter, Repo, Result, SalesRow } from "./repo";
 import { seedAccounts, seedAreas, seedCategories, seedProducts, seedPromos, seedSettings, seedSlots } from "./seed";
-import { availableDates, quote, segmentOf, slotsForSegment } from "../pricing";
+import { availableDates, lineTotal, quote, segmentOf, slotsForSegment, unitPrice } from "../pricing";
 import { addDays, isValidPhone, jam, jamRange, normalizePhone, nowJakarta } from "../format";
 import { newId, orderCode, randomCode, sessionToken } from "../ids";
+import { TEXT_LIMITS, paymentChangeError, safeMapsUrl, statusChangeError, weighError } from "../orderRules";
 
 interface Store {
   settings: Settings;
@@ -72,7 +73,7 @@ function itemFrom(store: Store, variantId: string, qty: number, prepId: string |
   const product = store.products.find((p) => p.variants.some((v) => v.id === variantId))!;
   const variant = product.variants.find((v) => v.id === variantId)!;
   const prep = prepId ? product.prep_options.find((p) => p.id === prepId) ?? null : null;
-  const base = segment === "business" ? Math.round(variant.price_business * (1 - (account?.discount_pct ?? 0) / 100)) : variant.price_retail;
+  const base = unitPrice(variant, segment, account);
   const unit_price = base + (prep?.surcharge ?? 0);
   return {
     id: newId("oi"),
@@ -92,7 +93,7 @@ function itemFrom(store: Store, variantId: string, qty: number, prepId: string |
     prep_label: prep?.label ?? null,
     prep_surcharge: prep?.surcharge ?? 0,
     unit_cost: variant.cost,
-    line_total_est: Math.round(unit_price * qty),
+    line_total_est: lineTotal(unit_price, qty),
     line_total_final: null,
   };
 }
@@ -175,22 +176,21 @@ function getStore(): Store {
   return globalThis.__dipasariaStore;
 }
 
+const loginFailures = new Map<string, number[]>();
 const ok = <T,>(data: T): Result<T> => ({ ok: true, data });
 const fail = <T,>(error: string): Result<T> => ({ ok: false, error });
 
-function recomputeTotals(o: Order, settings: Settings, areaFee: number) {
+/** Re-price after weighing with the terms agreed at order time: the fee never goes up, the promo uses its saved type and value. */
+function recomputeTotals(o: Order) {
   const weighed = o.items.every((i) => !i.is_catch_weight || i.qty_final !== null);
   if (!weighed) return;
   const subtotal = o.items.reduce((s, i) => s + (i.line_total_final ?? i.line_total_est), 0);
-  const threshold = o.segment === "business" ? settings.free_delivery_business : settings.free_delivery_retail;
-  let fee = subtotal >= threshold ? 0 : areaFee;
-  let discount = o.discount;
-  if (o.promo_code) {
-    const promo = getStore().promos.find((p) => p.code === o.promo_code);
-    if (promo?.type === "percent") discount = Math.round((subtotal * promo.value) / 100);
-    else if (promo?.type === "fixed") discount = Math.min(promo.value, subtotal);
-    else if (promo?.type === "free_delivery") fee = 0;
-  }
+  let fee = o.delivery_fee;
+  let discount = 0;
+  if (o.promo_type === "percent") discount = Math.round((subtotal * (o.promo_value ?? 0)) / 100);
+  else if (o.promo_type === "fixed") discount = Math.min(o.promo_value ?? 0, subtotal);
+  else if (o.promo_type === "free_delivery") fee = 0;
+  else if (o.promo_code) discount = Math.min(o.discount, subtotal);
   o.subtotal_final = subtotal;
   o.discount = discount;
   o.delivery_fee = fee;
@@ -204,11 +204,11 @@ export const memoryRepo: Repo = {
   async getCategories() { return clone(getStore().categories).sort((a, b) => a.sort - b.sort); },
   async getProducts(opts) {
     const ps = getStore().products.filter((p) => opts?.includeInactive || p.is_active);
-    return clone(ps).sort((a, b) => a.sort - b.sort).map((p) => ({ ...p, variants: p.variants.filter((v) => opts?.includeInactive || v.is_active).sort((a, b) => a.sort - b.sort) }));
+    return clone(ps).sort((a, b) => a.sort - b.sort).map((p) => ({ ...p, variants: p.variants.filter((v) => opts?.includeInactive || v.is_active).sort((a, b) => a.sort - b.sort).map((v) => (opts?.includeCost ? v : { ...v, cost: 0 })) }));
   },
   async getProductBySlug(slug) {
     const p = getStore().products.find((x) => x.slug === slug && x.is_active);
-    return p ? clone(p) : null;
+    return p ? { ...clone(p), variants: clone(p).variants.map((v) => ({ ...v, cost: 0 })) } : null;
   },
   async getAreas(opts) { return clone(getStore().areas.filter((a) => opts?.includeInactive || a.is_active)).sort((a, b) => a.sort - b.sort); },
   async getSlots(opts) { return clone(getStore().slots.filter((s) => opts?.includeInactive || s.is_active)).sort((a, b) => a.sort - b.sort); },
@@ -235,10 +235,20 @@ export const memoryRepo: Repo = {
     const store = getStore();
     const now = nowJakarta();
     const segment = segmentOf(account);
+    // Idempotency: a retried or double-tapped submit returns the order already created for this checkout.
+    const ref = input.client_ref?.trim();
+    if (ref) {
+      if (ref.length > 64) return fail("Permintaan tidak valid.");
+      const existing = store.orders.find((o) => o.client_ref === ref);
+      if (existing) return ok(clone(existing));
+    }
     if (!input.customer_name?.trim()) return fail("Nama penerima wajib diisi.");
     if (!isValidPhone(input.phone)) return fail("Nomor WhatsApp tidak valid.");
     if (!input.address?.trim()) return fail("Alamat pengiriman wajib diisi.");
     if (!input.lines?.length) return fail("Keranjang Anda masih kosong.");
+    if (input.customer_name.length > TEXT_LIMITS.name || input.address.length > TEXT_LIMITS.address || (input.customer_note ?? "").length > TEXT_LIMITS.note) {
+      return fail("Teks terlalu panjang. Nama maksimal 80, alamat dan catatan maksimal 400 karakter.");
+    }
     const phone = normalizePhone(input.phone);
     const isFirst = !(await this.hasOrderedBefore(phone));
     const q = quote(
@@ -304,7 +314,7 @@ export const memoryRepo: Repo = {
       address: input.address.trim(),
       area_id: area.id,
       area_name: area.name,
-      maps_url: input.maps_url?.trim() || null,
+      maps_url: safeMapsUrl(input.maps_url),
       delivery_date: input.delivery_date,
       slot_id: slot.id,
       slot_label: `${slot.label} ${jamRange(slot.start_time, slot.end_time)}`,
@@ -320,6 +330,9 @@ export const memoryRepo: Repo = {
       has_catch_weight: q.has_catch_weight,
       weighed_at: null,
       promo_code: q.promo?.code ?? null,
+      promo_type: q.promo?.type ?? null,
+      promo_value: q.promo?.value ?? null,
+      client_ref: ref || null,
       customer_note: input.customer_note?.trim() ?? "",
       internal_note: "",
       created_at: created,
@@ -338,7 +351,8 @@ export const memoryRepo: Repo = {
   async customerConfirmPayment(code, phone) {
     const o = getStore().orders.find((x) => x.code.toUpperCase() === code.trim().toUpperCase() && x.phone === normalizePhone(phone));
     if (!o) return fail("Pesanan tidak ditemukan.");
-    if (o.payment_status === "unpaid") {
+    // only once the final amount is known (weighed orders are paid on the final invoice)
+    if (o.payment_status === "unpaid" && o.total_final !== null && o.status !== "cancelled") {
       o.payment_status = "awaiting_confirmation";
     }
     return ok(clone(o));
@@ -377,8 +391,13 @@ export const memoryRepo: Repo = {
   async businessLogin(phone, code) {
     const store = getStore();
     const p = normalizePhone(phone);
+    // Lockout against guessing access codes: 5 failed attempts per phone number in 15 minutes (mirrors SQL business_login).
+    const since = Date.now() - 15 * 60_000;
+    const recent = (loginFailures.get(p) ?? []).filter((t) => t > since);
+    if (recent.length >= 5) throw new Error("Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit atau hubungi kami melalui WhatsApp.");
     const acc = store.accounts.find((a) => a.phone === p && a.status === "approved" && a.access_code && a.access_code.toUpperCase() === code.trim().toUpperCase());
-    if (!acc) return null;
+    if (!acc) { loginFailures.set(p, [...recent, Date.now()]); return null; }
+    loginFailures.delete(p);
     const token = sessionToken();
     store.sessions.set(token, { account_id: acc.id, expires: Date.now() + 90 * 86400_000 });
     return { token, account: clone(acc) };
@@ -413,13 +432,16 @@ export const memoryRepo: Repo = {
     const store = getStore();
     const o = store.orders.find((x) => x.id === id);
     if (!o) return fail("Pesanan tidak ditemukan.");
-    if (o.status === "cancelled") return fail("Pesanan ini sudah dibatalkan.");
+    const err = statusChangeError(o, status);
+    if (err) return fail(err);
+    if (status === o.status) return ok(clone(o));
     if (status === "cancelled") {
       for (const i of o.items) {
         const v = store.products.find((p) => p.id === i.product_id)?.variants.find((x) => x.id === i.variant_id);
         if (v && v.stock_qty !== null) v.stock_qty += i.qty_ordered;
       }
-      if (o.payment_status !== "paid") o.payment_status = "void";
+      if (o.promo_code) { const pr = store.promos.find((p) => p.code === o.promo_code); if (pr) pr.used_count = Math.max(0, pr.used_count - 1); }
+      o.payment_status = o.payment_status === "paid" || o.payment_status === "awaiting_confirmation" ? "refund_due" : "void";
     }
     o.status = status;
     o.history.push({ status, at: new Date().toISOString(), note });
@@ -429,16 +451,22 @@ export const memoryRepo: Repo = {
     const store = getStore();
     const o = store.orders.find((x) => x.id === id);
     if (!o) return fail("Pesanan tidak ditemukan.");
+    const blocked = weighError(o);
+    if (blocked) return fail(blocked);
     for (const w of items) {
-      const it = o.items.find((i) => i.id === w.item_id);
+      const it = o.items.find((i) => i.id === w.item_id && i.is_catch_weight);
       if (!it) return fail("Baris pesanan tidak ditemukan.");
-      if (!(w.qty_final >= 0)) return fail("Berat tidak boleh negatif.");
-      it.qty_final = w.qty_final;
-      it.line_total_final = Math.round(it.unit_price * w.qty_final);
+      if (typeof w.qty_final !== "number" || !Number.isFinite(w.qty_final) || w.qty_final < 0 || w.qty_final > 500) return fail("Berat tidak valid. Isi berat dalam kg, misalnya 1,25.");
+    }
+    // every weighed line needs a weight, counting the ones already weighed earlier
+    const given = new Map(items.map((w) => [w.item_id, w.qty_final]));
+    if (o.items.some((i) => i.is_catch_weight && i.qty_final === null && !given.has(i.id))) return fail("Isi berat semua produk yang ditimbang.");
+    for (const it of o.items) {
+      const w = given.get(it.id);
+      if (w !== undefined) { it.qty_final = w; it.line_total_final = lineTotal(it.unit_price, w); }
     }
     for (const it of o.items) if (!it.is_catch_weight && it.qty_final === null) { it.qty_final = it.qty_ordered; it.line_total_final = it.line_total_est; }
-    const area = store.areas.find((a) => a.id === o.area_id);
-    recomputeTotals(o, store.settings, area?.fee ?? 0);
+    recomputeTotals(o);
     o.weighed_at = new Date().toISOString();
     o.history.push({ status: "weighed", at: o.weighed_at });
     return ok(clone(o));
@@ -446,6 +474,8 @@ export const memoryRepo: Repo = {
   async setPaymentStatus(id, status) {
     const o = getStore().orders.find((x) => x.id === id);
     if (!o) return fail("Pesanan tidak ditemukan.");
+    const err = paymentChangeError(o, status);
+    if (err) return fail(err);
     o.payment_status = status;
     if (status === "paid") o.history.push({ status: "paid", at: new Date().toISOString() });
     return ok(clone(o));
@@ -471,10 +501,11 @@ export const memoryRepo: Repo = {
         cost += i.unit_cost * q;
         if (!cats.get(i.category_id)?.is_seafood) nonSea += i.line_total_final ?? i.line_total_est;
       }
-      if (o.payment_status !== "paid") unpaid += total;
+      if (o.payment_status !== "paid" && o.payment_status !== "void") unpaid += total;
       if (o.has_catch_weight && !o.weighed_at) toWeigh++;
     }
-    const productSales = os.reduce((s, o) => s + (o.subtotal_final ?? o.subtotal_est), 0);
+    // net of promo discounts, so gross profit is what was actually earned
+    const productSales = os.reduce((s, o) => s + (o.subtotal_final ?? o.subtotal_est) - o.discount, 0);
     const gp = productSales - cost;
     return {
       date,
@@ -494,6 +525,8 @@ export const memoryRepo: Repo = {
   async buyingList(date) {
     const store = getStore();
     const map = new Map<string, BuyingLine>();
+    const counted = new Set<string>();
+    const weighed = new Set<string>();
     for (const o of store.orders.filter((o) => o.delivery_date === date && o.status !== "cancelled")) {
       for (const i of o.items) {
         const k = i.variant_id;
@@ -511,13 +544,14 @@ export const memoryRepo: Repo = {
           prep_notes: [],
         };
         line.qty += i.qty_ordered;
-        line.order_count++;
+        if (!counted.has(`${k}|${o.id}`)) { counted.add(`${k}|${o.id}`); line.order_count++; }
+        if (i.is_catch_weight) weighed.add(k);
         if (i.prep_label) line.prep_notes.push(`${o.customer_name}: ${i.prep_label} ${i.qty_ordered} ${i.unit}`);
         map.set(k, line);
       }
     }
     const buf = store.settings.catch_weight_buffer_pct / 100;
-    const out = [...map.values()].map((l) => ({ ...l, qty_with_buffer: l.storage_class === "chilled" ? Math.ceil(l.qty * (1 + buf) * 2) / 2 : l.qty }));
+    const out = [...map.values()].map((l) => ({ ...l, qty_with_buffer: [...weighed].some((k) => map.get(k) === l) ? Math.ceil(l.qty * (1 + buf) * 2) / 2 : l.qty }));
     const order = { chilled: 0, frozen: 1, ambient: 2 };
     return out.sort((a, b) => order[a.storage_class] - order[b.storage_class] || a.product_name.localeCompare(b.product_name));
   },
@@ -530,6 +564,7 @@ export const memoryRepo: Repo = {
       const r = rows.get(o.delivery_date) ?? { date: o.delivery_date, orders: 0, sales: 0, gross_profit: 0, non_seafood_sales: 0 };
       r.orders++;
       r.sales += o.total_final ?? o.total_est;
+      r.gross_profit -= o.discount;
       for (const i of o.items) {
         const q = i.qty_final ?? i.qty_ordered;
         const line = i.line_total_final ?? i.line_total_est;
@@ -695,7 +730,10 @@ export const memoryRepo: Repo = {
   },
   async claimStandingRun(standingOrderId, date) {
     const store = getStore();
-    if (store.standingRuns.some((r) => r.standing_order_id === standingOrderId && r.delivery_date === date)) return null;
+    const prev = store.standingRuns.find((r) => r.standing_order_id === standingOrderId && r.delivery_date === date);
+    // a run that failed may be retried (after the problem is fixed); one that placed an order, or is in progress, may not
+    if (prev && prev.order_id === null && prev.error !== null) { prev.error = null; prev.created_at = new Date().toISOString(); return clone(prev); }
+    if (prev) return null;
     const run: StandingOrderRun = { id: newId("sr"), standing_order_id: standingOrderId, delivery_date: date, order_id: null, order_code: null, error: null, created_at: new Date().toISOString() };
     store.standingRuns.push(run);
     return clone(run);

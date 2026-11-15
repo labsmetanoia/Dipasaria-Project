@@ -1,3 +1,5 @@
+import { safeMapsUrl } from "@/lib/orderRules";
+import { requireAdmin } from "@/lib/auth";
 import Link from "next/link";
 import { MessageCircle, ExternalLink } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -10,6 +12,7 @@ import { msgOutForDelivery, waTo } from "@/lib/wa";
 import { PAYMENT_LABEL, UNIT_LABEL } from "@/lib/config";
 
 export default async function RoutePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+  await requireAdmin();
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();
@@ -45,7 +48,7 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
                           <p className="mt-2">{o.address}</p>
                           <div className="mt-1 flex flex-wrap gap-3 text-xs">
                             <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.address)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-tide-600">Maps <ExternalLink className="h-3 w-3" /></a>
-                            {o.maps_url && <a href={o.maps_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-tide-600">Pin pelanggan <ExternalLink className="h-3 w-3" /></a>}
+                            {safeMapsUrl(o.maps_url) && <a href={safeMapsUrl(o.maps_url)!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-tide-600">Pin pelanggan <ExternalLink className="h-3 w-3" /></a>}
                             <a href={`tel:+${o.phone}`} className="text-tide-600">+{o.phone}</a>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold">

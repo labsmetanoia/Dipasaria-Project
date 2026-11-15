@@ -1,7 +1,9 @@
+import { requireAdmin } from "@/lib/auth";
 import { getRepo } from "@/lib/data";
 import { PromosAdmin } from "@/components/admin/PromosAdmin";
 
 export default async function PromoPage() {
+  await requireAdmin();
   const promos = await (await getRepo()).listPromos();
   return (
     <div className="space-y-4">

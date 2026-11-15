@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Check, Minus, Plus, ShoppingBag, Users } from "lucide-react";
 import type { BusinessAccount, PrepOption, Product, Segment, Variant } from "@/lib/types";
-import { unitPrice } from "@/lib/pricing";
+import { lineTotal, unitPrice } from "@/lib/pricing";
 import { qtyUnit, rupiah } from "@/lib/format";
 import { pick } from "@/lib/i18n";
 import { useT } from "@/lib/i18n/client";
@@ -34,7 +34,7 @@ export function RecipeBundle({ items, baseServings, title, segment, account }: {
     const q = scaled(it, factor);
     const price = unitPrice(it.variant, segment, account) + (it.prep?.surcharge ?? 0);
     const available = it.product.available_today && (segment === "business" || !it.variant.business_only);
-    return { it, q, line: Math.round(price * q), available, key: it.variant.id + (it.prep?.id ?? "") };
+    return { it, q, line: lineTotal(price, q), available, key: it.variant.id + (it.prep?.id ?? "") };
   }), [items, factor, segment, account]);
   const chosen = rows.filter((r) => r.available && !off.has(r.key));
   const total = chosen.reduce((s, r) => s + r.line, 0);

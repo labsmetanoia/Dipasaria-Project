@@ -44,6 +44,7 @@ export const PAYMENT_LABEL: Record<string, string> = {
 export const PAYMENT_STATUS_LABEL: Record<string, string> = {
   unpaid: "Belum dibayar",
   awaiting_confirmation: "Menunggu konfirmasi",
+  refund_due: "Perlu pengembalian dana",
   paid: "Lunas",
   void: "Dibatalkan",
 };

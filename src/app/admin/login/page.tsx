@@ -21,7 +21,7 @@ export default function AdminLoginPage() {
         </div>
         {state?.error && <p className="mt-3 text-sm text-gold-ink">{state.error}</p>}
         <button className="btn-primary mt-5 w-full" disabled={pending}>{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Masuk"}</button>
-        <p className="mt-4 text-xs text-mute">Mode demo (tanpa Supabase): email bebas, kata sandi dari DEMO_ADMIN_PASSWORD (bawaan: dipasaria).</p>
+        <p className="mt-4 text-xs text-mute">Masuk dengan akun admin Anda. Mode demo memakai kata sandi dari DEMO_ADMIN_PASSWORD.</p>
       </form>
     </main>
   );

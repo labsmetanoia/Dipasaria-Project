@@ -1,7 +1,9 @@
+import { requireAdmin } from "@/lib/auth";
 import { getRepo } from "@/lib/data";
 import { SettingsAdmin } from "@/components/admin/SettingsAdmin";
 
 export default async function SettingsPage() {
+  await requireAdmin();
   const repo = await getRepo();
   const [settings, areas, slots] = await Promise.all([repo.getSettings(), repo.getAreas({ includeInactive: true }), repo.getSlots({ includeInactive: true })]);
   return (

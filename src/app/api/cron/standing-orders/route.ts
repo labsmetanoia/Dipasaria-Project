@@ -2,9 +2,8 @@
 // Vercel Cron calls this daily at 12:45 UTC (19:45 WIB, before the 20:00 cut-off) with "Authorization: Bearer $CRON_SECRET".
 import { NextResponse } from "next/server";
 import { getRepo } from "@/lib/data";
-import { availableDates } from "@/lib/pricing";
 import { nowJakarta } from "@/lib/format";
-import { runStandingOrders } from "@/lib/standing";
+import { jakartaTomorrow, runStandingOrders } from "@/lib/standing";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +13,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const repo = await getRepo();
-  const settings = await repo.getSettings();
   const url = new URL(req.url);
-  const date = url.searchParams.get("date") ?? availableDates(settings, nowJakarta())[0];
+  // Always prepare tomorrow's deliveries. If the job runs after the cut-off, place_order refuses and the run is
+  // recorded as failed (visible and retryable in the back-office) instead of silently targeting a later day.
+  const date = url.searchParams.get("date") ?? jakartaTomorrow(nowJakarta());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: "invalid date" }, { status: 400 });
   const results = await runStandingOrders(repo, date);
   return NextResponse.json({

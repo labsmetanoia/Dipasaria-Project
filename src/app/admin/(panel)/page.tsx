@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import Link from "next/link";
 import { ArrowRight, Scale } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -8,6 +9,7 @@ import { rupiah } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/config";
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+  await requireAdmin();
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();
@@ -89,7 +91,7 @@ function ActionCard({ title, count, href, tone, children, sub, icon }: { title: 
   );
 }
 
-function Row({ o }: { o: { id: string; code: string; customer_name: string; total_est: number; total_final: number | null; status: "new" | "confirmed" | "packing" | "delivering" | "completed" | "cancelled"; payment_status: "unpaid" | "awaiting_confirmation" | "paid" | "void" } }) {
+function Row({ o }: { o: { id: string; code: string; customer_name: string; total_est: number; total_final: number | null; status: "new" | "confirmed" | "packing" | "delivering" | "completed" | "cancelled"; payment_status: import("@/lib/types").PaymentStatus } }) {
   return (
     <li className="py-2 text-sm">
       <Link href={`/admin/pesanan/${o.id}`} className="flex items-center justify-between gap-2">

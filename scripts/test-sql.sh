@@ -17,5 +17,6 @@ end $$;
 SQL
 psql -v ON_ERROR_STOP=1 -d "$DB" -q -f supabase/schema.sql
 psql -v ON_ERROR_STOP=1 -d "$DB" -q -f supabase/seed.sql
+psql -v ON_ERROR_STOP=1 -d "$DB" -q -f supabase/seed-demo.sql
 psql -v ON_ERROR_STOP=1 -d "$DB" -q -f scripts/sql-tests.sql
 echo "SQL tests passed."

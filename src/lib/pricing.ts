@@ -36,16 +36,26 @@ export function segmentOf(account: BusinessAccount | null): Segment {
 export function unitPrice(variant: Variant, segment: Segment, account: BusinessAccount | null): number {
   if (segment === "business") {
     const base = variant.price_business;
-    const disc = account?.discount_pct ?? 0;
-    return Math.round(base * (1 - disc / 100));
+    const disc = Math.round((account?.discount_pct ?? 0) * 100); // basis points, integer
+    // Integer arithmetic so the result matches PostgreSQL's exact numeric rounding (no 13624.4999… drift).
+    return Math.round((base * (10000 - disc)) / 10000);
   }
   return variant.price_retail;
 }
 
-export function roundQty(q: number, v: Variant): number {
-  const steps = Math.round((q - v.min_qty) / v.step_qty);
-  const r = v.min_qty + Math.max(0, steps) * v.step_qty;
-  return Math.round(r * 1000) / 1000;
+/** Largest quantity (kg or units) accepted on one line; bigger orders go through WhatsApp. Mirrored in SQL place_order. */
+export const MAX_LINE_QTY = 500;
+
+/** Snap a quantity to the variant's step grid, in integer thousandths so it matches SQL exactly. */
+export function roundQty(q: number, v: Pick<Variant, "min_qty" | "step_qty">): number {
+  const qt = Math.round(q * 1000), min = Math.round(v.min_qty * 1000), step = Math.max(1, Math.round(v.step_qty * 1000));
+  const steps = Math.round((qt - min) / step);
+  return (min + Math.max(0, steps) * step) / 1000;
+}
+
+/** Line total in rupiah: price × quantity, computed in integer thousandths of a unit. */
+export function lineTotal(price: number, qty: number): number {
+  return Math.round((price * Math.round(qty * 1000)) / 1000);
 }
 
 export function lineKey(l: CartLine): string {
@@ -76,8 +86,10 @@ export function validatePromo(
   if (!promo) return { promo: null, error: "Kode promo tidak ditemukan." };
   if (!promo.is_active) return { promo: null, error: "Kode promo sudah tidak berlaku." };
   if (promo.segment !== "all" && promo.segment !== segment) return { promo: null, error: "Kode promo tidak berlaku untuk akun ini." };
-  if (promo.starts_at && nowIso < promo.starts_at) return { promo: null, error: "Promo ini belum dimulai." };
-  if (promo.ends_at && nowIso > promo.ends_at) return { promo: null, error: "Promo ini sudah berakhir." };
+  // Compare instants, not strings: admin dates carry "+07:00", server time is UTC ISO.
+  const now = Date.parse(nowIso);
+  if (promo.starts_at && now < Date.parse(promo.starts_at)) return { promo: null, error: "Promo ini belum dimulai." };
+  if (promo.ends_at && now > Date.parse(promo.ends_at)) return { promo: null, error: "Promo ini sudah berakhir." };
   if (promo.quota !== null && promo.used_count >= promo.quota) return { promo: null, error: "Kuota promo sudah habis." };
   if (subtotal < promo.min_spend) return { promo: null, error: `Promo ini berlaku untuk belanja minimal Rp${promo.min_spend.toLocaleString("id-ID")}.` };
   if (promo.first_order_only && isFirstOrder === false) return { promo: null, error: "Promo ini khusus untuk pesanan pertama." };
@@ -100,6 +112,7 @@ export function quote(
   const lines: Quote["lines"] = [];
   let hasCatch = false;
 
+  const used = new Map<string, number>(); // quantity already taken per variant, so two lines can't oversell one stock
   for (const l of input.lines) {
     const hit = findVariant(ctx.products, l.variant_id);
     if (!hit) {
@@ -119,12 +132,23 @@ export function quote(
       errors.push(`${product.name} (${variant.label}) khusus untuk akun bisnis.`);
       continue;
     }
-    const q = roundQty(l.qty, variant);
+    const raw = Number(l.qty);
+    if (!Number.isFinite(raw) || raw <= 0) {
+      errors.push(`${product.name}: jumlah tidak valid.`);
+      continue;
+    }
+    if (raw > MAX_LINE_QTY) {
+      errors.push(`${product.name}: maksimal ${qtyUnit(MAX_LINE_QTY, variant.unit)} per pesanan. Untuk jumlah lebih besar, hubungi kami melalui WhatsApp.`);
+      continue;
+    }
+    const q = roundQty(raw, variant);
     if (q < variant.min_qty) {
       errors.push(`${product.name}: pembelian minimal ${qtyUnit(variant.min_qty, variant.unit)}.`);
       continue;
     }
-    if (variant.stock_qty !== null && q > variant.stock_qty) {
+    const already = used.get(variant.id) ?? 0;
+    used.set(variant.id, already + q);
+    if (variant.stock_qty !== null && already + q > variant.stock_qty) {
       errors.push(`${product.name} (${variant.label}): stok tersisa ${qtyUnit(variant.stock_qty, variant.unit)}.`);
       continue;
     }
@@ -134,9 +158,8 @@ export function quote(
       if (!prep) errors.push(`${product.name}: cara penyiapan tidak tersedia.`);
     }
     const price = unitPrice(variant, segment, ctx.account) + (prep?.surcharge ?? 0);
-    const lineTotal = Math.round(price * q);
     if (product.is_catch_weight) hasCatch = true;
-    lines.push({ key: lineKey(l), product, variant, prep, qty: q, unit_price: price, line_total: lineTotal });
+    lines.push({ key: lineKey(l), product, variant, prep, qty: q, unit_price: price, line_total: lineTotal(price, q) });
   }
 
   const subtotal = lines.reduce((s, l) => s + l.line_total, 0);

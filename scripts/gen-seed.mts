@@ -11,9 +11,10 @@ const q = (v: unknown): string => {
   return `'${String(v).replace(/'/g, "''")}'`;
 };
 const row = (cols: string[], vals: unknown[]) => `(${vals.map(q).join(", ")})`;
-const insert = (table: string, cols: string[], rows: unknown[][], conflict = "id") =>
+// keep = true: never overwrite an existing row (promos keep their usage counts, live edits survive a re-run)
+const insert = (table: string, cols: string[], rows: unknown[][], conflict = "id", keep = false) =>
   rows.length
-    ? `insert into ${table} (${cols.join(", ")}) values\n  ${rows.map((r) => row(cols, r)).join(",\n  ")}\non conflict (${conflict}) do update set ${cols.filter((c) => c !== conflict).map((c) => `${c} = excluded.${c}`).join(", ")};\n`
+    ? `insert into ${table} (${cols.join(", ")}) values\n  ${rows.map((r) => row(cols, r)).join(",\n  ")}\non conflict (${conflict}) ${keep ? "do nothing" : `do update set ${cols.filter((c) => c !== conflict).map((c) => `${c} = excluded.${c}`).join(", ")}`};\n`
     : "";
 
 let sql = `-- Generated from src/lib/data/seed.ts. Edit the TS file and re-run \`node scripts/gen-seed.mts\`.\n-- Prices are launch placeholders: replace them with your own price list before sharing the link.\n\n`;
@@ -37,11 +38,12 @@ sql += insert("delivery_areas", ["id", "name", "fee", "is_active", "sort"], seed
 sql += insert("delivery_slots", ["id", "label", "start_time", "end_time", "segment", "capacity", "is_active", "sort"], seedSlots.map((x) => [x.id, x.label, x.start_time, x.end_time, x.segment, x.capacity, x.is_active, x.sort])) + "\n";
 
 const prc = ["id", "code", "type", "value", "min_spend", "segment", "quota", "used_count", "first_order_only", "starts_at", "ends_at", "is_active", "description"] as const;
-sql += insert("promos", [...prc], seedPromos.map((p) => prc.map((k) => p[k]))) + "\n";
+sql += insert("promos", [...prc], seedPromos.map((p) => prc.map((k) => p[k])), "id", true) + "\n";
 
 const bac = ["id", "business_name", "contact_name", "phone", "address", "area_id", "business_type", "discount_pct", "payment_terms", "allow_cod", "status", "access_code", "preferred_slot_id", "notes", "applied_at", "approved_at"] as const;
-sql += `-- Example business accounts (demo logins: phone + code). Delete before going live.\n`;
-sql += insert("business_accounts", [...bac], seedAccounts.map((a) => bac.map((k) => a[k]))) + "\n";
+// Example restaurant accounts live in a separate file so production never gets logins whose codes are published in the docs.
+const demo = `-- DEMO ONLY. Example business accounts whose access codes are published in the README and demo hints.\n-- Never run this on a production database.\n\n` + insert("business_accounts", [...bac], seedAccounts.map((a) => bac.map((k) => a[k])), "id", true);
 
 writeFileSync(new URL("../supabase/seed.sql", import.meta.url), sql);
-console.log("supabase/seed.sql written:", sql.length, "bytes");
+writeFileSync(new URL("../supabase/seed-demo.sql", import.meta.url), demo);
+console.log("supabase/seed.sql written:", sql.length, "bytes; seed-demo.sql:", demo.length, "bytes");

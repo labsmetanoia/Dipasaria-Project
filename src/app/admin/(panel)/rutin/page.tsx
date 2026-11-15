@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -8,6 +9,7 @@ import { StandingRunner } from "@/components/admin/StandingRunner";
 import { StandingStatusToggle } from "@/components/admin/StandingStatusToggle";
 
 export default async function StandingOrdersAdminPage() {
+  await requireAdmin();
   const repo = await getRepo();
   const [list, accounts, products, slots, settings, runs] = await Promise.all([repo.listStandingOrders(), repo.listAccounts(), repo.getProducts(), repo.getSlots(), repo.getSettings(), repo.listStandingRuns({ limit: 20 })]);
   const first = availableDates(settings, nowJakarta())[0];

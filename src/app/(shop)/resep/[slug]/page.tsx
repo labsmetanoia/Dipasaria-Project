@@ -10,6 +10,7 @@ import { recipeTotal, resolveRecipe } from "@/lib/content/recipe-items";
 import { RecipeBundle } from "@/components/shop/RecipeBundle";
 import { RecipeCard } from "@/components/site/RecipeCard";
 import { Band, SectionHead } from "@/components/site/Sections";
+import { Photo } from "@/components/Photo";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -33,8 +34,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
       <section className="bg-sand-100">
         <div className="grid lg:grid-cols-2">
           <div className="relative min-h-[300px] bg-ocean-950 lg:min-h-[560px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={recipe.image} alt={c.title} className="absolute inset-0 h-full w-full object-cover" />
+            <Photo src={recipe.image} alt={c.title} sizes="(max-width: 1024px) 100vw, 50vw" priority />
           </div>
           <div className="px-5 py-10 sm:px-10 lg:px-14 lg:py-16">
             <Link href="/resep" className="btn-link"><ArrowLeft className="h-3.5 w-3.5" /> {en ? "All recipes" : "Semua resep"}</Link>
@@ -49,7 +49,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
         </div>
       </section>
       <section className="container-x grid gap-10 py-12 md:py-16 lg:grid-cols-12">
-        <div className="lg:col-span-7">
+        <div className="min-w-0 lg:col-span-7">
           <h2 className="text-[2rem]">{en ? "Method" : "Cara memasak"}</h2>
           <ol className="mt-5 space-y-5">
             {c.steps.map((s, i) => (
@@ -61,7 +61,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
             <p className="mt-2 font-sans text-[14px] text-ink/80">{c.pantry.join(" · ")}</p>
           </div>
         </div>
-        <div className="lg:col-span-5"><div className="lg:sticky lg:top-[120px]"><RecipeBundle items={items} baseServings={recipe.servings} title={c.title} segment={segment} account={account} /></div></div>
+        <div className="min-w-0 lg:col-span-5"><div className="lg:sticky lg:top-[120px]"><RecipeBundle items={items} baseServings={recipe.servings} title={c.title} segment={segment} account={account} /></div></div>
       </section>
       <Band tone="parchment">
         <SectionHead eyebrow={en ? "More recipes" : "Resep lain"} title={en ? "Cook something else this week" : "Masak menu lain minggu ini"} action={{ href: "/resep", label: en ? "All recipes" : "Semua resep" }} />

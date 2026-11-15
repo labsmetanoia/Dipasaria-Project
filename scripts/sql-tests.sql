@@ -46,11 +46,12 @@ begin
   -- 2. Weigh and re-price
   perform weigh_order(oid, (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 0.9)) from order_items where order_id = oid and is_catch_weight));
   select * into o from orders where id = oid;
-  -- 117000×0.9 = 105300 + 144000 = 249300 → below 250k so fee 25000 applies; promo 10% = 24930
+  -- 117000×0.9 = 105300 + 144000 = 249300 → below the 250k threshold, but free delivery was granted at order time
+  -- and is never taken back because the fish weighed lighter; promo 10% = 24930
   if o.subtotal_final <> 249300 then raise exception 'weighed subtotal %', o.subtotal_final; end if;
-  if o.delivery_fee <> 25000 then raise exception 'fee after weighing %', o.delivery_fee; end if;
+  if o.delivery_fee <> 0 then raise exception 'fee after weighing %', o.delivery_fee; end if;
   if o.discount <> 24930 then raise exception 'discount after weighing %', o.discount; end if;
-  if o.total_final <> 249300 - 24930 + 25000 then raise exception 'total_final %', o.total_final; end if;
+  if o.total_final <> 249300 - 24930 then raise exception 'total_final %', o.total_final; end if;
 
   -- 3. Second order from the same phone cannot use the first-order promo
   perform _expect_error(format($q$select place_order('{"customer_name":"Ibu Test","phone":"081234567890","address":"x","area_id":"a_selatan","delivery_date":"%s","slot_id":"s_pagi","payment_method":"qris","promo_code":"SELAMATDATANG","lines":[{"variant_id":"v_udang_beku","qty":3}]}'::jsonb)$q$, _date()), 'pesanan pertama');
@@ -138,6 +139,63 @@ begin
   perform _expect_error(format($q$insert into standing_order_runs (id, standing_order_id, delivery_date) values ('sr_t2', 'so_t1', '%s')$q$, _date()), 'duplicate key');
   delete from standing_orders where id = 'so_t1';
   if exists (select 1 from standing_order_runs where id = 'sr_t1') then raise exception 'standing run cascade'; end if;
+
+  -- 13. Audit regressions: quantity bounds, idempotency, maps links, weighing, status machine, payments, reports
+  perform _expect_error(format($q$select place_order('{"customer_name":"A","phone":"081200000000","address":"x","area_id":"a_utara","delivery_date":"%s","slot_id":"s_pagi","payment_method":"qris","lines":[{"variant_id":"v_salmon","qty":"NaN"}]}'::jsonb)$q$, _date()), 'jumlah tidak valid');
+  perform _expect_error(format($q$select place_order('{"customer_name":"A","phone":"081200000000","address":"x","area_id":"a_utara","delivery_date":"%s","slot_id":"s_pagi","payment_method":"qris","lines":[{"variant_id":"v_salmon","qty":"Infinity"}]}'::jsonb)$q$, _date()), 'maksimal 500');
+  perform _expect_error(format($q$select place_order('{"customer_name":"A","phone":"081200000000","address":"x","area_id":"a_utara","delivery_date":"%s","slot_id":"s_pagi","payment_method":"qris","lines":[{"variant_id":"v_salmon","qty":-3}]}'::jsonb)$q$, _date()), 'jumlah tidak valid');
+  perform _expect_error(format($q$select place_order('{"customer_name":"A","phone":"081200000000","address":"x","area_id":"a_utara","delivery_date":"%s","slot_id":"s_pagi","payment_method":"qris","lines":[{"variant_id":"v_kakap_l","qty":100000}]}'::jsonb)$q$, _date()), 'maksimal 500');
+
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Idem', 'phone', '081277770001', 'address', 'Jl. Uji 1', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_pagi', 'payment_method', 'qris', 'client_ref', 'ref-audit-1', 'maps_url', 'javascript:alert(1)',
+    'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 2), jsonb_build_object('variant_id', 'v_salmon', 'qty', 1))));
+  if place_order(jsonb_build_object('customer_name', 'Audit Idem', 'phone', '081277770001', 'address', 'Jl. Uji 1', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_pagi', 'payment_method', 'qris', 'client_ref', 'ref-audit-1',
+    'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 2)))) <> oid then raise exception 'idempotent retry made a new order'; end if;
+  if (select count(*) from orders where client_ref = 'ref-audit-1') <> 1 then raise exception 'duplicate order for one client_ref'; end if;
+  if (select maps_url from orders where id = oid) is not null then raise exception 'non-Google maps link kept'; end if;
+
+  -- weighing: missing weight, then no marking paid before weighing, then no re-weigh after paid
+  perform _expect_error(format($q$select weigh_order('%s', '[]'::jsonb)$q$, oid), 'Isi berat semua');
+  perform _expect_error(format($q$select weigh_order('%s', (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', null)) from order_items where order_id = '%s' and is_catch_weight))$q$, oid, oid), 'Berat tidak valid');
+  perform _expect_error(format($q$select set_payment_status('%s', 'paid')$q$, oid), 'Timbang pesanan');
+  perform weigh_order(oid, (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 2.2)) from order_items where order_id = oid and is_catch_weight));
+  perform set_payment_status(oid, 'paid');
+  perform _expect_error(format($q$select weigh_order('%s', (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 2.6)) from order_items where order_id = '%s' and is_catch_weight))$q$, oid, oid), 'sudah lunas');
+
+  -- status machine: no going back; cancelling a paid order flags a refund and frees promo usage / stock
+  perform set_order_status(oid, 'packing');
+  perform _expect_error(format($q$select set_order_status('%s', 'new')$q$, oid), 'tidak dapat dimundurkan');
+  select stock_qty into stock_before from variants where id = 'v_salmon';
+  perform set_order_status(oid, 'cancelled');
+  if (select payment_status from orders where id = oid) <> 'refund_due' then raise exception 'paid + cancelled should be refund_due'; end if;
+  select stock_qty into stock_after from variants where id = 'v_salmon';
+  if stock_after <> stock_before + 1 then raise exception 'stock not returned on cancel'; end if;
+  perform _expect_error(format($q$select set_payment_status('%s', 'paid')$q$, oid), 'Pesanan dibatalkan');
+  perform set_payment_status(oid, 'void');
+
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Kirim', 'phone', '081277770002', 'address', 'Jl. Uji 2', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_pagi', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  perform set_order_status(oid, 'delivering');
+  perform _expect_error(format($q$select set_order_status('%s', 'cancelled')$q$, oid), 'sudah dikirim');
+
+  -- promo usage is returned on cancel
+  select used_count into n from promos where code = 'SELAMATDATANG';
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Promo', 'phone', '081277770003', 'address', 'Jl. Uji 3', 'area_id', 'a_selatan', 'promo_code', 'SELAMATDATANG',
+    'delivery_date', _date(), 'slot_id', 's_pagi', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  perform set_order_status(oid, 'cancelled');
+  if (select used_count from promos where code = 'SELAMATDATANG') <> n then raise exception 'promo usage not returned on cancel'; end if;
+
+  -- sales report: whole rupiah (no division drift) and gross profit net of promo discounts
+  if exists (select 1 from sales_report(_date()::date, _date()::date) where sales <> round(sales) or gross_profit <> round(gross_profit)) then raise exception 'sales report drift'; end if;
+
+  -- 14. Access-code guessing is locked out after 5 failures; codes use the unambiguous alphabet
+  delete from login_attempts;
+  for i in 1..5 loop perform business_login('081200000001', 'WRONG' || i); end loop;
+  perform _expect_error($q$select business_login('081200000001', 'BHR123')$q$, 'Terlalu banyak');
+  delete from login_attempts;
+  if business_login('081200000001', 'BHR123') is null then raise exception 'login after lockout reset'; end if;
+  if random_code(6) !~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$' then raise exception 'random_code alphabet'; end if;
 
   raise notice 'all assertions passed';
 end $$;

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ChevronDown, Menu, Search, ShoppingBag, UserRound, X, Clock } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { Photo } from "@/components/Photo";
 import { ProductIcon } from "@/components/Icons";
 import { LanguageToggle } from "./LanguageToggle";
 import { useT } from "@/lib/i18n/client";
@@ -59,8 +60,7 @@ export function Header({ categories, cutoff, accountName }: { categories: Catego
                     </div>
                     <div className="col-span-5 flex flex-col border-l border-white/10 bg-ocean-900">
                       <Link href="/belanja/kategori/ikan-segar" className="group relative block h-40 overflow-hidden">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/images/site/cat-ikan-segar.jpg" alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                        <Photo src="/images/site/cat-ikan-segar.jpg" alt="" sizes="420px" className="transition duration-700 group-hover:scale-105" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                         <div className="absolute bottom-3 left-4"><p className="font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-coral-500">{t.shop.todaysCatch}</p><p className="font-display text-[20px] font-bold uppercase leading-none">{locale === "en" ? "Auctioned at dawn" : "Dari lelang subuh"} →</p></div>
                       </Link>

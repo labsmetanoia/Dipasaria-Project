@@ -18,7 +18,7 @@ export function HeroSlider({ slides }: { slides: Slide[] }) {
  return (
     <section className="relative isolate flex min-h-[clamp(560px,84svh,880px)] text-white" aria-roledescription="carousel">
       {slides.map((sl, k) => (
-        <ImageSlot key={k} src={sl.image} alt={sl.title} icon={sl.icon} className={`absolute inset-0 -z-10 transition-opacity duration-700 ${k === i ? "opacity-100" : "opacity-0"}`}><div className="photo-fade absolute inset-0" /><div className="hero-scrim absolute inset-0" /></ImageSlot>
+        <ImageSlot key={k} src={sl.image} alt={sl.title} icon={sl.icon} priority={k === 0} className={`absolute inset-0 -z-10 transition-opacity duration-700 ${k === i ? "opacity-100" : "opacity-0"}`}><div className="photo-fade absolute inset-0" /><div className="hero-scrim absolute inset-0" /></ImageSlot>
       ))}
       <Seal className="absolute bottom-20 right-[5%] hidden h-32 w-32 rotate-[-8deg] drop-shadow-[0_8px_24px_rgba(0,0,0,.45)] xl:block 2xl:h-36 2xl:w-36" />
       <div className="container-x flex w-full flex-col justify-end pb-16 pt-20 md:pb-20">

@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import { getRepo } from "@/lib/data";
 import { pickDate } from "@/lib/ops";
 import { DateSelector } from "@/components/admin/DateSelector";
@@ -15,6 +16,7 @@ const GROUPS: Array<{ key: StorageClass; title: string; hint: string }> = [
 ];
 
 export default async function BuyingListPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+  await requireAdmin();
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();

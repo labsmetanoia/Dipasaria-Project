@@ -44,7 +44,8 @@ export interface Repo {
   // Catalogue (public)
   getSettings(): Promise<Settings>;
   getCategories(): Promise<Category[]>;
-  getProducts(opts?: { includeInactive?: boolean }): Promise<Product[]>;
+  /** Purchase cost is stripped (0) unless includeCost: only back-office product pages may see margins. */
+  getProducts(opts?: { includeInactive?: boolean; includeCost?: boolean }): Promise<Product[]>;
   getProductBySlug(slug: string): Promise<Product | null>;
   getAreas(opts?: { includeInactive?: boolean }): Promise<DeliveryArea[]>;
   getSlots(opts?: { includeInactive?: boolean }): Promise<DeliverySlot[]>;

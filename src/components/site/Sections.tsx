@@ -22,7 +22,7 @@ export function SectionHead({ eyebrow, title, sub, action, dark = false, center 
 export function PageHero({ eyebrow, title, sub, icon = "fish", image, children, compact = false }: { eyebrow: string; title: string; sub?: string; icon?: string; image?: string | null; children?: ReactNode; compact?: boolean }) {
  return (
     <section className="relative isolate text-white">
-      <ImageSlot src={image} alt={title} icon={icon} className="absolute inset-0 -z-10"><div className="photo-fade absolute inset-0" /><div className="hero-scrim absolute inset-0" /></ImageSlot>
+      <ImageSlot src={image} alt={title} icon={icon} priority className="absolute inset-0 -z-10"><div className="photo-fade absolute inset-0" /><div className="hero-scrim absolute inset-0" /></ImageSlot>
       <div className={`container-x ${compact ? "py-16 md:py-20" : "py-20 md:py-28"}`}>
         <p className="rise flex items-center gap-3 font-sans text-[11.5px] font-bold uppercase tracking-[0.24em] text-coral-500"><span className="h-px w-10 bg-coral-500" />{eyebrow}</p>
         <h1 className="page-title rise rise-2 mt-4 max-w-4xl">{title}</h1>
@@ -63,7 +63,7 @@ export function StepsStrip({ title, steps }: { title: string; steps: Array<{ ico
 export function CategoryTile({ href, title, image, icon, cta, count, countLabel }: { href: string; title: string; image?: string | null; icon: string; cta: string; count?: number; countLabel?: string }) {
  return (
     <Link href={href} className="group relative block aspect-square overflow-hidden bg-ocean-950 text-white">
-      <ImageSlot src={image} alt={title} icon={icon} className="absolute inset-0 transition duration-700 group-hover:scale-[1.04]"><div className="photo-fade absolute inset-0" /></ImageSlot>
+      <ImageSlot src={image} alt={title} icon={icon} sizes="(max-width: 640px) 75vw, (max-width: 1024px) 33vw, 25vw" className="absolute inset-0 transition duration-700 group-hover:scale-[1.04]"><div className="photo-fade absolute inset-0" /></ImageSlot>
       {count !== undefined && <span className="absolute right-3 top-3 bg-black/45 px-2 py-0.5 font-sans text-[10px] font-bold uppercase tracking-[0.14em] text-white backdrop-blur">{count} {countLabel}</span>}
       <div className="absolute inset-x-0 bottom-0 p-5">
         <p className="font-display text-[1.7rem] font-bold uppercase leading-none sm:text-[2rem]">{title}</p>
@@ -77,7 +77,7 @@ export function CategoryTile({ href, title, image, icon, cta, count, countLabel 
 export function DarkCard({ href, eyebrow, title, sub, cta, image, icon }: { href: string; eyebrow: string; title: string; sub: string; cta: string; image?: string | null; icon: string }) {
  return (
     <Link href={href} className="group relative block aspect-[4/3] overflow-hidden bg-ocean-950 text-white">
-      <ImageSlot src={image} alt={title} icon={icon} className="absolute inset-0 transition duration-700 group-hover:scale-[1.04]"><div className="photo-fade absolute inset-0" /></ImageSlot>
+      <ImageSlot src={image} alt={title} icon={icon} sizes="(max-width: 640px) 75vw, (max-width: 1024px) 33vw, 25vw" className="absolute inset-0 transition duration-700 group-hover:scale-[1.04]"><div className="photo-fade absolute inset-0" /></ImageSlot>
       <div className="absolute inset-x-0 bottom-0 p-6">
         <p className="eyebrow text-coral-500">{eyebrow}</p>
         <p className="mt-2 font-display text-[2rem] font-bold uppercase leading-none">{title}</p>

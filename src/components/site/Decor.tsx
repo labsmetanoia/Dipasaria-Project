@@ -1,16 +1,16 @@
 import { ProductIcon } from "@/components/Icons";
+import { Photo } from "@/components/Photo";
 
 /**
  * Photography slot. Shows the photo when a URL is set, otherwise a designed placeholder
  * (near-black with warm light, faint grid and a species mark) that still looks intentional.
  */
-export function ImageSlot({ src, alt, icon = "fish", className = "", tone = "dark", children }: { src?: string | null; alt: string; icon?: string; className?: string; tone?: "dark" | "light"; children?: React.ReactNode }) {
+export function ImageSlot({ src, alt, icon = "fish", className = "", tone = "dark", children, sizes = "100vw", priority = false }: { src?: string | null; alt: string; icon?: string; className?: string; tone?: "dark" | "light"; children?: React.ReactNode; sizes?: string; priority?: boolean }) {
  const pos = /\babsolute\b|\bfixed\b/.test(className) ? "" : "relative";
  if (src) {
  return (
       <div className={`${pos} overflow-hidden ${className}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className="absolute inset-0 h-full w-full object-cover" />
+        <Photo src={src} alt={alt} sizes={sizes} priority={priority} />
         {children}
       </div>
     );

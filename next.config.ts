@@ -1,10 +1,43 @@
 import type { NextConfig } from "next";
 
+// Content-Security-Policy: same-origin by default; Google Fonts for type; Supabase for uploaded product photos.
+// 'unsafe-inline' is needed for Next.js' inline bootstrap scripts; 'unsafe-eval' only in development (React refresh).
+const dev = process.env.NODE_ENV !== "production";
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https://*.supabase.co",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self' https://wa.me https://api.whatsapp.com",
+  "object-src 'none'",
+].join("; ");
+
+const security = [
+  { key: "Content-Security-Policy", value: csp },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  images: { remotePatterns: [{ protocol: "https", hostname: "**" }] },
+  poweredByHeader: false,
+  images: {
+    // Only our own files and photos uploaded to Supabase Storage are optimised: no open image proxy.
+    remotePatterns: [{ protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" }],
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [390, 640, 828, 1080, 1366, 1920],
+    imageSizes: [64, 128, 256, 384],
+    minimumCacheTTL: 60 * 60 * 24 * 30,
+  },
   async headers() {
     return [
+      { source: "/:path*", headers: security },
       {
         source: "/sw.js",
         headers: [

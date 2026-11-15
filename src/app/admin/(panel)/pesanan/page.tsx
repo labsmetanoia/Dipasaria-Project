@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import Link from "next/link";
 import { Scale } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -11,6 +12,7 @@ import type { OrderStatus } from "@/lib/types";
 const STATUSES: OrderStatus[] = ["new", "confirmed", "packing", "delivering", "completed", "cancelled"];
 
 export default async function OrdersAdmin({ searchParams }: { searchParams: Promise<{ date?: string; status?: string; q?: string; weigh?: string; unpaid?: string; all?: string }> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const date = pickDate(sp.date);
   const repo = await getRepo();

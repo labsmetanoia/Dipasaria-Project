@@ -1,8 +1,10 @@
+import { requireAdmin } from "@/lib/auth";
 import { getRepo } from "@/lib/data";
 import { ReportView } from "@/components/admin/ReportView";
 import { addDays, nowJakarta } from "@/lib/format";
 
 export default async function ReportPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const today = nowJakarta().date;
   const from = sp.from && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) ? sp.from : addDays(today, -13);

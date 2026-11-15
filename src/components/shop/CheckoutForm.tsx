@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Tag, ShieldCheck, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import type { BusinessAccount, DeliveryArea, DeliverySlot, PaymentMethod, Product, Promo, Settings } from "@/lib/types";
@@ -49,10 +49,25 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  setSlotId(account.preferred_slot_id && segSlots.some((s) => s.id === account.preferred_slot_id) ? account.preferred_slot_id : segSlots[0]?.id ?? "");
  setPayment(account.payment_terms !== "prepaid" ? "terms" : account.allow_cod ? "cod" : "qris");
     } else {
- setName(customer.name); setPhone(customer.phone); setAddress(customer.address); setMaps(customer.maps_url); setAreaId(customer.area_id || ""); setSlotId(segSlots[0]?.id ?? "");
+ setSlotId(segSlots[0]?.id ?? "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.id]);
+
+ // Saved household details arrive when the persisted cart has loaded from the device, which can be after the first
+ // render: fill them in once they are there, without overwriting anything the customer has started typing.
+ const prefilled = useRef(false);
+ useEffect(() => {
+ if (account || prefilled.current || !(customer.name || customer.phone || customer.address)) return;
+ prefilled.current = true;
+ setName((v) => v || customer.name); setPhone((v) => v || customer.phone); setAddress((v) => v || customer.address);
+ setMaps((v) => v || customer.maps_url); setAreaId((v) => v || customer.area_id || "");
+  }, [account, customer]);
+
+ // One idempotency key per checkout visit: a double tap or a network retry returns the same order instead of a second one.
+ const clientRef = useRef<string>("");
+ if (!clientRef.current) clientRef.current = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+ const submitting = useRef(false);
 
  const q = useMemo(() => quote({ settings, products, areas, promos: promo ? [promo] : [], account, now }, { lines, area_id: areaId, promo_code: promo?.code }), [settings, products, areas, promo, account, now, lines, areaId]);
  const payOptions: PaymentMethod[] = ["qris", "transfer"];
@@ -71,10 +86,12 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && step1ok && step2ok && !pending;
 
  const submit = () => {
+ if (submitting.current) return; // synchronous guard: the disabled state only applies after a re-render
+ submitting.current = true;
  setError(null);
  start(async () => {
- const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note });
- if (!r.ok) { setError(r.error); return; }
+ const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current });
+ if (!r.ok) { submitting.current = false; setError(r.error); return; }
  if (!account) saveCustomer({ name, phone, address, area_id: areaId, maps_url: maps });
  rememberOrder({ code: r.data.code, phone: r.data.phone, at: new Date().toISOString() });
  clear();

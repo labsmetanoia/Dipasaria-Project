@@ -27,6 +27,8 @@ export async function quoteCart(input: { lines: CartLine[]; area_id?: string | n
 }
 
 export async function placeOrderAction(input: PlaceOrderInput): Promise<ActionResult<Order>> {
+  // Server actions are public endpoints: reject malformed payloads before any work.
+  if (!input || !Array.isArray(input.lines) || input.lines.length === 0 || input.lines.length > 60) return { ok: false, error: "Isi keranjang tidak valid." };
   const repo = await getRepo();
   const account = await getCurrentAccount();
   try {
@@ -67,7 +69,8 @@ export async function applyAccountAction(input: AccountApplication): Promise<Act
 
 export async function businessLoginAction(phone: string, code: string): Promise<ActionResult<{ name: string }>> {
   const repo = await getRepo();
-  const res = await repo.businessLogin(phone, code);
+  let res: Awaited<ReturnType<typeof repo.businessLogin>>;
+  try { res = await repo.businessLogin(phone, code); } catch (e) { return { ok: false, error: (e as Error).message }; }
   if (!res) return { ok: false, error: "Nomor WhatsApp atau kode akses tidak cocok. Kode akses dikirim melalui WhatsApp setelah akun disetujui." };
   await setBusinessSession(res.token);
   return { ok: true, data: { name: res.account.business_name } };
@@ -103,7 +106,8 @@ export async function saveStandingOrderAction(input: StandingOrderInput): Promis
   const repo = await getRepo();
   if (input.id && !(await ownStanding(input.id, account.id))) return { ok: false, error: "Pesanan rutin tidak ditemukan." };
   const [products, slots] = await Promise.all([repo.getProducts(), repo.getSlots()]);
-  const err = validateStanding(input, account, products, slots);
+  const [settings, areas] = await Promise.all([repo.getSettings(), repo.getAreas()]);
+  const err = validateStanding(input, account, products, slots, { settings, areas, now: nowJakarta() });
   if (err) return { ok: false, error: err };
   const r = await repo.saveStandingOrder(account.id, input);
   revalidatePath("/akun");
@@ -122,7 +126,11 @@ export async function setStandingSkipAction(id: string, date: string, skip: bool
   const account = await requireBusiness();
   if (!account || !(await ownStanding(id, account.id))) return { ok: false, error: "Pesanan rutin tidak ditemukan." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Tanggal tidak valid." };
-  const r = await (await getRepo()).setStandingSkip(id, date, skip);
+  const repo = await getRepo();
+  // Once the evening job has created the order for that date, skipping can no longer stop it: say so instead of pretending.
+  const done = (await repo.listStandingRuns({ standingOrderId: id, date })).find((r) => r.order_id);
+  if (done) return { ok: false, error: `Pesanan untuk tanggal ini sudah dibuat (${done.order_code}). Hubungi kami melalui WhatsApp bila ingin membatalkannya.` };
+  const r = await repo.setStandingSkip(id, date, skip);
   revalidatePath("/akun");
   return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
 }

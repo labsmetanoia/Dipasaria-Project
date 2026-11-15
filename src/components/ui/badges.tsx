@@ -24,6 +24,6 @@ export function StatusBadge({ status, locale }: { status: OrderStatus; locale?: 
 
 export function PaymentBadge({ status, locale }: { status: PaymentStatus; locale?: Locale }) {
  const t = useDict(locale);
- const tone: Record<PaymentStatus, "neutral" | "success" | "warn" | "coral"> = { unpaid: "coral", awaiting_confirmation: "warn", paid: "success", void: "neutral" };
+ const tone: Record<PaymentStatus, "neutral" | "success" | "warn" | "coral"> = { unpaid: "coral", awaiting_confirmation: "warn", paid: "success", refund_due: "warn", void: "neutral" };
  return <Badge tone={tone[status]}>{t.paymentStatus[status]}</Badge>;
 }

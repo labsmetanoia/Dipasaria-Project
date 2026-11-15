@@ -22,7 +22,7 @@ export default async function PanduanPage() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {guides.map((g) => (
             <Link key={g.slug} href={`/panduan/${g.slug}`} className="group card overflow-hidden transition hover:shadow-float">
-              <ImageSlot src={IMAGES.guides[g.slug]} alt={g[locale].title} icon={g.icon} className="aspect-[3/2] transition duration-700 group-hover:scale-[1.03]" />
+              <ImageSlot src={IMAGES.guides[g.slug]} alt={g[locale].title} icon={g.icon} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="aspect-[3/2] transition duration-700 group-hover:scale-[1.03]" />
               <div className="p-6">
                 <p className="eyebrow">{formatDate(g.date, "short", locale)} · {g.tag[locale]}</p>
                 <h2 className="mt-2 text-[1.5rem] leading-none">{g[locale].title}</h2>

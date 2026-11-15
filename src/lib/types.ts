@@ -5,7 +5,7 @@ export type Unit = "kg" | "pack" | "tray" | "pcs" | "bottle" | "crate" | "box";
 export type Segment = "retail" | "business";
 export type OrderStatus = "new" | "confirmed" | "packing" | "delivering" | "completed" | "cancelled";
 export type PaymentMethod = "qris" | "transfer" | "cod" | "terms";
-export type PaymentStatus = "unpaid" | "awaiting_confirmation" | "paid" | "void";
+export type PaymentStatus = "unpaid" | "awaiting_confirmation" | "paid" | "refund_due" | "void";
 export type PaymentTerms = "prepaid" | "days3" | "weekly";
 export type AccountStatus = "pending" | "approved" | "suspended";
 export type PromoType = "percent" | "fixed" | "free_delivery";
@@ -209,6 +209,10 @@ export interface Order {
   has_catch_weight: boolean;
   weighed_at: string | null;
   promo_code: string | null;
+  /** promo terms frozen at order time (re-pricing after weighing uses these, not the live promo) */
+  promo_type?: Promo["type"] | null;
+  promo_value?: number | null;
+  client_ref?: string | null;
   customer_note: string;
   internal_note: string;
   created_at: string;
@@ -237,6 +241,8 @@ export interface PlaceOrderInput {
   payment_method: PaymentMethod;
   promo_code?: string;
   customer_note?: string;
+  /** idempotency key from the checkout page: retries and double taps return the same order */
+  client_ref?: string;
 }
 
 export interface Quote {

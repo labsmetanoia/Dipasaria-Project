@@ -1,5 +1,6 @@
 // Standing orders: shared rules used by both data adapters, the server actions and the scheduled job.
-import type { BusinessAccount, DeliverySlot, PaymentMethod, Product, StandingOrder, StandingOrderInput, StandingOrderRun } from "./types";
+import type { BusinessAccount, DeliveryArea, DeliverySlot, PaymentMethod, Product, Settings, StandingOrder, StandingOrderInput, StandingOrderRun } from "./types";
+import { quote } from "./pricing";
 import type { Repo, Result } from "./data/repo";
 import { addDays } from "./format";
 
@@ -39,7 +40,7 @@ export function allowedPayments(account: BusinessAccount): PaymentMethod[] {
 }
 
 /** Validate a customer's standing-order input against the catalogue, slots and account. Returns an Indonesian error or null. */
-export function validateStanding(input: StandingOrderInput, account: BusinessAccount, products: Product[], slots: DeliverySlot[]): string | null {
+export function validateStanding(input: StandingOrderInput, account: BusinessAccount, products: Product[], slots: DeliverySlot[], ctx?: { settings: Settings; areas: DeliveryArea[]; now: { date: string; minutesOfDay: number } }): string | null {
   if (account.status !== "approved") return "Pesanan rutin hanya tersedia untuk akun bisnis yang telah disetujui.";
   const days = [...new Set(input.weekdays)].filter((d) => d >= 1 && d <= 7);
   if (!days.length) return "Pilih minimal satu hari pengiriman.";
@@ -56,6 +57,13 @@ export function validateStanding(input: StandingOrderInput, account: BusinessAcc
     if (l.prep_option_id && !product.prep_options.some((o) => o.id === l.prep_option_id)) return `${product.name}: cara penyiapan tidak tersedia.`;
   }
   if (input.name.trim().length > 60) return "Nama pesanan rutin maksimal 60 karakter.";
+  // Price it like a real order so an order below the business minimum is refused now, not failed every night.
+  if (ctx) {
+    const q = quote({ settings: ctx.settings, products, areas: ctx.areas, promos: [], account, now: ctx.now },
+      { lines: lines.map((l) => ({ product_id: "", variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id })), area_id: account.area_id });
+    if (q.errors.length) return q.errors[0];
+    if (!q.min_order_met) return `Pesanan rutin belum mencapai minimal pesanan bisnis Rp${q.min_order.toLocaleString("id-ID")} per pengiriman.`;
+  }
   return null;
 }
 
@@ -70,19 +78,32 @@ export async function runStandingOrders(repo: Repo, date: string): Promise<RunOu
   const productOf = (variantId: string) => products.find((p) => p.variants.some((v) => v.id === variantId))?.id ?? "";
   const out: RunOutcome[] = [];
   for (const so of all) {
+    try {
+      out.push(...(await runOne(repo, so, date, productOf)));
+    } catch (e) {
+      // One failure (network, database) must not stop the rest of the evening's run.
+      out.push({ standing_order_id: so.id, account_name: so.account_id, status: "failed", error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return out;
+}
+
+async function runOne(repo: Repo, so: StandingOrder, date: string, productOf: (variantId: string) => string): Promise<RunOutcome[]> {
+  const out: RunOutcome[] = [];
+  {
     const account = await repo.getAccount(so.account_id);
     const name = account?.business_name ?? so.account_id;
     if (!isDue(so, date)) {
       if (so.status === "active" && so.weekdays.includes(isoWeekday(date))) out.push({ standing_order_id: so.id, account_name: name, status: "skipped" });
-      continue;
+      return out;
     }
     const run = await repo.claimStandingRun(so.id, date);
-    if (!run) { out.push({ standing_order_id: so.id, account_name: name, status: "already" }); continue; }
+    if (!run) { out.push({ standing_order_id: so.id, account_name: name, status: "already" }); return out; }
     if (!account || account.status !== "approved" || !account.area_id) {
       const error = "Akun bisnis tidak aktif atau belum memiliki wilayah pengiriman.";
       await repo.finishStandingRun(run.id, { error });
       out.push({ standing_order_id: so.id, account_name: name, status: "failed", error });
-      continue;
+      return out;
     }
     const res = await repo.placeOrder({
       lines: so.lines.map((l) => ({ product_id: productOf(l.variant_id), variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id })),
@@ -104,6 +125,11 @@ export async function runStandingOrders(repo: Repo, date: string): Promise<RunOu
     }
   }
   return out;
+}
+
+/** Tomorrow's date in Jakarta: the delivery date the evening job prepares (independent of the cut-off setting). */
+export function jakartaTomorrow(now: { date: string }): string {
+  return addDays(now.date, 1);
 }
 
 export type { StandingOrder, StandingOrderRun, Result };
