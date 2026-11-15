@@ -6,6 +6,7 @@ import { nowJakarta } from "@/lib/format";
 import { jakartaTomorrow, runStandingOrders } from "@/lib/standing";
 import { expireIfDue } from "@/lib/expiry";
 import { reportError } from "@/lib/monitor";
+import { notify } from "@/lib/notify/service";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: "invalid date" }, { status: 400 });
   await expireIfDue(true);
   const results = await runStandingOrders(repo, date);
+  for (const r of results) if (r.status === "placed" && r.order_id) await notify(r.order_id, "standing", { missing: r.missing });
   for (const r of results.filter((x) => x.status === "failed")) await reportError("job", `Pesanan rutin gagal: ${r.account_name}: ${r.error}`, { path: "/api/cron/standing-orders" });
   return NextResponse.json({
     date,

@@ -280,5 +280,16 @@ begin
   if (select status from payments where id = 'PAY-T6') <> 'cancelled' then raise exception 're-weighing should cancel the QR for the old amount'; end if;
   perform _expect_error($q$select record_gateway_payment('NOPE', 'paid', 1, '{}'::jsonb)$q$, 'tidak ditemukan');
 
+  -- 19. WhatsApp outbox: one message per (order, kind, dedupe); opt-out stored from checkout
+  oid := place_order(jsonb_build_object('customer_name', 'Audit WA', 'phone', '081277770020', 'address', 'Jl. Uji 20', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'wa_opt_in', false, 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  if (select wa_opt_in from orders where id = oid) then raise exception 'wa_opt_in=false not stored'; end if;
+  insert into wa_messages (id, order_id, kind, phone, template, body) values ('wa_t1', oid, 'received', '6281277770020', 'dipasaria_pesanan_diterima', 'x');
+  perform _expect_error(format($q$insert into wa_messages (id, order_id, kind, phone, template, body) values ('wa_t2', '%s', 'received', '62812', 't', 'x')$q$, oid), 'duplicate key');
+  insert into wa_messages (id, order_id, kind, dedupe, phone, template, body) values ('wa_t3', oid, 'invoice', '250000', '62812', 't', 'x');
+  insert into wa_messages (id, order_id, kind, dedupe, phone, template, body) values ('wa_t4', oid, 'invoice', '262500', '62812', 't', 'x');
+  if (select count(*) from wa_messages where order_id = oid) <> 3 then raise exception 'a corrected invoice (new amount) should be allowed'; end if;
+  if (select wa_events from settings) <> array['received','invoice','paid','delivering','reminder','cancelled','standing'] then raise exception 'default WhatsApp events'; end if;
+
   raise notice 'all assertions passed';
 end $$;

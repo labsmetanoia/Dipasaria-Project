@@ -9,6 +9,8 @@ import { runStandingOrders, type RunOutcome } from "@/lib/standing";
 import type { StandingOrder } from "@/lib/types";
 import { expireIfDue } from "@/lib/expiry";
 import { cancelOpenAtGateway, syncPayment } from "@/lib/payments/service";
+import { notify, deliver, waApiEnabled } from "@/lib/notify/service";
+import { after } from "next/server";
 
 export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -40,6 +42,8 @@ export async function setOrderStatusAction(id: string, status: OrderStatus, note
   const open = status === "cancelled" ? await repo.listPayments(id) : [];
   const r = await repo.updateOrderStatus(id, status, note);
   if (r.ok) await cancelOpenAtGateway(open);
+  if (r.ok && status === "delivering") { const o = r.data; after(() => notify(o, "delivering")); }
+  if (r.ok && status === "cancelled") { const o = r.data; after(() => notify(o, "cancelled", { reason: "dibatalkan oleh tim Dipasaria; kami akan menghubungi Anda bila perlu" })); }
   revalidatePath("/admin", "layout");
   return wrap(r);
 }
@@ -50,6 +54,8 @@ export async function weighOrderAction(id: string, items: Array<{ item_id: strin
   const open = await repo.listPayments(id);
   const r = await repo.weighOrder(id, items);
   if (r.ok) await cancelOpenAtGateway(open); // a QR for the old amount must not be paid
+  // final invoice once per amount (re-weighing to a different total sends a corrected one)
+  if (r.ok && r.data.has_catch_weight) { const o = r.data; after(() => notify(o, "invoice", { dedupe: String(o.total_final) })); }
   revalidatePath("/admin", "layout");
   return wrap(r);
 }
@@ -57,6 +63,7 @@ export async function weighOrderAction(id: string, items: Array<{ item_id: strin
 export async function setPaymentStatusAction(id: string, status: PaymentStatus) {
   await guard();
   const r = await (await getRepo()).setPaymentStatus(id, status);
+  if (r.ok && status === "paid") { const o = r.data; after(() => notify(o, "paid")); }
   revalidatePath("/admin", "layout");
   return wrap(r);
 }
@@ -161,6 +168,10 @@ export async function deletePromoAction(id: string) {
 
 export async function updateSettingsAction(patch: Partial<Settings>) {
   await guard();
+  if (patch.wa_events !== undefined) {
+    const allowed = ["received", "invoice", "paid", "delivering", "reminder", "cancelled", "standing"];
+    patch = { ...patch, wa_events: (Array.isArray(patch.wa_events) ? patch.wa_events : []).filter((k) => allowed.includes(k)) };
+  }
   if (patch.payment_window_minutes !== undefined) {
     const m = Math.round(Number(patch.payment_window_minutes));
     if (!Number.isFinite(m) || m < 0 || m > 10080) return wrap({ ok: false as const, error: "Batas waktu pembayaran harus 0–10.080 menit (0 = tidak dibatalkan otomatis)." });
@@ -195,6 +206,29 @@ export async function syncPaymentsAction(orderId: string): Promise<ActionResult<
   return o ? { ok: true, data: o } : { ok: false, error: "Pesanan tidak ditemukan." };
 }
 
+// ---------- WhatsApp outbox ----------
+
+/** Send a failed message again through the API. */
+export async function resendWaAction(id: string): Promise<ActionResult<null>> {
+  await guard();
+  const repo = await getRepo();
+  const m = await repo.getWa(id);
+  if (!m) return { ok: false, error: "Pesan tidak ditemukan." };
+  if (!waApiEnabled()) return { ok: false, error: "API WhatsApp belum diatur. Kirim manual dengan tombol WhatsApp." };
+  await repo.updateWa(id, { status: "failed", attempts: 0 }); // a manual resend starts a fresh round of attempts
+  const r = await deliver({ ...m, status: "failed", attempts: 0 });
+  revalidatePath("/admin", "layout");
+  return r.status === "sent" ? { ok: true, data: null } : { ok: false, error: r.error ?? "Gagal mengirim." };
+}
+
+/** The owner sent this message by hand (wa.me): record it so the queue is clear. */
+export async function markWaSentAction(id: string): Promise<ActionResult<null>> {
+  await guard();
+  await (await getRepo()).updateWa(id, { status: "sent", provider_id: "manual", sent_at: new Date().toISOString(), error: null });
+  revalidatePath("/admin", "layout");
+  return { ok: true, data: null };
+}
+
 // ---------- System ----------
 
 export async function resolveErrorsAction(fingerprints: string[] | "all"): Promise<ActionResult<null>> {
@@ -217,6 +251,7 @@ export async function runStandingOrdersAction(date: string): Promise<ActionResul
   await guard();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Tanggal tidak valid." };
   const out = await runStandingOrders(await getRepo(), date);
+  for (const o of out) if (o.status === "placed" && o.order_id) await notify(o.order_id, "standing", { missing: o.missing });
   revalidatePath("/admin/rutin");
   revalidatePath("/admin/pesanan");
   return { ok: true, data: out };

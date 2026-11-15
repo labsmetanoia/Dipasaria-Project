@@ -201,7 +201,7 @@ Complexity: **S** = up to 2 days · **M** = 3–7 days · **L** = 2+ weeks. Cost
 
 | # | Feature | Business value | Functional requirements | Complexity | Running cost |
 |---|---|---|---|---|---|
-| R7 | **Automated WhatsApp notifications** (WhatsApp Business Platform) | Cuts manual messaging at 05:00. Customers get the final invoice, "on the way" and "delivered" updates automatically. | Approved templates for: order received, final invoice after weighing (with payment link), out for delivery, unpaid reminder. Opt-out respected. | M | Per conversation (utility rates in Indonesia are low; roughly Rp300–500 each) |
+| R7 ✅ | **Automated WhatsApp notifications** (WhatsApp Business Platform) | Cuts manual messaging at 05:00. Customers get the final invoice, "on the way" and "delivered" updates automatically. | Approved templates for: order received, final invoice after weighing (with payment link), out for delivery, unpaid reminder. Opt-out respected. | M | Per conversation (utility rates in Indonesia are low; roughly Rp300–500 each) |
 | R8 | **Household customer accounts** (WhatsApp OTP login) | Repeat purchase: saved addresses, order history, one-tap reorder (already loved by B2B) | OTP via WhatsApp template; addresses book; order history; reorder; consent to marketing | M | OTP message cost |
 | R9 | **B2B invoicing and receivables** | Restaurants on payment terms need proper invoices; you need to see who owes what | Monthly statement PDF per account; aging report (0–30 / 31–60 / 60+); credit limit blocking new orders when overdue; optional e-Faktur fields | M | Rp 0 |
 | R10 | **Inventory movements and shrinkage** | Fresh seafood loses weight and spoils. Knowing the real margin per SKU drives buying decisions. | Stock in (dawn purchase with cost), stock out (orders), adjustments (waste, drip loss) with reason; shrinkage % report per product | M | Rp 0 |
@@ -390,3 +390,40 @@ The real Midtrans adapter, run against a local stand-in of the Midtrans API (20 
 Main end-to-end suite: 49 checks pass, including the demo-gateway payment.
 
 **Not yet verified.** The live Midtrans sandbox could not be reached from the build environment. So the first real step is the sandbox test order in the README setup. Midtrans field names were confirmed from Midtrans' documentation via search; the adapter reads the status API defensively.
+
+---
+
+## 11. Implemented after approval: R7, automatic WhatsApp notifications, plus a deployment self-check
+
+**Self-check.** Production refused to run on unsafe settings (§3.5, S3). On the live preview, that showed a generic "Something went wrong" page. The root layout now checks the settings first and shows a **setup page** listing exactly what is missing. It names variables only, never values. The cases it covers:
+- no database chosen;
+- a missing or example `SESSION_SECRET`;
+- a missing demo admin password;
+- a missing Supabase anon key;
+- Supabase unreachable;
+- a database missing the tables from migrations 004–006.
+
+**WhatsApp.**
+
+| Part | Behaviour |
+|---|---|
+| **Channel** | Official WhatsApp Cloud API: `POST /v26.0/<phone-number-id>/messages`, `type: template`, Utility templates in Indonesian. The 7 templates, with sample values, are in `docs/whatsapp-templates.md`. |
+| **Events** | Order received, final invoice after weighing, payment received, out for delivery, payment reminder 30 minutes before the deadline, cancellation with the reason, and standing order placed. Each can be switched off in Pengaturan. |
+| **Consent** | A checkbox at checkout (stored as `orders.wa_opt_in`); customers who untick it get nothing. |
+| **Outbox** | `wa_messages`, unique per (order, event, dedupe), so an event is never sent twice. A corrected invoice uses the new amount as its dedupe key. Sending claims the row atomically ("sending"), so two processes cannot send the same message. This was found and fixed during testing. |
+| **Failures** | Temporary errors (429, 5xx) are retried by the sweep, up to 3 times within 24 hours. Permanent errors, such as a template not yet approved, stop, appear in Pesan WA with the error, and alert the owner. "Kirim ulang" resends. |
+| **Without API keys** | Messages are prepared in Pesan WA. One tap opens WhatsApp with the text and records it as sent by hand. |
+| **Timing** | Sent after the response (`after()`), so checkout and admin actions stay fast. |
+
+**Tests**
+- SQL section 19: de-duplication, corrected invoice, opt-out stored, default events.
+- `scripts/test-whatsapp.cjs`, against a local Cloud API stand-in, 15 checks pass:
+  - **Request shape:** exact endpoint, Bearer token, template, language, 5 parameters, clean parameter text.
+  - **One send per event:** exactly one order-received message.
+  - **Opt-out:** respected.
+  - **Payment:** a confirmed payment sends a message.
+  - **Retries:** a temporary error is retried and delivered; a permanent error is not retried, appears in Pesan WA, and "Kirim ulang" delivers it.
+  - **System page:** shows the API.
+- Main E2E: 54 checks pass, including manual sending from Pesan WA.
+
+**Not yet verified.** Meta's live API could not be reached from the build environment, so the first real send happens when you set the token. Template approval is Meta's process.

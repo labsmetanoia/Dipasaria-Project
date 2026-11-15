@@ -3,6 +3,7 @@
 // on checkout (frees slots and stock for the next customer), order lookups and back-office visits.
 import { getRepo } from "./data";
 import { reportError } from "./monitor";
+import { flushOutbox, notify, sweepReminders } from "./notify/service";
 
 let lastRun = 0;
 
@@ -10,10 +11,19 @@ let lastRun = 0;
 export async function expireIfDue(force = false): Promise<number> {
   if (!force && Date.now() - lastRun < 60_000) return 0;
   lastRun = Date.now();
+  let n = 0;
   try {
-    return await (await getRepo()).expireUnpaidOrders();
+    const repo = await getRepo();
+    const due = await repo.listOrdersPastPayBy();
+    n = await repo.expireUnpaidOrders();
+    for (const o of due) {
+      const now = await repo.getOrder(o.id);
+      if (now?.status === "cancelled") await notify(now, "cancelled", { reason: "pembayaran belum kami terima sampai batas waktu" });
+    }
+    await sweepReminders(30);
+    await flushOutbox(20);
   } catch (e) {
     await reportError("job", e, { path: "expire_unpaid_orders" });
-    return 0;
   }
+  return n;
 }

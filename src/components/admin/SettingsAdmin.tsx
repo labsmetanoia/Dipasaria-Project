@@ -1,10 +1,12 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Check, Loader2, Plus } from "lucide-react";
-import type { DeliveryArea, DeliverySlot, Settings } from "@/lib/types";
+import type { DeliveryArea, DeliverySlot, Settings, WaKind } from "@/lib/types";
 import { updateSettingsAction, upsertAreaAction, upsertSlotAction } from "@/actions/admin";
 import { Field } from "@/components/ui";
 
+
+const WA_EVENT_LIST: Array<[WaKind, string]> = [["received", "Pesanan diterima"], ["invoice", "Tagihan akhir setelah ditimbang"], ["paid", "Pembayaran diterima"], ["delivering", "Dalam pengiriman"], ["reminder", "Pengingat pembayaran (30 menit sebelum batas)"], ["cancelled", "Pesanan dibatalkan"], ["standing", "Pesanan rutin dibuat (restoran)"]];
 export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[] }) {
   const [s, setS] = useState(initial);
   const [areas, setAreas] = useState(a0);
@@ -51,6 +53,15 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
           <Field label="Gratis ongkos kirim bisnis mulai"><input className="input" value={s.free_delivery_business} onChange={(e) => set("free_delivery_business", num(e.target.value))} /></Field>
           <Field label="Cadangan pembelian ikan segar (%)" hint="Rencana bisnis: mulai 5%, sesuaikan dengan data susut Gate A."><input className="input" type="number" value={s.catch_weight_buffer_pct} onChange={(e) => set("catch_weight_buffer_pct", Number(e.target.value))} /></Field>
         </div>
+        <fieldset className="border border-line p-3">
+          <legend className="px-1 text-sm font-semibold">Pesan WhatsApp otomatis ke pelanggan</legend>
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {WA_EVENT_LIST.map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-ocean-950" checked={(s.wa_events ?? []).includes(k)} onChange={(e) => set("wa_events", e.target.checked ? [...new Set([...(s.wa_events ?? []), k])] : (s.wa_events ?? []).filter((x) => x !== k))} />{label}</label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-mute">Hanya untuk pelanggan yang setuju menerima kabar di checkout. Tanpa API WhatsApp, pesan menunggu di menu Pesan WA untuk dikirim dengan satu ketukan.</p>
+        </fieldset>
         {err && <p className="text-sm text-gold-ink">{err}</p>}
         <button onClick={save} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <><Check className="h-4 w-4" /> Tersimpan</> : "Simpan pengaturan"}</button>
       </div>

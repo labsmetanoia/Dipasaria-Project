@@ -68,7 +68,7 @@ export function validateStanding(input: StandingOrderInput, account: BusinessAcc
 }
 
 /** `note` lists items left out because they were unavailable that night; the rest of the order was still placed. */
-export interface RunOutcome { standing_order_id: string; account_name: string; status: "placed" | "skipped" | "failed" | "already"; order_code?: string; error?: string; note?: string }
+export interface RunOutcome { standing_order_id: string; account_name: string; status: "placed" | "skipped" | "failed" | "already"; order_id?: string; order_code?: string; error?: string; note?: string; missing?: string[] }
 
 /**
  * Turn every standing order due on `date` into a real order. Idempotent: a run is claimed per (standing order, date)
@@ -157,7 +157,7 @@ async function runOne(repo: Repo, so: StandingOrder, date: string, ctx: RunConte
     const note = missing.length ? missing.join(" ") : undefined;
     if (res.ok) {
       await repo.finishStandingRun(run.id, { order_id: res.data.id, order_code: res.data.code, note: note ?? null });
-      out.push({ standing_order_id: so.id, account_name: name, status: "placed", order_code: res.data.code, note });
+      out.push({ standing_order_id: so.id, account_name: name, status: "placed", order_id: res.data.id, order_code: res.data.code, note, missing });
     } else {
       const error = missing.length && !res.error.startsWith("Semua produk") ? `${res.error} (Tidak tersedia: ${missing.join(" ")})` : res.error;
       await repo.finishStandingRun(run.id, { error, note: note ?? null });

@@ -18,7 +18,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. `npm run dev` always allows demo mode. A production build (`npm run build && npm start`) refuses to start without Supabase unless you set `DEMO_MODE=1`, and needs a real `SESSION_SECRET` (16+ characters, not the example value) and `DEMO_ADMIN_PASSWORD`. Without Supabase credentials the app runs on an in-memory copy of the seed catalogue with four example orders for tomorrow. Data resets when the server restarts.
+Open http://localhost:3000. `npm run dev` always allows demo mode. On a deployment with a missing or unsafe setting, every page shows a **setup page** that names the exact variable to fix (names only, never values), instead of an error. A production build (`npm run build && npm start`) refuses to start without Supabase unless you set `DEMO_MODE=1`, and needs a real `SESSION_SECRET` (16+ characters, not the example value) and `DEMO_ADMIN_PASSWORD`. Without Supabase credentials the app runs on an in-memory copy of the seed catalogue with four example orders for tomorrow. Data resets when the server restarts.
 
 - Storefront: http://localhost:3000/belanja
 - Restaurant login: phone `081200000001`, code `BHR123` (or `081200000002` / `MNG456`)
@@ -26,7 +26,7 @@ Open http://localhost:3000. `npm run dev` always allows demo mode. A production 
 
 ## Go live on Supabase + Vercel (about two hours)
 
-1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`.)
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`; `007_whatsapp_notifications.sql` adds WhatsApp opt-in and settings.)
 2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
 3. **Example accounts**: `seed.sql` no longer creates them. On a project seeded before November 2026, migration 004 suspends them; you can also delete them: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
 4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`; generate secrets with `openssl rand -hex 32`). The server refuses to start in production if Supabase or `SESSION_SECRET` is missing, so a typo cannot silently put the shop into demo mode. Deploy, connect your domain. `vercel.json` schedules the standing-order job daily at 19.45 WIB; Vercel sends `CRON_SECRET` with each call.
@@ -45,6 +45,36 @@ All four pieces work without a paid service. **Back-office → Sistem** shows wh
 | **Unpaid orders expire** | A household order paid by transfer or QRIS with a known total must be paid within **Pengaturan → Batas waktu pembayaran** (default 120 minutes, and never later than midnight before the delivery day). Otherwise it is cancelled, and its stock, delivery slot and promo use are released. The customer sees the deadline on the tracking page. The admin can send a WhatsApp reminder, add 2 hours or switch it off per order. Orders with weighed items, restaurant accounts, COD and payment terms are never cancelled automatically. | Runs by itself on every checkout, order lookup and back-office visit. To make it punctual overnight, either enable pg_cron in Supabase and run `select cron.schedule('expire-unpaid-orders', '*/10 * * * *', 'select expire_unpaid_orders()');`, or call `GET /api/cron/expire-unpaid` with `Authorization: Bearer $CRON_SECRET` every 10 minutes from cron-job.org. Vercel Hobby runs cron only daily. |
 | **Error monitoring** | Server errors, crashed customer screens and failed standing orders are grouped on **Sistem**, with a count and technical detail. The dashboard shows a red banner while any are unresolved. A new error is pushed to your phone. | Telegram: message @BotFather → `/newbot` → copy the token; send your bot a message, open `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy `chat.id`. Set `ALERT_WEBHOOK_URL=https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>`. Slack and Discord webhooks work too. |
 | **Uptime** | `GET /api/health` answers 200 while the app and the database are up, and 503 otherwise. | UptimeRobot (free): add an HTTP monitor for `https://<your-domain>/api/health` every 5 minutes, with alerts to email or Telegram. |
+
+**Automatic WhatsApp messages to customers:**
+
+*Messages and when they go out*
+- **Pesanan diterima:** at checkout.
+- **Tagihan akhir:** after the dawn weigh-in, with the final amount and how to pay. A corrected amount sends a corrected invoice.
+- **Pembayaran diterima:** when payment is confirmed.
+- **Dalam pengiriman:** when the order goes out for delivery.
+- **Pengingat bayar:** 30 minutes before an unpaid order's deadline.
+- **Pesanan dibatalkan:** with the reason.
+- **Pesanan rutin dibuat:** for restaurants, naming any item left out that night.
+
+*Rules*
+- Customers can untick updates at checkout, and each message type can be switched off in Pengaturan.
+- Each message is written once to an outbox (`wa_messages`), so nothing is sent twice. Failed sends are retried by the background sweep.
+- Every message, with its status, appears on the order page and in **Back-office → Pesan WA**.
+
+*Without the API (works today)*
+- Messages wait in Pesan WA, prepared with the customer's name, amount and tracking link.
+- Tap **Kirim via WhatsApp**, then press send in WhatsApp.
+
+*With the API (WhatsApp Cloud API by Meta, the official channel)*
+1. In Meta Business Suite, add a WhatsApp Business Account and register a phone number. It must not be in use in the WhatsApp app; a new number is simplest.
+2. Create a System User with a permanent token (permission `whatsapp_business_messaging`).
+3. Set `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`.
+4. Create the 7 templates in `docs/whatsapp-templates.md` (Utility, Indonesian) and wait for approval.
+
+*Cost*
+- Meta charges per utility template, roughly Rp300–500 each in Indonesia; check Meta's rate card.
+- Utility templates are free while the customer has messaged you within the last 24 hours.
 
 **QRIS with automatic confirmation (Midtrans):**
 
@@ -132,6 +162,7 @@ Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette 
 | --- | --- |
 | `npm run dev` / `npm run build` / `npm start` | Next.js |
 | `npm run typecheck` | TypeScript |
+| `node scripts/test-whatsapp.cjs` | WhatsApp notifications against a local Cloud API stand-in (see the file header) |
 | `node scripts/test-midtrans.cjs` | QRIS gateway test against a local Midtrans stand-in (see the header of the file for how to start the app) |
 | `npm run test:sql` | Loads schema + seed into a local PostgreSQL and runs `scripts/sql-tests.sql` (needs `psql`; set `PGHOST`/`PGPORT`/`PGUSER`) |
 | `node scripts/gen-seed.mts` | Regenerates `supabase/seed.sql` from `src/lib/data/seed.ts` |

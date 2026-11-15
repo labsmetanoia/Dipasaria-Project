@@ -5,6 +5,7 @@ import type {
   AppError,
   GatewayOutcome,
   Payment,
+  WaMessage,
   JobRun,
   AccountApplication,
   BusinessAccount,
@@ -181,10 +182,11 @@ function getStore(): Store {
 }
 
 // Kept on globalThis like the store: Next.js may load this module once per route bundle, and these must be shared.
-const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[] } };
-g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [] };
+const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[] } };
+g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [], wa: [] };
 g.__dpMem.payments ??= [];
-const { loginFailures, rateHits, errorLog, jobs, payments } = g.__dpMem;
+g.__dpMem.wa ??= [];
+const { loginFailures, rateHits, errorLog, jobs, payments, wa } = g.__dpMem;
 const cancelOpenPayments = (orderId: string) => { for (const p of payments) if (p.order_id === orderId && p.status === "pending") p.status = "cancelled"; };
 const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 
@@ -352,6 +354,7 @@ export const memoryRepo: Repo = {
       promo_value: q.promo?.value ?? null,
       client_ref: ref || null,
       pay_by: null,
+      wa_opt_in: input.wa_opt_in !== false,
       customer_note: input.customer_note?.trim() ?? "",
       internal_note: "",
       created_at: created,
@@ -846,5 +849,46 @@ export const memoryRepo: Repo = {
     o.payment_status = "paid"; o.pay_by = null;
     o.history.push({ status: "paid", at: new Date().toISOString(), note: "QRIS otomatis" });
     return "paid";
+  },
+
+  async enqueueWa(m) {
+    if (wa.some((x) => x.order_id === m.order_id && x.kind === m.kind && x.dedupe === m.dedupe)) return null;
+    const row: WaMessage = { ...m, provider_id: null, error: null, attempts: 0, created_at: new Date().toISOString(), sent_at: null };
+    wa.push(row);
+    return clone(row);
+  },
+  async claimWa(id, attempts) {
+    const row = wa.find((x) => x.id === id);
+    const stuck = row?.status === "sending" && Date.parse(row.sent_at ?? row.created_at) < Date.now() - 300_000;
+    if (!row || row.attempts !== attempts || !(row.status === "queued" || row.status === "failed" || stuck)) return false;
+    Object.assign(row, { status: "sending", attempts: attempts + 1, sent_at: new Date().toISOString() });
+    return true;
+  },
+  async updateWa(id, patch) {
+    const row = wa.find((x) => x.id === id);
+    if (row) Object.assign(row, patch);
+  },
+  async listWa(orderId) {
+    return clone(wa.filter((x) => x.order_id === orderId).sort((a, b) => a.created_at.localeCompare(b.created_at)));
+  },
+  async listWaRecent(limit, statuses) {
+    return clone(wa.filter((x) => !statuses || statuses.includes(x.status)).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit));
+  },
+  async getWa(id) {
+    const row = wa.find((x) => x.id === id);
+    return row ? clone(row) : null;
+  },
+  async listWaPending(limit) {
+    const since = Date.now() - 86400_000;
+    const stuck = Date.now() - 300_000;
+    return clone(wa.filter((x) => (x.status === "queued" || (x.status === "failed" && x.attempts < 3) || (x.status === "sending" && Date.parse(x.sent_at ?? x.created_at) < stuck)) && Date.parse(x.created_at) > since).slice(0, limit));
+  },
+  async listOrdersPayBySoon(minutes) {
+    const now = Date.now(), until = now + minutes * 60_000;
+    return clone(getStore().orders.filter((o) => o.pay_by && Date.parse(o.pay_by) > now && Date.parse(o.pay_by) <= until && o.payment_status === "unpaid" && (o.status === "new" || o.status === "confirmed")));
+  },
+  async listOrdersPastPayBy() {
+    const now = Date.now();
+    return clone(getStore().orders.filter((o) => o.pay_by && Date.parse(o.pay_by) < now && o.payment_status === "unpaid" && (o.status === "new" || o.status === "confirmed")));
   },
 };

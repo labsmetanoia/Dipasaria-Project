@@ -29,6 +29,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
 
  const [name, setName] = useState("");
  const [phone, setPhone] = useState("");
+ const [waOptIn, setWaOptIn] = useState(true);
  const [address, setAddress] = useState("");
  const [maps, setMaps] = useState("");
  const [areaId, setAreaId] = useState("");
@@ -95,7 +96,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  submitting.current = true;
  setError(null);
  start(async () => {
- const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current }, { turnstileToken: tsToken });
+ const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current, wa_opt_in: waOptIn }, { turnstileToken: tsToken });
  if (!r.ok) { submitting.current = false; setError(r.error); setTsReset((n) => n + 1); return; }
  if (!account) saveCustomer({ name, phone, address, area_id: areaId, maps_url: maps });
  rememberOrder({ code: r.data.code, phone: r.data.phone, at: new Date().toISOString() });
@@ -131,6 +132,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
                 <Field label={segment === "business" ? t.checkout.businessName : t.checkout.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>
                 <Field label={t.checkout.phone} hint={t.checkout.phoneHint}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xx xxxx xxxx" autoComplete="tel" disabled={Boolean(account)} /></Field>
               </div>
+              <label className="mt-3 flex items-start gap-2 text-sm text-ink/80"><input type="checkbox" checked={waOptIn} onChange={(e) => setWaOptIn(e.target.checked)} className="mt-0.5 accent-ocean-950" />{t.checkout.waOptIn}</label>
             </section>
             <section className="card p-5">
               <h2 className="text-lg text-ocean-950">{t.checkout.address}</h2>

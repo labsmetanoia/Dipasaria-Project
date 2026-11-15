@@ -2,7 +2,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2, MessageCircle, Scale, XCircle, ExternalLink, Save } from "lucide-react";
-import type { Order, OrderStatus, Payment, Settings } from "@/lib/types";
+import type { Order, OrderStatus, Payment, Settings, WaMessage } from "@/lib/types";
+import { WaList } from "./WaList";
 import { setOrderStatusAction, setPaymentStatusAction, weighOrderAction, updateInternalNoteAction, setOrderPayByAction, syncPaymentsAction } from "@/actions/admin";
 import { useRouter } from "next/navigation";
 import { msgFinalInvoice, msgOrderConfirmed, msgOutForDelivery, waTo } from "@/lib/wa";
@@ -13,7 +14,7 @@ import { FLOW, nextStatuses, parseWeight, paymentChangeError, safeMapsUrl, weigh
 
 const PAY_LABEL: Record<Payment["status"], string> = { pending: "menunggu", paid: "dibayar", expired: "kedaluwarsa", failed: "gagal", cancelled: "dibatalkan" };
 
-export function OrderAdmin({ order: initial, settings, accountTerms, payments = [] }: { order: Order; settings: Settings; accountTerms?: string; payments?: Payment[] }) {
+export function OrderAdmin({ order: initial, settings, accountTerms, payments = [], wa = [], waApi = false }: { order: Order; settings: Settings; accountTerms?: string; payments?: Payment[]; wa?: WaMessage[]; waApi?: boolean }) {
   const [order, setOrder] = useState(initial);
   const [weights, setWeights] = useState<Record<string, string>>(() => Object.fromEntries(order.items.filter((i) => i.is_catch_weight).map((i) => [i.id, i.qty_final === null ? "" : String(i.qty_final).replace(".", ",")])));
   const [note, setNote] = useState(order.internal_note);
@@ -154,6 +155,11 @@ export function OrderAdmin({ order: initial, settings, accountTerms, payments = 
               </div>
             )}
             <p className="mt-2 text-xs text-mute">{payments.some((p) => p.status === "paid") ? "Pembayaran QRIS dikonfirmasi otomatis oleh gateway: tidak perlu dicek manual." : "Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar."}</p>
+          </div>
+          <div className="card p-4">
+            <h2 className="text-ocean-900">Pesan WhatsApp otomatis</h2>
+            {order.wa_opt_in === false && <p className="mt-1 text-xs text-mute">Pelanggan memilih tidak menerima kabar otomatis.</p>}
+            <div className="mt-2"><WaList messages={wa} apiEnabled={waApi} empty="Belum ada pesan untuk pesanan ini." /></div>
           </div>
           <div className="card p-4">
             <h2 className="text-ocean-900">Catatan internal</h2>

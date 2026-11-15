@@ -3,6 +3,7 @@ import type {
   AppError,
   GatewayOutcome,
   Payment,
+  WaMessage,
   JobRun,
   BuyingLine,
   BusinessAccount,
@@ -135,4 +136,21 @@ export interface Repo {
   getPayment(id: string): Promise<Payment | null>;
   /** Record a result the server has verified with the gateway; marks the order paid when the amount matches. */
   recordGatewayPayment(id: string, status: Payment["status"], amount: number | null, raw: unknown): Promise<GatewayOutcome>;
+
+  // WhatsApp outbox
+  /** Insert a message; null if this (order, kind, dedupe) was already queued or sent. */
+  enqueueWa(m: Pick<WaMessage, "id" | "order_id" | "kind" | "dedupe" | "phone" | "template" | "params" | "body" | "status">): Promise<WaMessage | null>;
+  /** Atomically take a queued/failed message (or one stuck in "sending" for 5+ minutes) for sending; false if another process has it. */
+  claimWa(id: string, attempts: number): Promise<boolean>;
+  updateWa(id: string, patch: Partial<Pick<WaMessage, "status" | "provider_id" | "error" | "attempts" | "sent_at">>): Promise<void>;
+  listWa(orderId: string): Promise<WaMessage[]>;
+  /** Newest messages across orders, optionally only some statuses (back-office queue). */
+  listWaRecent(limit: number, statuses?: WaMessage["status"][]): Promise<WaMessage[]>;
+  getWa(id: string): Promise<WaMessage | null>;
+  /** Messages to (re)try: queued, failed fewer than 3 times, or stuck sending; created in the last 24 hours. */
+  listWaPending(limit: number): Promise<WaMessage[]>;
+  /** Unpaid orders whose payment deadline falls within the next `minutes` (for reminders). */
+  listOrdersPayBySoon(minutes: number): Promise<Order[]>;
+  /** Unpaid orders already past their payment deadline (about to be cancelled automatically). */
+  listOrdersPastPayBy(): Promise<Order[]>;
 }

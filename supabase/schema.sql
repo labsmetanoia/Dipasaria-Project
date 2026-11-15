@@ -64,7 +64,9 @@ create table if not exists settings (
   hero_image_url text,
   about_image_url text,
   -- minutes a household transfer/QRIS order with a known total has to be paid before it is cancelled automatically (0 = never)
-  payment_window_minutes int not null default 120 check (payment_window_minutes between 0 and 10080)
+  payment_window_minutes int not null default 120 check (payment_window_minutes between 0 and 10080),
+  -- which automatic WhatsApp messages are sent to customers
+  wa_events text[] not null default array['received','invoice','paid','delivering','reminder','cancelled','standing']
 );
 
 create table if not exists categories (
@@ -230,7 +232,9 @@ create table if not exists orders (
   promo_type text,
   promo_value numeric,
   -- unpaid by this time → cancelled automatically by expire_unpaid_orders(); null = never (weighed orders, accounts, COD, terms)
-  pay_by timestamptz
+  pay_by timestamptz,
+  -- the customer agreed at checkout to receive order updates on WhatsApp
+  wa_opt_in boolean not null default true
 );
 create index if not exists orders_pay_by_idx on orders(pay_by) where payment_status = 'unpaid';
 
@@ -252,6 +256,27 @@ create table if not exists payments (
   raw jsonb
 );
 create index if not exists payments_order_idx on payments(order_id, created_at desc);
+
+-- Outbox of automatic WhatsApp messages to customers. One row per (order, kind, dedupe), so a message is never sent
+-- twice; `body` is the text as the customer reads it (also used for sending by hand when the API is not set up).
+create table if not exists wa_messages (
+  id text primary key,
+  order_id text not null references orders(id) on delete cascade,
+  kind text not null check (kind in ('received','invoice','paid','delivering','reminder','cancelled','standing')),
+  dedupe text not null default '',
+  phone text not null,
+  template text not null,
+  params jsonb not null default '[]'::jsonb,
+  body text not null,
+  status text not null default 'queued' check (status in ('queued','sending','sent','failed','manual','skipped')),
+  provider_id text,
+  error text,
+  attempts int not null default 0,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz,
+  unique (order_id, kind, dedupe)
+);
+create index if not exists wa_messages_pending_idx on wa_messages(status, created_at) where status in ('queued','sending','failed');
 
 create index if not exists orders_delivery_idx on orders(delivery_date, slot_id);
 create index if not exists orders_phone_idx on orders(phone);
@@ -366,7 +391,7 @@ $$;
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -475,10 +500,10 @@ begin
     exit when not exists (select 1 from orders where orders.code = v_code);
   end loop;
   insert into orders (id, code, segment, account_id, customer_name, phone, address, area_id, area_name, maps_url, delivery_date,
-    slot_id, slot_label, payment_method, payment_status, status, customer_note, history, client_ref)
+    slot_id, slot_label, payment_method, payment_status, status, customer_note, history, client_ref, wa_opt_in)
   values (oid, v_code, seg, acc.id, trim(p->>'customer_name'), v_phone, trim(p->>'address'), area.id, area.name, v_maps, d,
     slot.id, slot.label || ' ' || replace(slot.start_time, ':', '.') || '–' || replace(slot.end_time, ':', '.'), pm, 'unpaid', 'new', coalesce(trim(p->>'customer_note'), ''),
-    jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())), v_ref);
+    jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())), v_ref, coalesce(p->>'wa_opt_in', 'true') <> 'false');
 
   -- lines
   for line in select * from jsonb_array_elements(p->'lines') loop

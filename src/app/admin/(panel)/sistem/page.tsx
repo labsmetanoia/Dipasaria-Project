@@ -5,6 +5,7 @@ import { formatDateTime } from "@/lib/format";
 import { turnstileEnabled } from "@/lib/guard";
 import { SystemActions, ResolveButton } from "@/components/admin/SystemActions";
 import { getGateway } from "@/lib/payments/gateway";
+import { waApiEnabled } from "@/lib/notify/service";
 
 export const metadata = { title: "Sistem" };
 
@@ -30,6 +31,7 @@ export default async function SystemPage() {
     { label: "Rekening bank", ok: bankPlaceholder ? false : true, detail: bankPlaceholder ? "Masih contoh (0000000000). Ganti di Pengaturan sebelum menerima pesanan" : `${settings.bank_name} ${settings.bank_account}` },
     { label: "QRIS", ok: settings.qris_image_url ? true : "warn", detail: settings.qris_image_url ? "Gambar QRIS diatur" : "Belum ada gambar QRIS; pelanggan QRIS hanya melihat petunjuk" },
     { label: "QRIS otomatis", ok: getGateway()?.name === "midtrans" ? true : "warn", detail: getGateway()?.name === "midtrans" ? `${getGateway()!.label}: QR sesuai nominal, lunas otomatis. URL notifikasi: ${SITE_URL}/api/payments/midtrans` : getGateway() ? "Gateway demo aktif (tanpa uang sungguhan). Isi MIDTRANS_SERVER_KEY untuk pembayaran nyata" : "Belum diatur: pelanggan QRIS memakai gambar QRIS statis dan konfirmasi manual. Isi MIDTRANS_SERVER_KEY" },
+    { label: "WhatsApp otomatis ke pelanggan", ok: waApiEnabled() ? true : "warn", detail: waApiEnabled() ? "WhatsApp Cloud API aktif: pesan terkirim otomatis (lihat menu Pesan WA)" : "Belum diatur: pesan disiapkan di menu Pesan WA untuk dikirim manual. Isi WHATSAPP_TOKEN dan WHATSAPP_PHONE_NUMBER_ID" },
     { label: "Batas waktu pembayaran", ok: true, detail: settings.payment_window_minutes > 0 ? `${settings.payment_window_minutes} menit untuk pesanan rumah tangga transfer/QRIS` : "Nonaktif (0): pesanan belum dibayar tidak dibatalkan otomatis" },
   ];
   const tone = (ok: Check["ok"]) => (ok === true ? "bg-success-50 text-success-600" : ok === "warn" ? "bg-warn-50 text-warn-600" : "bg-coral-50 text-gold-ink");

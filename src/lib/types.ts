@@ -34,6 +34,8 @@ export interface Settings {
   about_image_url: string | null;
   /** Minutes a household transfer/QRIS order with a known total has to be paid before automatic cancellation (0 = never). */
   payment_window_minutes: number;
+  /** Automatic WhatsApp messages that are switched on. */
+  wa_events: WaKind[];
 }
 
 export interface Category {
@@ -217,6 +219,8 @@ export interface Order {
   client_ref?: string | null;
   /** Unpaid by this time → cancelled automatically (null = never). */
   pay_by?: string | null;
+  /** Customer agreed to order updates on WhatsApp (default true). */
+  wa_opt_in?: boolean;
   customer_note: string;
   internal_note: string;
   created_at: string;
@@ -247,6 +251,8 @@ export interface PlaceOrderInput {
   customer_note?: string;
   /** idempotency key from the checkout page: retries and double taps return the same order */
   client_ref?: string;
+  /** consent to automatic order updates on WhatsApp */
+  wa_opt_in?: boolean;
 }
 
 export interface Quote {
@@ -382,3 +388,24 @@ export interface Payment {
 
 /** What recording a verified gateway result did to the order. */
 export type GatewayOutcome = "paid" | "mismatch" | "late" | "duplicate" | "updated" | "noop";
+
+export type WaKind = "received" | "invoice" | "paid" | "delivering" | "reminder" | "cancelled" | "standing";
+
+/** One automatic WhatsApp message to a customer (outbox row). */
+export interface WaMessage {
+  id: string;
+  order_id: string;
+  kind: WaKind;
+  dedupe: string;
+  phone: string;
+  template: string;
+  params: string[];
+  body: string;
+  /** "sending" = claimed by one process while the API call is in flight (prevents double sends). */
+  status: "queued" | "sending" | "sent" | "failed" | "manual" | "skipped";
+  provider_id: string | null;
+  error: string | null;
+  attempts: number;
+  created_at: string;
+  sent_at: string | null;
+}

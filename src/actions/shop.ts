@@ -12,6 +12,8 @@ import { revalidatePath } from "next/cache";
 import { allow, clientIp, NOT_HUMAN, TOO_MANY, verifyHuman } from "@/lib/guard";
 import { reportError } from "@/lib/monitor";
 import { expireIfDue } from "@/lib/expiry";
+import { after } from "next/server";
+import { notify } from "@/lib/notify/service";
 import { normalizePhone } from "@/lib/format";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -46,6 +48,7 @@ export async function placeOrderAction(input: PlaceOrderInput, opts?: { turnstil
   await expireIfDue(); // frees slots and stock held by orders that were never paid
   try {
     const r = await repo.placeOrder(input, account);
+    if (r.ok) { const order = r.data; after(() => notify(order, "received")); } // sent after the response: checkout stays fast
     return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
   } catch (e) {
     await reportError("action", e, { path: "/checkout (placeOrder)" });

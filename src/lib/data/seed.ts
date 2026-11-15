@@ -36,6 +36,7 @@ export const seedSettings: Settings = {
   announcement_en: null,
   hero_image_url: null,
   payment_window_minutes: 120,
+  wa_events: ["received", "invoice", "paid", "delivering", "reminder", "cancelled", "standing"],
   about_image_url: null,
 };
 

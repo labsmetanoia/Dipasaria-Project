@@ -6,6 +6,7 @@ import type {
   AppError,
   GatewayOutcome,
   Payment,
+  WaMessage,
   BusinessAccount,
   BuyingLine,
   DailySummary,
@@ -161,6 +162,7 @@ function mapOrder(r: Row): Order {
     has_catch_weight: Boolean(r.has_catch_weight),
     weighed_at: (r.weighed_at as string | null) ?? null,
     pay_by: (r.pay_by as string | null) ?? null,
+    wa_opt_in: r.wa_opt_in !== false,
     promo_code: (r.promo_code as string | null) ?? null,
     customer_note: (r.customer_note as string) ?? "",
     internal_note: (r.internal_note as string) ?? "",
@@ -648,7 +650,72 @@ export const supabaseRepo: Repo = {
     if (error) throw new Error(msg(error));
     return data as GatewayOutcome;
   },
+
+  async enqueueWa(m) {
+    const { data, error } = await sb().from("wa_messages").insert({ ...m }).select("*").maybeSingle();
+    if (error) {
+      if ((error as { code?: string }).code === "23505") return null; // already queued or sent
+      throw error;
+    }
+    return data ? mapWa(data as Row) : null;
+  },
+  async claimWa(id, attempts) {
+    const stuck = new Date(Date.now() - 300_000).toISOString();
+    const { data, error } = await sb().from("wa_messages").update({ status: "sending", attempts: attempts + 1, sent_at: new Date().toISOString() })
+      .eq("id", id).eq("attempts", attempts).or(`status.in.(queued,failed),and(status.eq.sending,sent_at.lt.${stuck})`).select("id");
+    if (error) throw error;
+    return (data ?? []).length === 1;
+  },
+  async updateWa(id, patch) {
+    const { error } = await sb().from("wa_messages").update(patch).eq("id", id);
+    if (error) throw error;
+  },
+  async listWa(orderId) {
+    const { data, error } = await sb().from("wa_messages").select("*").eq("order_id", orderId).order("created_at");
+    if (error) throw error;
+    return (data as Row[]).map(mapWa);
+  },
+  async listWaRecent(limit, statuses) {
+    let q = sb().from("wa_messages").select("*").order("created_at", { ascending: false }).limit(limit);
+    if (statuses?.length) q = q.in("status", statuses);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map(mapWa);
+  },
+  async getWa(id) {
+    const { data, error } = await sb().from("wa_messages").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ? mapWa(data as Row) : null;
+  },
+  async listWaPending(limit) {
+    const since = new Date(Date.now() - 86400_000).toISOString();
+    const stuck = new Date(Date.now() - 300_000).toISOString();
+    const { data, error } = await sb().from("wa_messages").select("*").or(`status.eq.queued,and(status.eq.failed,attempts.lt.3),and(status.eq.sending,sent_at.lt.${stuck})`).gt("created_at", since).order("created_at").limit(limit);
+    if (error) throw error;
+    return (data as Row[]).map(mapWa);
+  },
+  async listOrdersPayBySoon(minutes) {
+    const now = new Date();
+    const { data, error } = await sb().from("orders").select(ORDER_SELECT).eq("payment_status", "unpaid").in("status", ["new", "confirmed"])
+      .gt("pay_by", now.toISOString()).lte("pay_by", new Date(now.getTime() + minutes * 60_000).toISOString()).limit(200);
+    if (error) throw error;
+    return (data as Row[]).map(mapOrder);
+  },
+  async listOrdersPastPayBy() {
+    const { data, error } = await sb().from("orders").select(ORDER_SELECT).eq("payment_status", "unpaid").in("status", ["new", "confirmed"]).lt("pay_by", new Date().toISOString()).limit(200);
+    if (error) throw error;
+    return (data as Row[]).map(mapOrder);
+  },
 };
+
+function mapWa(r: Row): WaMessage {
+  return {
+    id: String(r.id), order_id: String(r.order_id), kind: r.kind as WaMessage["kind"], dedupe: String(r.dedupe ?? ""), phone: String(r.phone),
+    template: String(r.template), params: ((r.params as unknown[]) ?? []).map(String), body: String(r.body), status: r.status as WaMessage["status"],
+    provider_id: (r.provider_id as string | null) ?? null, error: (r.error as string | null) ?? null, attempts: num(r.attempts),
+    created_at: String(r.created_at), sent_at: (r.sent_at as string | null) ?? null,
+  };
+}
 
 function mapPayment(r: Row): Payment {
   return {

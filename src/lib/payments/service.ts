@@ -7,6 +7,7 @@ import { getRepo } from "../data";
 import { getGateway } from "./gateway";
 import { alert, reportError } from "../monitor";
 import { rupiah } from "../format";
+import { notify } from "../notify/service";
 
 /** QR codes stay valid this long, but always end 5 minutes before the order's own payment deadline. */
 export const QR_MINUTES = 30;
@@ -76,6 +77,7 @@ export async function applyGatewayResult(payment: Payment, status: Payment["stat
   const repo = await getRepo();
   const outcome = await repo.recordGatewayPayment(payment.id, status, amount, raw);
   await followUp(outcome, payment, amount);
+  if (outcome === "paid") await notify(payment.order_id, "paid");
   return outcome;
 }
 

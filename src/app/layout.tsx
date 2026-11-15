@@ -5,6 +5,8 @@ import { RegisterSW } from "@/components/RegisterSW";
 import { ErrorReporter } from "@/components/ErrorReporter";
 import { TurnstileProvider } from "@/components/Turnstile";
 import { turnstileEnabled } from "@/lib/guard";
+import { setupProblems } from "@/lib/setup";
+import { SetupNeeded } from "@/components/SetupNeeded";
 import { LocaleProvider } from "@/lib/i18n/client";
 import { getT } from "@/lib/i18n/server";
 
@@ -35,6 +37,7 @@ const ORG_LD = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { locale, t } = await getT();
+  const problems = await setupProblems();
   return (
     <html lang={locale}>
       <head>
@@ -44,7 +47,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_LD) }} />
-        <LocaleProvider locale={locale} t={t}><TurnstileProvider siteKey={turnstileEnabled() ? process.env.TURNSTILE_SITE_KEY! : ""}>{children}</TurnstileProvider></LocaleProvider>
+        {problems.length > 0 ? <SetupNeeded problems={problems} /> : <LocaleProvider locale={locale} t={t}><TurnstileProvider siteKey={turnstileEnabled() ? process.env.TURNSTILE_SITE_KEY! : ""}>{children}</TurnstileProvider></LocaleProvider>}
         <RegisterSW />
         <ErrorReporter />
       </body>
