@@ -23,7 +23,7 @@ export function Footer({ settings, t, locale }: { settings: Settings; t: Dict; l
           </div>
         </div>
         <div className="md:col-span-2">
-          <h3 className="mb-4 font-sans text-[11px] font-bold uppercase tracking-[0.22em] text-coral-500">{en ? "Support" : "Bantuan"}</h3>
+          <h2 className="mb-4 font-sans text-[11px] font-bold uppercase tracking-[0.22em] text-coral-500">{en ? "Support" : "Bantuan"}</h2>
           <div className={col}>
             <Link className={link} href="/rumah-tangga">{en ? "How it works & FAQ" : "Cara kerja dan tanya jawab"}</Link>
             <Link className={link} href="/kontak">{t.nav.contact}</Link>
@@ -33,7 +33,7 @@ export function Footer({ settings, t, locale }: { settings: Settings; t: Dict; l
           </div>
         </div>
         <div className="md:col-span-2">
-          <h3 className="mb-4 font-sans text-[11px] font-bold uppercase tracking-[0.22em] text-coral-500">{t.nav.about}</h3>
+          <h2 className="mb-4 font-sans text-[11px] font-bold uppercase tracking-[0.22em] text-coral-500">{t.nav.about}</h2>
           <div className={col}>
             <Link className={link} href="/tentang">{t.nav.aboutStory}</Link>
             <Link className={link} href="/tentang#makna-logo">{en ? "The meaning of our mark" : "Makna logo"}</Link>
@@ -45,13 +45,13 @@ export function Footer({ settings, t, locale }: { settings: Settings; t: Dict; l
           </div>
         </div>
         <div className="md:col-span-4">
-          <h3 className="mb-2 font-sans text-[11px] font-bold uppercase tracking-[0.22em] text-coral-500">{en ? "Daily catch on WhatsApp" : "Kabar tangkapan harian"}</h3>
+          <h2 className="mb-2 font-sans text-[11px] font-bold uppercase tracking-[0.22em] text-coral-500">{en ? "Daily catch on WhatsApp" : "Kabar tangkapan harian"}</h2>
           <p className="font-sans text-[12.5px] text-white/60">{en ? "Get the morning's species, grades and prices before the 20:00 cut-off." : "Terima daftar jenis, ukuran, dan harga tangkapan hari ini sebelum batas pemesanan pukul 20.00 WIB."}</p>
           <form action={waLink(settings.whatsapp_number, en ? `Hello ${settings.store_name}, please add me to the daily catch broadcast.` : `Halo ${settings.store_name}, mohon daftarkan saya untuk menerima kabar tangkapan harian.`)} method="get" target="_blank" className="mt-4 flex border-b border-white/30">
-            <input className="w-full bg-transparent py-2 font-sans text-[13px] uppercase tracking-wider text-white placeholder:text-white/40 focus:outline-none" placeholder={en ? "Your WhatsApp number" : "Nomor WhatsApp Anda"} />
+            <input className="w-full bg-transparent py-2 font-sans text-[13px] uppercase tracking-wider text-white placeholder:text-white/60 focus:outline-none" placeholder={en ? "Your WhatsApp number" : "Nomor WhatsApp Anda"} />
             <button className="px-2 text-white/70 hover:text-coral-500" aria-label={en ? "Subscribe" : "Daftar"}><Send className="h-4 w-4" /></button>
           </form>
-          <p className="mt-6 font-sans text-[12px] text-white/50">{settings.address_line} · +{settings.whatsapp_number} · 08.00–21.00 WIB</p>
+          <p className="mt-6 font-sans text-[12px] text-white/65">{settings.address_line} · +{settings.whatsapp_number} · 08.00–21.00 WIB</p>
         </div>
       </div>
       <div className="relative overflow-hidden border-t border-white/10">
@@ -62,7 +62,7 @@ export function Footer({ settings, t, locale }: { settings: Settings; t: Dict; l
         </div>
       </div>
       <div className="border-t border-white/10">
-        <div className="container-x flex flex-col gap-1 py-4 font-sans text-[11px] uppercase tracking-[0.12em] text-white/45 sm:flex-row sm:justify-between">
+        <div className="container-x flex flex-col gap-1 py-4 font-sans text-[11px] uppercase tracking-[0.12em] text-white/65 sm:flex-row sm:justify-between">
           <p>© {new Date().getFullYear()} Dipasaria. {t.footer.rights} {en ? "Seafood-led protein supplier, Jakarta." : "Seafood lelang subuh, ayam halal, dan telur untuk dapur Jakarta."}</p>
           <p>{t.footer.note}</p>
         </div>

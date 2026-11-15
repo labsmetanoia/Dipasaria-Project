@@ -42,7 +42,7 @@ export function Header({ categories, cutoff, accountName }: { categories: Catego
             <button className="p-2" onClick={() => setOpen((v) => !v)} aria-label="Menu">{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
           </div>
           <Link href="/belanja" aria-label="Dipasaria" className="shrink-0"><span className="hidden sm:inline"><Logo dark className="h-12 w-auto" /></span><span className="sm:hidden"><Logo dark className="h-10 w-auto" /></span></Link>
-          <nav className="hidden flex-1 items-center justify-center lg:flex" onMouseLeave={() => setMega(false)}>
+          <nav aria-label={locale === "en" ? "Main" : "Utama"} className="hidden flex-1 items-center justify-center lg:flex" onMouseLeave={() => setMega(false)}>
             <div className="relative" onMouseEnter={() => setMega(true)}>
               <Link href="/belanja" className={`${navCls(active("/belanja") || active("/keranjang"))} inline-flex items-center gap-1`}>{t.common.shop} <ChevronDown className="h-3.5 w-3.5" /></Link>
               {mega && (

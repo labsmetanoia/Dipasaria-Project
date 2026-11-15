@@ -3,6 +3,7 @@ import { waLink } from "@/lib/format";
 
 export function WhatsAppFloat({ number, text, label }: { number: string; text: string; label: string }) {
  return (
+    <aside aria-label="WhatsApp">
     <a
  href={waLink(number, text)}
  target="_blank"
@@ -12,5 +13,6 @@ export function WhatsAppFloat({ number, text, label }: { number: string; text: s
     >
       <MessageCircle className="h-6 w-6" />
     </a>
+    </aside>
   );
 }

@@ -81,7 +81,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <ProductGallery images={gallery} icon={product.icon} storage={product.storage_class} alt={name} badge={product.is_catch_weight ? `± ${t.shop.weighed}` : undefined} />
           </div>
           <div className="px-5 py-8 sm:px-10 lg:px-14 lg:py-14">
-            <nav className="font-sans text-[10.5px] font-bold uppercase tracking-[0.18em] text-mute"><Link href="/belanja" className="hover:text-gold-ink">{t.common.shop}</Link> / {cat && <Link href={`/belanja/kategori/${cat.slug}`} className="hover:text-gold-ink">{catName}</Link>}</nav>
+            <nav aria-label="Breadcrumb" className="font-sans text-[10.5px] font-bold uppercase tracking-[0.18em] text-mute"><Link href="/belanja" className="hover:text-gold-ink">{t.common.shop}</Link> / {cat && <Link href={`/belanja/kategori/${cat.slug}`} className="hover:text-gold-ink">{catName}</Link>}</nav>
             <h1 className="mt-3 text-[2.6rem] sm:text-[3.4rem]">{name}</h1>
             <p className="mt-1 font-sans text-[13px] text-mute">{en ? product.name : product.name_en}{product.scientific_name && <i> · {product.scientific_name}</i>}</p>
             <div className="mt-6"><ProductSheet product={product} account={account} /></div>

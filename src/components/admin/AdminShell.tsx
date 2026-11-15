@@ -26,7 +26,7 @@ export function AdminShell({ children, demo }: { children: React.ReactNode; demo
     <div className="flex min-h-screen bg-sand-50">
       <aside className="no-print hidden w-60 flex-none flex-col border-r border-line bg-white md:flex">
         <div className="px-5 py-5"><Logo size="sm" /><p className="mt-2 pl-[2px] font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">Panel pengelola</p></div>
-        <nav className="flex-1 space-y-0.5 px-3">
+        <nav aria-label="Menu pengelola" className="flex-1 space-y-0.5 px-3">
           {NAV.map(({ href, label, Icon, exact }) => (
             <Link key={href} href={href} className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium ${active(href, exact) ? "bg-ocean-900 text-white" : "text-ink/70 hover:bg-sand-100"}`}><Icon className="h-4 w-4" />{label}</Link>
           ))}
@@ -47,7 +47,7 @@ export function AdminShell({ children, demo }: { children: React.ReactNode; demo
           </div>
         </header>
         <main className="flex-1 px-4 py-5 pb-24 md:px-8 md:py-8 md:pb-10">{children}</main>
-        <nav className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 pb-safe backdrop-blur md:hidden">
+        <nav aria-label="Menu cepat" className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 pb-safe backdrop-blur md:hidden">
           <ul className="grid grid-cols-5">
             {NAV.filter((n) => MOBILE.includes(n.href)).map(({ href, label, Icon, exact }) => (
               <li key={href}><Link href={href} className={`flex flex-col items-center gap-0.5 py-2 text-[10.5px] font-medium ${active(href, exact) ? "text-ocean-900" : "text-mute"}`}><Icon className="h-5 w-5" />{label}</Link></li>

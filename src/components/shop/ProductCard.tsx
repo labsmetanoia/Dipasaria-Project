@@ -49,9 +49,9 @@ export function ProductCard({ p, segment, discountPct = 0, locale = "id", quickA
         : null;
   const tone = { dark: "bg-ocean-950 text-coral-500", gold: "bg-coral-500 text-ocean-950", light: "bg-white text-ink" };
   return (
-    <div className={`group flex flex-col border border-line bg-white transition duration-300 hover:-translate-y-1 hover:border-ocean-950/20 hover:shadow-float ${off ? "opacity-70" : ""}`}>
+    <div className={`group flex flex-col border border-line bg-white transition duration-300 hover:-translate-y-1 hover:border-ocean-950/20 hover:shadow-float`}>
       <Link href={`/belanja/produk/${p.slug}`} className={`relative block overflow-hidden tile-bg ${size === "lg" ? "aspect-[4/5]" : "aspect-square"}`}>
-        <div className={`absolute inset-0 transition duration-700 ease-out group-hover:scale-[1.06] ${off ? "grayscale" : ""}`}><ProductArt icon={p.icon} storage={p.storage_class} image={p.image_url} alt={name} /></div>
+        <div className={`absolute inset-0 transition duration-700 ease-out group-hover:scale-[1.06] ${off ? "grayscale opacity-70" : ""}`}><ProductArt icon={p.icon} storage={p.storage_class} image={p.image_url} alt={name} /></div>
         <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/45 to-transparent opacity-0 transition group-hover:opacity-100" />
         {badge && <span className={`absolute left-0 top-3 px-2.5 py-1 font-sans text-[10px] font-bold uppercase tracking-[0.14em] ${tone[badge.tone]}`}>{badge.text}</span>}
         <span className="absolute bottom-3 left-3 bg-white/95 px-2 py-0.5 font-sans text-[10px] font-bold uppercase tracking-[0.12em] text-ink/75 backdrop-blur">{t.storage[p.storage_class]}</span>
