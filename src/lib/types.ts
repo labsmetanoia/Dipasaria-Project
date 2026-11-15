@@ -363,3 +363,22 @@ export interface AppError {
 }
 
 export interface JobRun { job: string; last_at: string; result: string }
+
+/** One QR code issued through the payment gateway for an order (id = the gateway's order_id). */
+export interface Payment {
+  id: string;
+  order_id: string;
+  provider: "midtrans" | "mock";
+  method: "qris";
+  amount: number;
+  amount_paid: number | null;
+  status: "pending" | "paid" | "expired" | "failed" | "cancelled";
+  qr_string: string | null;
+  qr_url: string | null;
+  expires_at: string | null;
+  created_at: string;
+  paid_at: string | null;
+}
+
+/** What recording a verified gateway result did to the order. */
+export type GatewayOutcome = "paid" | "mismatch" | "late" | "duplicate" | "updated" | "noop";

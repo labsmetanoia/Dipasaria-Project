@@ -233,6 +233,26 @@ create table if not exists orders (
   pay_by timestamptz
 );
 create index if not exists orders_pay_by_idx on orders(pay_by) where payment_status = 'unpaid';
+
+-- QRIS payments through a payment gateway (Midtrans). One row per QR code issued; the id is the gateway's order_id.
+-- Only record_gateway_payment() marks an order paid from here, after the server has verified the result with the gateway.
+create table if not exists payments (
+  id text primary key,
+  order_id text not null references orders(id) on delete cascade,
+  provider text not null check (provider in ('midtrans', 'mock')),
+  method text not null default 'qris',
+  amount numeric not null check (amount > 0),
+  amount_paid numeric,
+  status text not null default 'pending' check (status in ('pending', 'paid', 'expired', 'failed', 'cancelled')),
+  qr_string text,
+  qr_url text,
+  expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  paid_at timestamptz,
+  raw jsonb
+);
+create index if not exists payments_order_idx on payments(order_id, created_at desc);
+
 create index if not exists orders_delivery_idx on orders(delivery_date, slot_id);
 create index if not exists orders_phone_idx on orders(phone);
 create index if not exists orders_account_idx on orders(account_id);
@@ -346,7 +366,7 @@ $$;
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -604,6 +624,8 @@ begin
          weighed_at = now(),
          history = history || jsonb_build_object('status', 'weighed', 'at', now())
    where id = p_order_id;
+  -- a QR code issued for the previous amount must not be paid any more
+  update payments set status = 'cancelled' where order_id = p_order_id and status = 'pending';
 end $$;
 
 -- ---------- status changes ----------
@@ -628,6 +650,7 @@ begin
     end loop;
     if o.promo_code is not null then update promos set used_count = greatest(0, used_count - 1) where code = o.promo_code; end if;
     update orders set payment_status = case when o.payment_status in ('paid', 'awaiting_confirmation') then 'refund_due' else 'void' end where id = p_order_id;
+    update payments set status = 'cancelled' where order_id = p_order_id and status = 'pending';
   elsif array_position(flow, p_status) < array_position(flow, o.status) then
     raise exception 'Status pesanan tidak dapat dimundurkan.';
   elsif p_status in ('delivering', 'completed') and o.has_catch_weight and o.total_final is null then
@@ -691,6 +714,46 @@ begin
   insert into job_runs (job, last_at, result) values ('expire_unpaid', now(), n || ' dibatalkan')
     on conflict (job) do update set last_at = excluded.last_at, result = excluded.result;
   return n;
+end $$;
+
+-- Record a gateway result the server has already verified with the gateway (signature + status API).
+-- Returns: 'paid' (order marked paid), 'mismatch' (amount differs: left for the owner to check), 'late' (order was
+-- cancelled: refund due), 'duplicate' (order was already paid: refund the extra payment), 'updated' or 'noop'.
+create or replace function record_gateway_payment(p_payment_id text, p_status text, p_amount numeric, p_raw jsonb)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare pay payments%rowtype; o orders%rowtype; fmt text;
+begin
+  if p_status not in ('pending', 'paid', 'expired', 'failed', 'cancelled') then raise exception 'Status pembayaran gateway tidak valid.'; end if;
+  select * into pay from payments where id = p_payment_id for update;
+  if not found then raise exception 'Pembayaran tidak ditemukan.'; end if;
+  if pay.status = 'paid' or p_status = 'pending' then return 'noop'; end if;
+  if p_status <> 'paid' then
+    update payments set status = p_status, raw = p_raw where id = p_payment_id and status = 'pending';
+    return 'updated';
+  end if;
+
+  update payments set status = 'paid', paid_at = now(), amount_paid = p_amount, raw = p_raw where id = p_payment_id;
+  select * into o from orders where id = pay.order_id for update;
+  fmt := 'Rp' || replace(to_char(p_amount, 'FM999,999,999'), ',', '.');
+  if o.status = 'cancelled' then
+    update orders set payment_status = 'refund_due',
+           internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] ' || fmt || ' diterima (' || p_payment_id || ') setelah pesanan dibatalkan. Kembalikan dana ke pelanggan.')
+     where id = o.id;
+    return 'late';
+  elsif o.payment_status = 'paid' then
+    update orders set internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] Pembayaran ganda ' || fmt || ' (' || p_payment_id || '). Kembalikan kelebihan dana.') where id = o.id;
+    return 'duplicate';
+  elsif o.total_final is null or p_amount <> o.total_final then
+    update orders set payment_status = 'awaiting_confirmation', pay_by = null,
+           internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] Diterima ' || fmt || ', tagihan ' || coalesce('Rp' || replace(to_char(o.total_final, 'FM999,999,999'), ',', '.'), 'belum final') || '. Periksa selisih sebelum menandai lunas.')
+     where id = o.id;
+    return 'mismatch';
+  end if;
+  update orders set payment_status = 'paid', pay_by = null,
+         history = history || jsonb_build_object('status', 'paid', 'at', now(), 'note', 'QRIS otomatis')
+   where id = o.id;
+  return 'paid';
 end $$;
 
 -- Sliding-window rate limit: true (and the hit is counted) while under p_max hits in the last p_window_seconds.
@@ -884,7 +947,7 @@ begin
     'place_order(jsonb, text)', 'weigh_order(text, jsonb)', 'set_order_status(text, text, text)', 'set_payment_status(text, text)',
     'customer_confirm_payment(text, text)', 'apply_account(jsonb)', 'approve_account(text, numeric, text, boolean, text)',
     'regenerate_access_code(text)', 'business_login(text, text)', 'daily_summary(date)', 'buying_list(date)', 'sales_report(date, date)',
-    'expire_unpaid_orders()', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
+    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

@@ -18,7 +18,8 @@ export const LIMITS = {
   login: { windowSeconds: 900, max: 20 }, // per IP, on top of the 5-per-phone lockout
   apply: { windowSeconds: 3600, max: 5 }, // per IP: business account applications
   quotePhone: { windowSeconds: 600, max: 40 }, // per IP: quotes that check a phone's first-order status
-  lookup: { windowSeconds: 600, max: 60 }, // per IP: order lookups and "I have paid"
+  lookup: { windowSeconds: 600, max: 60 }, // per IP: order lookups, "I have paid", issuing a QR
+  paymentPoll: { windowSeconds: 600, max: 400 }, // per IP: payment status polling while a QR is on screen
   clientError: { windowSeconds: 600, max: 30 }, // per IP: browser error reports
 } as const;
 

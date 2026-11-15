@@ -4,6 +4,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   AppError,
+  GatewayOutcome,
+  Payment,
   BusinessAccount,
   BuyingLine,
   DailySummary,
@@ -625,7 +627,37 @@ export const supabaseRepo: Repo = {
     const { error } = await sb().from("settings").select("id").eq("id", 1).single();
     return !error;
   },
+
+  async createPayment(p) {
+    const { data, error } = await sb().from("payments").insert({ ...p }).select("*").single();
+    if (error) throw error;
+    return mapPayment(data as Row);
+  },
+  async listPayments(orderId) {
+    const { data, error } = await sb().from("payments").select("*").eq("order_id", orderId).order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data as Row[]).map(mapPayment);
+  },
+  async getPayment(id) {
+    const { data, error } = await sb().from("payments").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ? mapPayment(data as Row) : null;
+  },
+  async recordGatewayPayment(id, status, amount, raw) {
+    const { data, error } = await sb().rpc("record_gateway_payment", { p_payment_id: id, p_status: status, p_amount: amount, p_raw: raw ?? null });
+    if (error) throw new Error(msg(error));
+    return data as GatewayOutcome;
+  },
 };
+
+function mapPayment(r: Row): Payment {
+  return {
+    id: String(r.id), order_id: String(r.order_id), provider: r.provider as Payment["provider"], method: "qris",
+    amount: num(r.amount), amount_paid: numOrNull(r.amount_paid), status: r.status as Payment["status"],
+    qr_string: (r.qr_string as string | null) ?? null, qr_url: (r.qr_url as string | null) ?? null,
+    expires_at: (r.expires_at as string | null) ?? null, created_at: String(r.created_at), paid_at: (r.paid_at as string | null) ?? null,
+  };
+}
 
 function mapStanding(r: Row): StandingOrder {
   return {

@@ -1,6 +1,8 @@
 import type {
   AccountApplication,
   AppError,
+  GatewayOutcome,
+  Payment,
   JobRun,
   BuyingLine,
   BusinessAccount,
@@ -126,4 +128,11 @@ export interface Repo {
   listJobs(): Promise<JobRun[]>;
   /** Cheap database round-trip for the health check. */
   ping(): Promise<boolean>;
+
+  // QRIS gateway payments
+  createPayment(p: Omit<Payment, "created_at" | "paid_at" | "amount_paid" | "status">): Promise<Payment>;
+  listPayments(orderId: string): Promise<Payment[]>;
+  getPayment(id: string): Promise<Payment | null>;
+  /** Record a result the server has verified with the gateway; marks the order paid when the amount matches. */
+  recordGatewayPayment(id: string, status: Payment["status"], amount: number | null, raw: unknown): Promise<GatewayOutcome>;
 }

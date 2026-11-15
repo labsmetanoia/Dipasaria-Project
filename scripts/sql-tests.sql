@@ -243,5 +243,42 @@ begin
   update error_events set resolved = true;
   if log_error('server', 'Boom', '/x', null, null) <> 1 then raise exception 'reopened error should restart at 1'; end if;
 
+  -- 18. QRIS gateway results: paid, idempotent, duplicate, wrong amount, late (after cancel), expiry, re-weigh invalidates the QR
+  oid := place_order(jsonb_build_object('customer_name', 'Audit QRIS', 'phone', '081277770010', 'address', 'Jl. Uji 10', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  insert into payments (id, order_id, provider, amount) select 'PAY-T1', id, 'mock', total_final from orders where id = oid;
+  if record_gateway_payment('PAY-T1', 'paid', (select total_final from orders where id = oid), '{}'::jsonb) <> 'paid' then raise exception 'gateway payment should mark the order paid'; end if;
+  if (select payment_status || '/' || coalesce(pay_by::text, '-') from orders where id = oid) <> 'paid/-' then raise exception 'order not paid or deadline kept'; end if;
+  if record_gateway_payment('PAY-T1', 'paid', 1, '{}'::jsonb) <> 'noop' then raise exception 'repeated notification must be a no-op'; end if;
+  insert into payments (id, order_id, provider, amount) select 'PAY-T2', id, 'mock', total_final from orders where id = oid;
+  if record_gateway_payment('PAY-T2', 'paid', (select total_final from orders where id = oid), '{}'::jsonb) <> 'duplicate' then raise exception 'second payment should be flagged as duplicate'; end if;
+  if (select internal_note from orders where id = oid) not like '%Pembayaran ganda%' then raise exception 'duplicate payment not noted'; end if;
+
+  oid := place_order(jsonb_build_object('customer_name', 'Audit QRIS Selisih', 'phone', '081277770011', 'address', 'Jl. Uji 11', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  insert into payments (id, order_id, provider, amount) select 'PAY-T3', id, 'mock', total_final from orders where id = oid;
+  if record_gateway_payment('PAY-T3', 'paid', (select total_final - 1000 from orders where id = oid), '{}'::jsonb) <> 'mismatch' then raise exception 'wrong amount should be a mismatch'; end if;
+  if (select payment_status from orders where id = oid) <> 'awaiting_confirmation' then raise exception 'mismatch should wait for the owner'; end if;
+
+  oid := place_order(jsonb_build_object('customer_name', 'Audit QRIS Telat', 'phone', '081277770012', 'address', 'Jl. Uji 12', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  insert into payments (id, order_id, provider, amount) select 'PAY-T4', id, 'mock', total_final from orders where id = oid;
+  perform set_order_status(oid, 'cancelled', 'uji');
+  if (select status from payments where id = 'PAY-T4') <> 'cancelled' then raise exception 'cancelling the order should cancel its open QR'; end if;
+  if record_gateway_payment('PAY-T4', 'paid', (select total_final from orders where id = oid), '{}'::jsonb) <> 'late' then raise exception 'payment after cancel should be late'; end if;
+  if (select payment_status from orders where id = oid) <> 'refund_due' then raise exception 'late payment should be refund_due'; end if;
+
+  insert into payments (id, order_id, provider, amount) values ('PAY-T5', oid, 'mock', 1000);
+  if record_gateway_payment('PAY-T5', 'expired', null, '{}'::jsonb) <> 'updated' then raise exception 'expired QR not updated'; end if;
+  if (select status from payments where id = 'PAY-T5') <> 'expired' then raise exception 'expired QR not recorded'; end if;
+
+  oid := place_order(jsonb_build_object('customer_name', 'Audit QRIS Timbang', 'phone', '081277770013', 'address', 'Jl. Uji 13', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 2))));
+  perform weigh_order(oid, (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 2.1)) from order_items where order_id = oid and is_catch_weight));
+  insert into payments (id, order_id, provider, amount) select 'PAY-T6', id, 'mock', total_final from orders where id = oid;
+  perform weigh_order(oid, (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 2.3)) from order_items where order_id = oid and is_catch_weight));
+  if (select status from payments where id = 'PAY-T6') <> 'cancelled' then raise exception 're-weighing should cancel the QR for the old amount'; end if;
+  perform _expect_error($q$select record_gateway_payment('NOPE', 'paid', 1, '{}'::jsonb)$q$, 'tidak ditemukan');
+
   raise notice 'all assertions passed';
 end $$;

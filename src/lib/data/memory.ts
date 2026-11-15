@@ -3,6 +3,8 @@
 
 import type {
   AppError,
+  GatewayOutcome,
+  Payment,
   JobRun,
   AccountApplication,
   BusinessAccount,
@@ -179,9 +181,12 @@ function getStore(): Store {
 }
 
 // Kept on globalThis like the store: Next.js may load this module once per route bundle, and these must be shared.
-const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun> } };
-g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map() };
-const { loginFailures, rateHits, errorLog, jobs } = g.__dpMem;
+const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[] } };
+g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [] };
+g.__dpMem.payments ??= [];
+const { loginFailures, rateHits, errorLog, jobs, payments } = g.__dpMem;
+const cancelOpenPayments = (orderId: string) => { for (const p of payments) if (p.order_id === orderId && p.status === "pending") p.status = "cancelled"; };
+const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 
 /** Same rule as place_order in SQL: households paying a known total by transfer/QRIS pay within the window, before the delivery day starts. */
 function payByFor(o: Pick<Order, "segment" | "payment_method" | "has_catch_weight" | "delivery_date">, settings: Settings, nowMs = Date.now()): string | null {
@@ -458,6 +463,7 @@ export const memoryRepo: Repo = {
       }
       if (o.promo_code) { const pr = store.promos.find((p) => p.code === o.promo_code); if (pr) pr.used_count = Math.max(0, pr.used_count - 1); }
       o.payment_status = o.payment_status === "paid" || o.payment_status === "awaiting_confirmation" ? "refund_due" : "void";
+      cancelOpenPayments(o.id);
     }
     o.status = status;
     o.history.push({ status, at: new Date().toISOString(), note });
@@ -485,6 +491,7 @@ export const memoryRepo: Repo = {
     recomputeTotals(o);
     o.weighed_at = new Date().toISOString();
     o.history.push({ status: "weighed", at: o.weighed_at });
+    cancelOpenPayments(o.id); // a QR issued for the previous amount must not be paid any more
     return ok(clone(o));
   },
   async setPaymentStatus(id, status) {
@@ -806,5 +813,38 @@ export const memoryRepo: Repo = {
   },
   async ping() {
     return true;
+  },
+
+  async createPayment(p) {
+    const row: Payment = { ...p, status: "pending", amount_paid: null, created_at: new Date().toISOString(), paid_at: null };
+    payments.push(row);
+    return clone(row);
+  },
+  async listPayments(orderId) {
+    return clone(payments.filter((p) => p.order_id === orderId).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+  },
+  async getPayment(id) {
+    const p = payments.find((x) => x.id === id);
+    return p ? clone(p) : null;
+  },
+  async recordGatewayPayment(id, status, amount): Promise<GatewayOutcome> {
+    const pay = payments.find((x) => x.id === id);
+    if (!pay) throw new Error("Pembayaran tidak ditemukan.");
+    if (pay.status === "paid" || status === "pending") return "noop";
+    if (status !== "paid") { if (pay.status === "pending") pay.status = status; return "updated"; }
+    Object.assign(pay, { status: "paid", paid_at: new Date().toISOString(), amount_paid: amount });
+    const o = getStore().orders.find((x) => x.id === pay.order_id)!;
+    const note = (s: string) => { o.internal_note = [o.internal_note, `[QRIS] ${s}`].filter(Boolean).join("\n"); };
+    const paid = amount ?? 0;
+    if (o.status === "cancelled") { o.payment_status = "refund_due"; note(`${rp(paid)} diterima (${id}) setelah pesanan dibatalkan. Kembalikan dana ke pelanggan.`); return "late"; }
+    if (o.payment_status === "paid") { note(`Pembayaran ganda ${rp(paid)} (${id}). Kembalikan kelebihan dana.`); return "duplicate"; }
+    if (o.total_final === null || paid !== o.total_final) {
+      o.payment_status = "awaiting_confirmation"; o.pay_by = null;
+      note(`Diterima ${rp(paid)}, tagihan ${o.total_final === null ? "belum final" : rp(o.total_final)}. Periksa selisih sebelum menandai lunas.`);
+      return "mismatch";
+    }
+    o.payment_status = "paid"; o.pay_by = null;
+    o.history.push({ status: "paid", at: new Date().toISOString(), note: "QRIS otomatis" });
+    return "paid";
   },
 };

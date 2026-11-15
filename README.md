@@ -26,7 +26,7 @@ Open http://localhost:3000. `npm run dev` always allows demo mode. A production 
 
 ## Go live on Supabase + Vercel (about two hours)
 
-1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes.)
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` and `seed.sql` again. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`.)
 2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
 3. **Example accounts**: `seed.sql` no longer creates them. On a project seeded before November 2026, migration 004 suspends them; you can also delete them: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
 4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`; generate secrets with `openssl rand -hex 32`). The server refuses to start in production if Supabase or `SESSION_SECRET` is missing, so a typo cannot silently put the shop into demo mode. Deploy, connect your domain. `vercel.json` schedules the standing-order job daily at 19.45 WIB; Vercel sends `CRON_SECRET` with each call.
@@ -45,6 +45,38 @@ All four pieces work without a paid service. **Back-office → Sistem** shows wh
 | **Unpaid orders expire** | A household order paid by transfer or QRIS with a known total must be paid within **Pengaturan → Batas waktu pembayaran** (default 120 minutes, and never later than midnight before the delivery day). Otherwise it is cancelled, and its stock, delivery slot and promo use are released. The customer sees the deadline on the tracking page. The admin can send a WhatsApp reminder, add 2 hours or switch it off per order. Orders with weighed items, restaurant accounts, COD and payment terms are never cancelled automatically. | Runs by itself on every checkout, order lookup and back-office visit. To make it punctual overnight, either enable pg_cron in Supabase and run `select cron.schedule('expire-unpaid-orders', '*/10 * * * *', 'select expire_unpaid_orders()');`, or call `GET /api/cron/expire-unpaid` with `Authorization: Bearer $CRON_SECRET` every 10 minutes from cron-job.org. Vercel Hobby runs cron only daily. |
 | **Error monitoring** | Server errors, crashed customer screens and failed standing orders are grouped on **Sistem**, with a count and technical detail. The dashboard shows a red banner while any are unresolved. A new error is pushed to your phone. | Telegram: message @BotFather → `/newbot` → copy the token; send your bot a message, open `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy `chat.id`. Set `ALERT_WEBHOOK_URL=https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>`. Slack and Discord webhooks work too. |
 | **Uptime** | `GET /api/health` answers 200 while the app and the database are up, and 503 otherwise. | UptimeRobot (free): add an HTTP monitor for `https://<your-domain>/api/health` every 5 minutes, with alerts to email or Telegram. |
+
+**QRIS with automatic confirmation (Midtrans):**
+
+*How it works for the customer*
+- A customer who chose QRIS sees a QR code for the exact final amount once it is known: at checkout for fixed-weight items, after the dawn weigh-in for weighed items.
+- They pay with any bank or e-wallet app, and the order page confirms by itself within seconds.
+- On the same phone, they can save the QR image and pick it from the gallery.
+- QR codes last 30 minutes (always ending before the order's payment deadline) and renew with one tap.
+
+*Safety checks*
+- Midtrans' notification must carry a valid signature, and even then the result is read back from Midtrans' status API before anything changes.
+- If a notification is missed, the order page and the back-office ask Midtrans directly.
+- Re-weighing or cancelling an order withdraws its open QR.
+- Anything unusual is noted on the order and sent to your alert chat, never marked paid on its own:
+  - a different amount;
+  - a second payment;
+  - money arriving after an order was cancelled.
+
+*Setup*
+1. Create a Midtrans account and complete activation for QRIS. QRIS MDR is about 0.7% per transaction; check your Midtrans agreement.
+2. Put the sandbox server key in `MIDTRANS_SERVER_KEY` (keys starting with `SB-` use the sandbox automatically).
+3. In the Midtrans dashboard set **Payment Notification URL** to `https://<your-domain>/api/payments/midtrans`.
+4. Run `supabase/migrations/006_qris_gateway.sql`, then `schema.sql`.
+5. Place a QRIS test order and pay it with Midtrans' sandbox QRIS simulator. Check that it turns "Lunas" by itself.
+6. Switch to the production key.
+
+*What stays the same*
+- Back-office → Sistem shows which gateway is active.
+- Without a key, QRIS orders keep the static QRIS image and manual confirmation.
+- Bank transfer stays manual.
+- Refunds are still made by hand (the order shows "Perlu pengembalian dana").
+- In demo mode, a built-in demo gateway shows the whole flow, with a "Simulasikan pembayaran" button.
 
 **Partial standing orders:**
 - If an item in a restaurant's standing order is switched off, sold out today or short on stock at 19:45, the rest of the order is still placed.
@@ -100,6 +132,7 @@ Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette 
 | --- | --- |
 | `npm run dev` / `npm run build` / `npm start` | Next.js |
 | `npm run typecheck` | TypeScript |
+| `node scripts/test-midtrans.cjs` | QRIS gateway test against a local Midtrans stand-in (see the header of the file for how to start the app) |
 | `npm run test:sql` | Loads schema + seed into a local PostgreSQL and runs `scripts/sql-tests.sql` (needs `psql`; set `PGHOST`/`PGPORT`/`PGUSER`) |
 | `node scripts/gen-seed.mts` | Regenerates `supabase/seed.sql` from `src/lib/data/seed.ts` |
 

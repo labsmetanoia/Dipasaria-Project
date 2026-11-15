@@ -10,10 +10,11 @@ import { msgCustomerAsk, msgCustomerPaid } from "@/lib/wa";
 import { PaymentBadge } from "@/components/ui";
 import { ReorderButton } from "./ReorderPanel";
 import { Emblem } from "@/components/Logo";
+import { QrisPay } from "./QrisPay";
 
 const STEPS: Order["status"][] = ["new", "confirmed", "packing", "delivering", "completed"];
 
-export function OrderTracking({ order: initial, settings, isNew }: { order: Order; settings: Settings; isNew?: boolean }) {
+export function OrderTracking({ order: initial, settings, isNew, qrisAuto }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean }) {
  const { t, locale } = useT();
  const [order, setOrder] = useState(initial);
  const [pending, start] = useTransition();
@@ -23,6 +24,9 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
  const finalKnown = order.total_final !== null;
  const total = order.total_final ?? order.total_est;
  const payNow = finalKnown && (order.payment_method === "qris" || order.payment_method === "transfer") && (order.payment_status === "unpaid" || order.payment_status === "awaiting_confirmation") && order.status !== "cancelled";
+ const [qrisDone, setQrisDone] = useState<"paid" | "checking" | null>(null);
+ // QRIS orders with a gateway: a dynamic QR for the exact amount, confirmed automatically (no "I have paid" step)
+ const gatewayQris = Boolean(qrisAuto) && order.payment_method === "qris" && (order.payment_status === "unpaid" || qrisDone !== null);
  const markPaid = () => start(async () => { const r = await confirmPaymentAction(order.code, order.phone); if (r.ok) { setOrder(r.data); setMsg(t.tracking.paidThanks); } else setMsg(r.error); });
  const unit = (u: Order["items"][number]["unit"]) => t.unit[u];
 
@@ -75,11 +79,15 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
         <p className="mt-3 text-xs text-mute">{t.tracking.shipTo}: {order.address} ({order.area_name}){order.customer_note ? ` · ${t.tracking.note}: ${order.customer_note}` : ""}</p>
       </div>
 
-      {payNow && (
+      {(payNow || qrisDone) && (
         <div className="card p-5">
           <h2 className="font-bold text-ocean-950">{fmt(t.tracking.paymentOf, { amount: rupiah(total) })}</h2>
           {order.pay_by && order.payment_status === "unpaid" && <p className="mt-2 bg-warn-50 px-3 py-2 text-sm font-medium text-warn-600">{fmt(t.tracking.payBy, { time: formatDateTime(order.pay_by, locale) })}</p>}
-          {order.payment_method === "qris" ? (
+          {gatewayQris ? (
+            <QrisPay code={order.code} phone={order.phone} onDone={(s) => { setQrisDone(s); setOrder((o) => ({ ...o, payment_status: s === "paid" ? "paid" : "awaiting_confirmation", pay_by: null })); }} fallback={
+              <div className="bg-sand-100 px-4 py-3 text-sm"><p>{fmt(t.tracking.transferTo, { amount: rupiah(total) })}</p><p className="mt-1 text-xl font-bold text-ocean-950">{settings.bank_name} {settings.bank_account}</p><p className="text-mute">{fmt(t.tracking.onBehalf, { holder: settings.bank_holder })}</p></div>
+            } />
+          ) : order.payment_method === "qris" ? (
             <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {settings.qris_image_url ? <img src={settings.qris_image_url} alt="QRIS" className="h-48 w-48 border border-line object-contain" /> : <div className="flex h-48 w-48 items-center justify-center border border-dashed border-line text-center text-xs text-mute">{t.tracking.qrisMissing}</div>}
@@ -89,8 +97,8 @@ export function OrderTracking({ order: initial, settings, isNew }: { order: Orde
             <div className="mt-3 bg-sand-100 px-4 py-3 text-sm"><p>{fmt(t.tracking.transferTo, { amount: rupiah(total) })}</p><p className="mt-1 text-xl font-bold text-ocean-950">{settings.bank_name} {settings.bank_account}</p><p className="text-mute">{fmt(t.tracking.onBehalf, { holder: settings.bank_holder })}</p></div>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
-            {order.payment_status === "unpaid" && <button onClick={markPaid} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.tracking.paid}</button>}
-            <a href={waLink(settings.whatsapp_number, msgCustomerPaid(order, settings))} target="_blank" rel="noreferrer" className="btn-secondary"><MessageCircle className="h-4 w-4" /> {t.tracking.sendProof}</a>
+            {order.payment_status === "unpaid" && !gatewayQris && <button onClick={markPaid} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.tracking.paid}</button>}
+            {!gatewayQris && <a href={waLink(settings.whatsapp_number, msgCustomerPaid(order, settings))} target="_blank" rel="noreferrer" className="btn-secondary"><MessageCircle className="h-4 w-4" /> {t.tracking.sendProof}</a>}
           </div>
           {msg && <p className="mt-2 text-sm text-tide-700">{msg}</p>}
         </div>

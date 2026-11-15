@@ -8,6 +8,7 @@ import type { BusinessAccount, DeliveryArea, DeliverySlot, Order, OrderStatus, P
 import { runStandingOrders, type RunOutcome } from "@/lib/standing";
 import type { StandingOrder } from "@/lib/types";
 import { expireIfDue } from "@/lib/expiry";
+import { cancelOpenAtGateway, syncPayment } from "@/lib/payments/service";
 
 export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -35,14 +36,20 @@ export async function adminLogoutAction() {
 // ---- orders ----
 export async function setOrderStatusAction(id: string, status: OrderStatus, note?: string) {
   await guard();
-  const r = await (await getRepo()).updateOrderStatus(id, status, note);
+  const repo = await getRepo();
+  const open = status === "cancelled" ? await repo.listPayments(id) : [];
+  const r = await repo.updateOrderStatus(id, status, note);
+  if (r.ok) await cancelOpenAtGateway(open);
   revalidatePath("/admin", "layout");
   return wrap(r);
 }
 
 export async function weighOrderAction(id: string, items: Array<{ item_id: string; qty_final: number }>) {
   await guard();
-  const r = await (await getRepo()).weighOrder(id, items);
+  const repo = await getRepo();
+  const open = await repo.listPayments(id);
+  const r = await repo.weighOrder(id, items);
+  if (r.ok) await cancelOpenAtGateway(open); // a QR for the old amount must not be paid
   revalidatePath("/admin", "layout");
   return wrap(r);
 }
@@ -176,6 +183,16 @@ export async function upsertSlotAction(s: DeliverySlot) {
   const r = await (await getRepo()).upsertSlot(s);
   revalidatePath("/", "layout");
   return wrap(r);
+}
+
+/** Ask the gateway about this order's open QR codes (in case a notification was missed). */
+export async function syncPaymentsAction(orderId: string): Promise<ActionResult<Order>> {
+  await guard();
+  const repo = await getRepo();
+  for (const p of await repo.listPayments(orderId)) await syncPayment(p, true);
+  revalidatePath("/admin", "layout");
+  const o = await repo.getOrder(orderId);
+  return o ? { ok: true, data: o } : { ok: false, error: "Pesanan tidak ditemukan." };
 }
 
 // ---------- System ----------

@@ -2,20 +2,24 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2, MessageCircle, Scale, XCircle, ExternalLink, Save } from "lucide-react";
-import type { Order, OrderStatus, Settings } from "@/lib/types";
-import { setOrderStatusAction, setPaymentStatusAction, weighOrderAction, updateInternalNoteAction, setOrderPayByAction } from "@/actions/admin";
+import type { Order, OrderStatus, Payment, Settings } from "@/lib/types";
+import { setOrderStatusAction, setPaymentStatusAction, weighOrderAction, updateInternalNoteAction, setOrderPayByAction, syncPaymentsAction } from "@/actions/admin";
+import { useRouter } from "next/navigation";
 import { msgFinalInvoice, msgOrderConfirmed, msgOutForDelivery, waTo } from "@/lib/wa";
 import { formatDate, formatDateTime, rupiah } from "@/lib/format";
 import { PAYMENT_LABEL, STATUS_LABEL, UNIT_LABEL, TERMS_LABEL } from "@/lib/config";
 import { StatusBadge, PaymentBadge, StorageBadge } from "@/components/ui";
 import { FLOW, nextStatuses, parseWeight, paymentChangeError, safeMapsUrl, weighError } from "@/lib/orderRules";
 
-export function OrderAdmin({ order: initial, settings, accountTerms }: { order: Order; settings: Settings; accountTerms?: string }) {
+const PAY_LABEL: Record<Payment["status"], string> = { pending: "menunggu", paid: "dibayar", expired: "kedaluwarsa", failed: "gagal", cancelled: "dibatalkan" };
+
+export function OrderAdmin({ order: initial, settings, accountTerms, payments = [] }: { order: Order; settings: Settings; accountTerms?: string; payments?: Payment[] }) {
   const [order, setOrder] = useState(initial);
   const [weights, setWeights] = useState<Record<string, string>>(() => Object.fromEntries(order.items.filter((i) => i.is_catch_weight).map((i) => [i.id, i.qty_final === null ? "" : String(i.qty_final).replace(".", ",")])));
   const [note, setNote] = useState(order.internal_note);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const router = useRouter();
   const allowed = nextStatuses(order);
   const next = FLOW.slice(FLOW.indexOf(order.status) + 1).find((s) => allowed.includes(s));
   const canCancel = allowed.includes("cancelled");
@@ -139,7 +143,17 @@ export function OrderAdmin({ order: initial, settings, accountTerms }: { order: 
                 </div>
               </div>
             )}
-            <p className="mt-2 text-xs text-mute">Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar.</p>
+            {payments.length > 0 && (
+              <div className="mt-3 border-t border-line pt-3">
+                <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wider text-mute">QRIS otomatis</p>{payments.some((p) => p.status === "pending") && <button disabled={pending} onClick={() => { run(() => syncPaymentsAction(order.id)); router.refresh(); }} className="text-xs font-semibold text-gold-ink">Cek status pembayaran</button>}</div>
+                <ul className="mt-1.5 space-y-1 text-xs">
+                  {payments.map((p) => (
+                    <li key={p.id} className="flex flex-wrap justify-between gap-2"><span className="font-mono">{p.id}</span><span>{rupiah(p.amount_paid ?? p.amount)} · <b className={p.status === "paid" ? "text-success-600" : p.status === "pending" ? "text-warn-600" : "text-mute"}>{PAY_LABEL[p.status]}</b>{p.paid_at ? ` ${formatDateTime(p.paid_at)}` : ""}{p.provider === "mock" ? " · demo" : ""}</span></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-mute">{payments.some((p) => p.status === "paid") ? "Pembayaran QRIS dikonfirmasi otomatis oleh gateway: tidak perlu dicek manual." : "Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar."}</p>
           </div>
           <div className="card p-4">
             <h2 className="text-ocean-900">Catatan internal</h2>

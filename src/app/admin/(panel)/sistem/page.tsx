@@ -4,6 +4,7 @@ import { SITE_URL } from "@/lib/config";
 import { formatDateTime } from "@/lib/format";
 import { turnstileEnabled } from "@/lib/guard";
 import { SystemActions, ResolveButton } from "@/components/admin/SystemActions";
+import { getGateway } from "@/lib/payments/gateway";
 
 export const metadata = { title: "Sistem" };
 
@@ -28,6 +29,7 @@ export default async function SystemPage() {
     { label: "Jadwal otomatis", ok: process.env.CRON_SECRET ? true : false, detail: process.env.CRON_SECRET ? "CRON_SECRET diatur" : "CRON_SECRET belum diatur: pesanan rutin tidak diproses otomatis" },
     { label: "Rekening bank", ok: bankPlaceholder ? false : true, detail: bankPlaceholder ? "Masih contoh (0000000000). Ganti di Pengaturan sebelum menerima pesanan" : `${settings.bank_name} ${settings.bank_account}` },
     { label: "QRIS", ok: settings.qris_image_url ? true : "warn", detail: settings.qris_image_url ? "Gambar QRIS diatur" : "Belum ada gambar QRIS; pelanggan QRIS hanya melihat petunjuk" },
+    { label: "QRIS otomatis", ok: getGateway()?.name === "midtrans" ? true : "warn", detail: getGateway()?.name === "midtrans" ? `${getGateway()!.label}: QR sesuai nominal, lunas otomatis. URL notifikasi: ${SITE_URL}/api/payments/midtrans` : getGateway() ? "Gateway demo aktif (tanpa uang sungguhan). Isi MIDTRANS_SERVER_KEY untuk pembayaran nyata" : "Belum diatur: pelanggan QRIS memakai gambar QRIS statis dan konfirmasi manual. Isi MIDTRANS_SERVER_KEY" },
     { label: "Batas waktu pembayaran", ok: true, detail: settings.payment_window_minutes > 0 ? `${settings.payment_window_minutes} menit untuk pesanan rumah tangga transfer/QRIS` : "Nonaktif (0): pesanan belum dibayar tidak dibatalkan otomatis" },
   ];
   const tone = (ok: Check["ok"]) => (ok === true ? "bg-success-50 text-success-600" : ok === "warn" ? "bg-warn-50 text-warn-600" : "bg-coral-50 text-gold-ink");

@@ -193,7 +193,7 @@ Complexity: **S** = up to 2 days · **M** = 3–7 days · **L** = 2+ weeks. Cost
 | R1 | **Launch hardening pack:** live Supabase smoke test, real bank/QRIS details, secrets | Avoids losing the first orders to a configuration error | Checklist in §6; one full order cycle on production | S | Rp 0 |
 | R2 ✅ | **Bot and abuse protection:** Cloudflare Turnstile + rate limiting | Protects slot capacity and promo budget from fake orders; stops access-code guessing at the network edge | Invisible challenge on checkout and business login; server verifies token; per-IP and per-phone limits (e.g. 5 orders/hour) in a Supabase table | S | Free |
 | R3 ✅ | **Auto-expire unpaid orders** | Frees stock and delivery slots held by customers who never pay | Scheduled job every 15 min. Cancels transfer/QRIS orders still unpaid X hours after the final invoice (setting). WhatsApp reminder at half-time. Stock and promo returned automatically. | S | Rp 0 (Vercel Cron) |
-| R4 | **QRIS / VA payments with automatic confirmation** (Midtrans or Xendit) | Removes manual checking of transfer screenshots; customers pay in one tap; cash arrives faster; fewer payment disputes | Payment link generated after weighing (final amount). Webhook marks the order paid (signature verified). Refunds recorded against `refund_due`. | M | ~0.7% per QRIS transaction; VA ~Rp4,000 |
+| R4 ✅ (QRIS) | **QRIS / VA payments with automatic confirmation** (Midtrans; QRIS built, VA not yet) | Removes manual checking of transfer screenshots; customers pay in one tap; cash arrives faster; fewer payment disputes | Payment link generated after weighing (final amount). Webhook marks the order paid (signature verified). Refunds recorded against `refund_due`. | M | ~0.7% per QRIS transaction; VA ~Rp4,000 |
 | R5 ✅ | **Error monitoring and uptime** (built in, no Sentry needed; uptime via `/api/health`) | You learn about a broken checkout before customers tell you | Server and browser errors with release tags; alert to WhatsApp/email; daily uptime ping of `/belanja` and the cron | S | Free tier |
 | R6 | **Daily backups** | Recover from an accidental delete or bad import | Supabase Pro with daily backups; monthly restore test | S | US$25 |
 
@@ -341,3 +341,52 @@ These are built, tested and documented in the README ("Protection and monitoring
 - End-to-end: 47 checks pass.
 - Turnstile run: 5 checks pass.
 - Migration 005: tested on a copy of the previous schema with data.
+
+---
+
+## 10. Implemented after approval: R4, QRIS with automatic confirmation (Midtrans)
+
+**Gateway choice.** Midtrans Core API, dynamic QRIS:
+- The QR string comes back in the charge response and is drawn in the browser.
+- Midtrans signs its notifications (SHA-512 over order id, status code, amount and server key).
+- It has a status API to read the truth back.
+
+Xendit would also work. The gateway sits behind a small interface (`src/lib/payments/gateway.ts`), so it can be swapped.
+
+| Part | Behaviour |
+|---|---|
+| **Eligibility** | A QR is issued for QRIS orders with a known final total that is unpaid and not cancelled or completed. That is right after checkout for fixed-weight items, or after the weigh-in. |
+| **QR** | Exact amount in whole rupiah. Midtrans order id is `<order code>-Q<n>`. Valid for 30 minutes and ending 5 minutes before the order's payment deadline. An open QR is reused on reload, and older open QRs are withdrawn. |
+| **Confirmation** | The notification route verifies the signature (401 otherwise), then reads Midtrans' status API. Only `settlement`/`capture` from that API marks a payment paid. |
+| **Recording** | `record_gateway_payment()` in SQL, with a row lock and idempotency. A matching amount makes the order "Lunas". Other cases are noted on the order and sent as an alert, never auto-paid:<br>• a different amount waits for the owner;<br>• money after cancellation becomes "perlu pengembalian dana";<br>• a second payment is noted for refund. |
+| **Missed notifications** | The customer's page polls. After 15 seconds the server asks Midtrans directly (at most every 10 seconds per payment). Opening the order in the back-office does the same. |
+| **Order changes** | Re-weighing or cancelling marks open QRs cancelled in the database and withdraws them at Midtrans. |
+| **Fallback** | No key: the static QRIS image with manual confirmation. Gateway error: a bank-transfer fallback, and the error is logged. Demo mode: a demo gateway with a "Simulasikan pembayaran" button. |
+
+**Tests**
+
+SQL section 18, all passing:
+- paid, idempotent repeat;
+- duplicate;
+- mismatch;
+- late after cancel (refund due);
+- expired;
+- re-weigh cancels the QR;
+- unknown payment.
+
+The real Midtrans adapter, run against a local stand-in of the Midtrans API (20 checks, all passing):
+- **Charge request:** `payment_type: qris`, GoPay acquirer, whole-rupiah `gross_amount`, order id format, Basic auth header, `custom_expiry` in minutes.
+- **Reload:** reuses the open QR.
+- **Notifications:**
+  - a bad signature gets 401;
+  - a signed "settlement" that the status API contradicts changes nothing;
+  - an unknown order id is ignored;
+  - a real settlement turns the order "Lunas" and the customer's page confirms without a reload;
+  - a repeat is a no-op.
+- **Missed notification:** polling confirms the payment through the status API.
+- **Wrong amount:** not paid; the owner sees a note.
+- **System page:** shows the gateway.
+
+Main end-to-end suite: 49 checks pass, including the demo-gateway payment.
+
+**Not yet verified.** The live Midtrans sandbox could not be reached from the build environment. So the first real step is the sandbox test order in the README setup. Midtrans field names were confirmed from Midtrans' documentation via search; the adapter reads the status API defensively.
