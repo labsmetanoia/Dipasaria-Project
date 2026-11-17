@@ -8,7 +8,7 @@ Corporate website, installable mobile storefront (PWA) and founder back-office f
 | Corporate pages | `/tentang`, `/restoran`, `/rumah-tangga`, `/panduan`, `/kontak`, `/privasi` | Prospects, partners, search engines |
 | Back-office | `/admin` | The founder, from a phone at 02:30 or a laptop in the afternoon |
 
-Audit report, fix list and feature roadmap (November 2026): `docs/audit-report.md`. Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
+Audit report, fix list and feature roadmap (November 2026): `docs/audit-report.md`. Next recommendations: `docs/roadmap-next.md`. Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
 
 ## Run it in two minutes (demo mode, no database)
 
@@ -221,6 +221,7 @@ Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette 
 | --- | --- |
 | `npm run dev` / `npm run build` / `npm start` | Next.js |
 | `npm run typecheck` | TypeScript |
+| `node scripts/test-e2e.cjs` | Main end-to-end suite (Playwright); start a fresh demo server first, see the file header |
 | `npm run test:backup` | Dump → verify → encrypt → disaster-restore on a local PostgreSQL, plus the failure cases (run `npm run test:sql` first) |
 | `node scripts/test-whatsapp.cjs` | WhatsApp notifications against a local Cloud API stand-in (see the file header) |
 | `node scripts/test-midtrans.cjs` | QRIS gateway test against a local Midtrans stand-in (see the header of the file for how to start the app) |
