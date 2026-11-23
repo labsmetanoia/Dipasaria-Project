@@ -15,6 +15,7 @@ import { expireIfDue } from "@/lib/expiry";
 import { after } from "next/server";
 import { notify } from "@/lib/notify/service";
 import { getCurrentCustomer } from "@/lib/customer";
+import { qrisAutoEnabled } from "@/lib/payments/service";
 import { normalizePhone } from "@/lib/format";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -54,11 +55,16 @@ export async function placeOrderAction(input: PlaceOrderInput, opts?: { turnstil
     const r = await repo.placeOrder(input, account);
     if (r.ok) { const order = r.data; after(() => notify(order, "received")); } // sent after the response: checkout stays fast
     if (r.ok && customer) {
-      const known = await repo.listAddresses(customer.id);
-      if (opts?.saveAddress && !known.some((a) => a.address.trim().toLowerCase() === r.data.address.trim().toLowerCase())) {
-        await repo.saveAddress(customer.id, { label: String(opts.saveAddress.label ?? "").slice(0, 30) || (known.length ? "Alamat lain" : "Rumah"), recipient: r.data.customer_name, address: r.data.address, area_id: r.data.area_id, maps_url: r.data.maps_url, is_default: known.length === 0 });
+      // The order exists now: saving the address is a convenience and must never turn success into an error.
+      try {
+        const known = await repo.listAddresses(customer.id);
+        if (opts?.saveAddress && !known.some((a) => a.address.trim().toLowerCase() === r.data.address.trim().toLowerCase())) {
+          await repo.saveAddress(customer.id, { label: String(opts.saveAddress.label ?? "").slice(0, 30) || (known.length ? "Alamat lain" : "Rumah"), recipient: r.data.customer_name, address: r.data.address, area_id: r.data.area_id, maps_url: r.data.maps_url, is_default: known.length === 0 });
+        }
+        if (!customer.name) await repo.updateCustomer(customer.id, { name: r.data.customer_name });
+      } catch (e) {
+        await reportError("action", e, { path: "/checkout (save address)" });
       }
-      if (!customer.name) await repo.updateCustomer(customer.id, { name: r.data.customer_name });
     }
     return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
   } catch (e) {
@@ -77,11 +83,13 @@ export async function lookupOrderAction(code: string, phone: string): Promise<Or
 
 export async function lookupOrdersAction(refs: Array<{ code: string; phone: string }>): Promise<Order[]> {
   const repo = await getRepo();
-  if (!Array.isArray(refs) || !(await allow("lookup", await clientIp()))) return [];
+  if (!Array.isArray(refs)) return [];
+  const ip = await clientIp();
   await expireIfDue();
   const out: Order[] = [];
   for (const r of refs.slice(0, 30)) {
     if (typeof r?.code !== "string" || typeof r?.phone !== "string") continue;
+    if (!(await allow("lookup", ip))) break; // every code + phone pair counts, so this cannot be used to guess codes
     const o = await repo.lookupOrder(r.code, r.phone);
     if (o) out.push(o);
   }
@@ -91,6 +99,9 @@ export async function lookupOrdersAction(refs: Array<{ code: string; phone: stri
 export async function confirmPaymentAction(code: string, phone: string): Promise<ActionResult<Order>> {
   const repo = await getRepo();
   if (!(await allow("lookup", await clientIp()))) return { ok: false, error: TOO_MANY };
+  // QRIS through the gateway confirms itself; a manual "I have paid" there would only park the order outside the deadline.
+  const o = typeof code === "string" && typeof phone === "string" ? await repo.lookupOrder(code, phone) : null;
+  if (o && o.payment_method === "qris" && qrisAutoEnabled()) return { ok: false, error: "Pembayaran QRIS terkonfirmasi otomatis. Tunggu beberapa detik setelah membayar." };
   const r = await repo.customerConfirmPayment(code, phone);
   return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
 }
@@ -149,12 +160,15 @@ export async function saveStandingOrderAction(input: StandingOrderInput): Promis
   const [settings, areas] = await Promise.all([repo.getSettings(), repo.getAreas()]);
   const err = validateStanding(input, account, products, slots, { settings, areas, now: nowJakarta() });
   if (err) return { ok: false, error: err };
-  const r = await repo.saveStandingOrder(account.id, input);
+  // store only what was validated: real weekdays, no empty lines, a short name
+  const clean = { ...input, weekdays: [...new Set(input.weekdays.map(Number))].filter((d) => d >= 1 && d <= 7).sort(), lines: input.lines.filter((l) => l.qty > 0), name: String(input.name ?? "").trim().slice(0, 60), note: input.note ? String(input.note).slice(0, 400) : null };
+  const r = await repo.saveStandingOrder(account.id, clean);
   revalidatePath("/akun");
   return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
 }
 
 export async function setStandingStatusAction(id: string, status: StandingOrder["status"]): Promise<ActionResult<StandingOrder>> {
+  if (status !== "active" && status !== "paused") return { ok: false, error: "Status tidak valid." };
   const account = await requireBusiness();
   if (!account || !(await ownStanding(id, account.id))) return { ok: false, error: "Pesanan rutin tidak ditemukan." };
   const r = await (await getRepo()).setStandingOrderStatus(id, status);

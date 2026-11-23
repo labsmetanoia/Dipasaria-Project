@@ -11,8 +11,9 @@ const q = (v: unknown): string => {
   return `'${String(v).replace(/'/g, "''")}'`;
 };
 const row = (cols: string[], vals: unknown[]) => `(${vals.map(q).join(", ")})`;
-// keep = true: never overwrite an existing row (promos keep their usage counts, live edits survive a re-run)
-const insert = (table: string, cols: string[], rows: unknown[][], conflict = "id", keep = false) =>
+// Every insert is "do nothing" on conflict: re-running seed.sql on a live project only adds missing rows and never
+// overwrites prices, stock, settings or the bank account the owner has set.
+const insert = (table: string, cols: string[], rows: unknown[][], conflict = "id", keep = true) =>
   rows.length
     ? `insert into ${table} (${cols.join(", ")}) values\n  ${rows.map((r) => row(cols, r)).join(",\n  ")}\non conflict (${conflict}) ${keep ? "do nothing" : `do update set ${cols.filter((c) => c !== conflict).map((c) => `${c} = excluded.${c}`).join(", ")}`};\n`
     : "";
@@ -21,7 +22,7 @@ let sql = `-- Generated from src/lib/data/seed.ts. Edit the TS file and re-run \
 
 const s = seedSettings;
 const sc = Object.keys(s) as (keyof typeof s)[];
-sql += `insert into settings (id, ${sc.join(", ")}) values (1, ${sc.map((k) => q(s[k])).join(", ")})\non conflict (id) do update set ${sc.map((k) => `${k} = excluded.${k}`).join(", ")};\n\n`;
+sql += `insert into settings (id, ${sc.join(", ")}) values (1, ${sc.map((k) => q(s[k])).join(", ")})\non conflict (id) do nothing;\n\n`;
 
 sql += insert("categories", ["id", "slug", "name", "name_en", "description", "description_en", "sort", "icon", "image_url", "is_seafood"], seedCategories.map((c) => [c.id, c.slug, c.name, c.name_en, c.description, c.description_en, c.sort, c.icon, c.image_url, c.is_seafood])) + "\n";
 

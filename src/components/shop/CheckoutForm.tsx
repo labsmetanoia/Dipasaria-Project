@@ -78,7 +78,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  prefilled.current = true;
  setName((v) => v || customer.name); setPhone((v) => v || customer.phone); setAddress((v) => v || customer.address);
  setMaps((v) => v || customer.maps_url); setAreaId((v) => v || customer.area_id || "");
-  }, [account, customer]);
+  }, [account, household, customer]);
 
  function pickAddress(a: CustomerAddress) {
  setAddrId(a.id); setName(a.recipient || household?.name || ""); setAddress(a.address); setAreaId(a.area_id ?? ""); setMaps(a.maps_url ?? "");

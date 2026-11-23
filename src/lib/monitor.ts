@@ -24,7 +24,8 @@ export async function reportError(source: AppError["source"], err: unknown, ctx:
     const repo = await getRepo();
     const count = await repo.logError({ source, message, path, digest: ctx.digest ?? null, detail });
     // Alert on the first occurrence, then again at 10 and 100 so a flood is visible without spamming the phone.
-    if (count === 1 || count === 10 || count === 100) await alert(`${count === 1 ? "Error baru" : `Error terulang ${count}×`} (${source}): ${message}${path ? `\nHalaman: ${path}` : ""}\n${SITE_URL}/admin/sistem`);
+    // Browser reports carry text anyone can send, so they are logged but never pushed to the owner's chat.
+    if (source !== "client" && (count === 1 || count === 10 || count === 100)) await alert(`${count === 1 ? "Error baru" : `Error terulang ${count}×`} (${source}): ${message}${path ? `\nHalaman: ${path}` : ""}\n${SITE_URL}/admin/sistem`);
   } catch (e) {
     console.error("[monitor] could not record error:", e instanceof Error ? e.message : e);
   }

@@ -7,7 +7,9 @@ import { getRepo } from "../data";
 import { newId } from "../ids";
 import { reportError } from "../monitor";
 import { getGateway } from "../payments/gateway";
-import { TEMPLATES, buildParams, render } from "./templates";
+import { TEMPLATES, buildParams, render, restockParams } from "./templates";
+import { SITE_URL } from "../config";
+import { nowJakarta } from "../format";
 import { cloudConfigured, sendTemplate } from "./cloud";
 
 export function waApiEnabled(): boolean {
@@ -15,7 +17,7 @@ export function waApiEnabled(): boolean {
 }
 
 /** Queue (and try to send) one message for an order event. Never throws. */
-export async function notify(orderOrId: Order | string, kind: WaKind, opts: { dedupe?: string; reason?: string; missing?: string[] } = {}): Promise<WaMessage | null> {
+export async function notify(orderOrId: Order | string, kind: WaKind, opts: { dedupe?: string; reason?: string; missing?: string[]; decision?: string } = {}): Promise<WaMessage | null> {
   try {
     const repo = await getRepo();
     const order = typeof orderOrId === "string" ? await repo.getOrder(orderOrId) : orderOrId;
@@ -23,7 +25,7 @@ export async function notify(orderOrId: Order | string, kind: WaKind, opts: { de
     const settings = await repo.getSettings();
     if (!(settings.wa_events ?? []).includes(kind)) return null;
     const t = TEMPLATES[kind];
-    const params = buildParams(kind, order, { settings, gatewayQris: getGateway() !== null, reason: opts.reason, missing: opts.missing });
+    const params = buildParams(kind, order, { settings, gatewayQris: getGateway() !== null, reason: opts.reason, missing: opts.missing, decision: opts.decision });
     const msg = await repo.enqueueWa({
       id: newId("wa"), order_id: order.id, kind, dedupe: opts.dedupe ?? "", phone: order.phone, template: t.name, params,
       body: render(t.body, params), status: cloudConfigured() ? "queued" : "manual",
@@ -67,4 +69,30 @@ export async function flushOutbox(limit = 20): Promise<number> {
 export async function sweepReminders(minutes = 30): Promise<void> {
   const repo = await getRepo();
   for (const o of await repo.listOrdersPayBySoon(minutes)) await notify(o, "reminder");
+}
+
+/**
+ * "Kabari saya": tell everyone waiting for this product that it is available again. Each waiting customer is taken
+ * off the list in the same step, so they are told once. Never throws.
+ */
+export async function notifyRestock(product: { id: string; name: string; slug: string }): Promise<number> {
+  try {
+    const repo = await getRepo();
+    const settings = await repo.getSettings();
+    if (!(settings.wa_events ?? []).includes("restock")) return 0;
+    const phones = await repo.takeStockAlerts(product.id);
+    const t = TEMPLATES.restock;
+    const params = restockParams(product.name, `${SITE_URL}/belanja/produk/${product.slug}`);
+    for (const phone of phones) {
+      const msg = await repo.enqueueWa({
+        id: newId("wa"), order_id: null, kind: "restock", dedupe: `${product.id}:${phone}:${nowJakarta().date}`, phone, template: t.name, params,
+        body: render(t.body, params), status: cloudConfigured() ? "queued" : "manual",
+      });
+      if (msg && msg.status === "queued") await deliver(msg);
+    }
+    return phones.length;
+  } catch (e) {
+    await reportError("action", e, { path: "notify/restock" });
+    return 0;
+  }
 }

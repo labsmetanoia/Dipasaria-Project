@@ -35,6 +35,7 @@ export function paymentChangeError(o: Pick<Order, "status" | "payment_status" | 
 export function weighError(o: Pick<Order, "status" | "payment_status">): string | null {
   if (o.status === "cancelled" || o.status === "completed") return "Pesanan yang sudah selesai atau dibatalkan tidak dapat ditimbang ulang.";
   if (o.payment_status === "paid") return "Pesanan sudah lunas. Batalkan status lunas terlebih dahulu bila perlu menimbang ulang.";
+  if (o.payment_status === "awaiting_confirmation") return "Pelanggan sudah melaporkan pembayaran untuk tagihan ini. Periksa dananya dulu: tandai lunas, atau ubah ke belum dibayar sebelum menimbang ulang.";
   return null;
 }
 

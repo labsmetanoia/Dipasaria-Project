@@ -58,7 +58,7 @@ export async function setBusinessSession(token: string) {
 export async function clearBusinessSession() {
   const jar = await cookies();
   const token = jar.get(BIZ_COOKIE)?.value;
-  if (token) (await getRepo()).endSession(token).catch(() => undefined);
+  if (token) await (await getRepo()).endSession(token).catch(() => undefined); // finish before responding (serverless may stop right after)
   jar.delete(BIZ_COOKIE);
 }
 

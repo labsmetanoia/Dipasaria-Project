@@ -11,6 +11,6 @@ export async function GET(req: Request) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const cancelled = await expireIfDue(true);
+  const cancelled = await expireIfDue("force");
   return NextResponse.json({ cancelled });
 }

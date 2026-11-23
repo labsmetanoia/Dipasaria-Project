@@ -67,7 +67,7 @@ async function order(b, name, phone) {
   check(charges.length === 1, "one QRIS charge sent to Midtrans");
   check(c.body.payment_type === "qris" && c.body.qris?.acquirer === "gopay", "charge uses payment_type qris with the GoPay acquirer");
   check(Number.isInteger(c.body.transaction_details.gross_amount) && c.body.transaction_details.gross_amount > 0, "gross_amount is a whole rupiah amount: " + c.body.transaction_details.gross_amount);
-  check(c.body.transaction_details.order_id === `${A.code}-Q1`, "Midtrans order_id is the order code + attempt: " + c.body.transaction_details.order_id);
+  check(new RegExp(`^${A.code}-Q1[A-Z0-9]{3}$`).test(c.body.transaction_details.order_id), "Midtrans order_id is the order code + attempt + random suffix: " + c.body.transaction_details.order_id);
   check(c.auth === "Basic " + Buffer.from(KEY + ":").toString("base64"), "Authorization is Basic base64(server key + ':')");
   check(c.body.custom_expiry?.unit === "minute" && c.body.custom_expiry.expiry_duration > 0 && c.body.custom_expiry.expiry_duration <= 30, "QR expiry sent as custom_expiry in minutes: " + c.body.custom_expiry?.expiry_duration);
   check((await A.p.getByText(/Rp\d/).count()) > 0 && (await A.p.getByRole("link", { name: "Simpan gambar QR" }).count()) === 1, "customer sees the QR, the amount and a save-image button");
@@ -78,7 +78,8 @@ async function order(b, name, phone) {
   check(charges.length === 1, "reloading the page reuses the open QR (no second charge)");
 
   // 2. Notifications: signature required; body never trusted on its own
-  const id = `${A.code}-Q1`; const gross = state.get(id).gross_amount;
+  const chargeFor = (code) => charges.find((x) => x.body.transaction_details.order_id.startsWith(code + "-Q")).body.transaction_details.order_id;
+  const id = chargeFor(A.code); const gross = state.get(id).gross_amount;
   check((await notify({ order_id: id, status_code: "200", gross_amount: gross, transaction_status: "settlement" }, "wrong-key")).status === 401, "notification with a bad signature is rejected (401)");
   const forged = await notify({ order_id: id, status_code: "200", gross_amount: gross, transaction_status: "settlement" });
   check(forged.status === 200 && forged.json.outcome === "noop", "signed 'settlement' while Midtrans' status API says pending changes nothing (status API is the source of truth)");
@@ -95,14 +96,14 @@ async function order(b, name, phone) {
 
   // 4. Missed notification: the page's polling asks Midtrans and still confirms
   const B = await order(b, "Uji Midtrans B", "0813 4444 0002");
-  const idB = `${B.code}-Q1`; const before = statusCalls;
+  const idB = chargeFor(B.code); const before = statusCalls;
   state.get(idB).transaction_status = "settlement";
   await B.p.waitForSelector("text=Pembayaran diterima", { timeout: 40000 });
   check(statusCalls > before, "without any notification, polling checks Midtrans' status API and confirms the payment");
 
   // 5. Wrong amount: not marked paid, the owner is asked to check
   const C = await order(b, "Uji Midtrans C", "0813 4444 0003");
-  const idC = `${C.code}-Q1`; const s = state.get(idC);
+  const idC = chargeFor(C.code); const s = state.get(idC);
   s.transaction_status = "settlement"; s.gross_amount = `${Number.parseFloat(s.gross_amount) - 1000}.00`;
   const mm = await notify({ order_id: idC, status_code: "200", gross_amount: s.gross_amount, transaction_status: "settlement" });
   check(mm.json.outcome === "mismatch", "a different amount is not marked paid (mismatch)");

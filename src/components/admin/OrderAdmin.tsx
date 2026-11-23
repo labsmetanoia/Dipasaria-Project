@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2, MessageCircle, Scale, XCircle, ExternalLink, Save } from "lucide-react";
-import type { Order, OrderStatus, Payment, Settings, WaMessage } from "@/lib/types";
+import type { Order, Payment, Settings, WaMessage } from "@/lib/types";
 import { WaList } from "./WaList";
 import { setOrderStatusAction, setPaymentStatusAction, weighOrderAction, updateInternalNoteAction, setOrderPayByAction, syncPaymentsAction } from "@/actions/admin";
 import { useRouter } from "next/navigation";

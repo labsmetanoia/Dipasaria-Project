@@ -9,7 +9,7 @@ import { waApiEnabled } from "@/lib/notify/service";
 
 export default async function OrderAdminPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
-  await expireIfDue(); // unpaid orders past their deadline must not reach the buying list or the route
+  await expireIfDue("wait"); // unpaid orders past their deadline must not reach the buying list or the route
   const { id } = await params;
   const repo = await getRepo();
   const [order, settings] = await Promise.all([repo.getOrder(id), repo.getSettings()]);

@@ -6,10 +6,11 @@ import type {
   GatewayOutcome,
   Payment,
   WaMessage,
+  Claim,
+  Purchase,
   Customer,
   CustomerAddress,
   JobRun,
-  AccountApplication,
   BusinessAccount,
   BuyingLine,
   Category,
@@ -19,8 +20,6 @@ import type {
   Order,
   OrderItem,
   OrderStatus,
-  PaymentStatus,
-  PlaceOrderInput,
   Product,
   Promo,
   Settings,
@@ -28,7 +27,7 @@ import type {
   StandingOrderRun,
   Variant,
 } from "../types";
-import type { OrderFilter, Repo, Result, SalesRow } from "./repo";
+import type { Repo, Result, SalesRow } from "./repo";
 import { seedAccounts, seedAreas, seedCategories, seedProducts, seedPromos, seedSettings, seedSlots } from "./seed";
 import { availableDates, lineTotal, quote, segmentOf, slotsForSegment, unitPrice } from "../pricing";
 import { addDays, isValidPhone, jam, jamRange, normalizePhone, nowJakarta } from "../format";
@@ -174,7 +173,6 @@ function seedDemoOrders(store: Store) {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __dipasariaStore: Store | undefined;
 }
 
@@ -184,15 +182,18 @@ function getStore(): Store {
 }
 
 // Kept on globalThis like the store: Next.js may load this module once per route bundle, and these must be shared.
-const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }> } };
-g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [], wa: [], customers: [], addresses: [], csessions: new Map(), codes: new Map() };
+const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }>; claims: Claim[]; alerts: Array<{ product_id: string; phone: string; notified: boolean }>; purchases: Purchase[] } };
+g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [], wa: [], customers: [], addresses: [], csessions: new Map(), codes: new Map(), claims: [], alerts: [], purchases: [] };
+g.__dpMem.claims ??= [];
+g.__dpMem.alerts ??= [];
+g.__dpMem.purchases ??= [];
 g.__dpMem.payments ??= [];
 g.__dpMem.wa ??= [];
 g.__dpMem.customers ??= [];
 g.__dpMem.addresses ??= [];
 g.__dpMem.csessions ??= new Map();
 g.__dpMem.codes ??= new Map();
-const { loginFailures, rateHits, errorLog, jobs, payments, wa, customers, addresses, csessions, codes } = g.__dpMem;
+const { loginFailures, rateHits, errorLog, jobs, payments, wa, customers, addresses, csessions, codes, claims, alerts, purchases } = g.__dpMem;
 const cancelOpenPayments = (orderId: string) => { for (const p of payments) if (p.order_id === orderId && p.status === "pending") p.status = "cancelled"; };
 const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 
@@ -329,6 +330,7 @@ export const memoryRepo: Repo = {
       unit_cost: l.variant.cost,
       line_total_est: l.line_total,
       line_total_final: null,
+      stock_reserved: l.variant.stock_qty !== null,
     }));
     const order: Order = {
       id,
@@ -361,6 +363,10 @@ export const memoryRepo: Repo = {
       client_ref: ref || null,
       pay_by: null,
       wa_opt_in: input.wa_opt_in !== false,
+      substitution: input.substitution === "similar" || input.substitution === "remove" ? input.substitution : "contact",
+      delivered_at: null,
+      delivery_note: null,
+      cod_collected: null,
       customer_note: input.customer_note?.trim() ?? "",
       internal_note: "",
       created_at: created,
@@ -424,9 +430,13 @@ export const memoryRepo: Repo = {
     // Lockout against guessing access codes: 5 failed attempts per phone number in 15 minutes (mirrors SQL business_login).
     const since = Date.now() - 15 * 60_000;
     const recent = (loginFailures.get(p) ?? []).filter((t) => t > since);
-    if (recent.length >= 5) throw new Error("Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit atau hubungi kami melalui WhatsApp.");
     const acc = store.accounts.find((a) => a.phone === p && a.status === "approved" && a.access_code && a.access_code.toUpperCase() === code.trim().toUpperCase());
-    if (!acc) { loginFailures.set(p, [...recent, Date.now()]); return null; }
+    if (!acc) {
+      // after 5 wrong tries wrong codes get the lockout message; the right code still works (no lock-out by strangers)
+      if (recent.length >= 5) throw new Error("Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit atau hubungi kami melalui WhatsApp.");
+      loginFailures.set(p, [...recent, Date.now()]);
+      return null;
+    }
     loginFailures.delete(p);
     const token = sessionToken();
     store.sessions.set(token, { account_id: acc.id, expires: Date.now() + 90 * 86400_000 });
@@ -468,7 +478,7 @@ export const memoryRepo: Repo = {
     if (status === "cancelled") {
       for (const i of o.items) {
         const v = store.products.find((p) => p.id === i.product_id)?.variants.find((x) => x.id === i.variant_id);
-        if (v && v.stock_qty !== null) v.stock_qty += i.qty_ordered;
+        if (v && v.stock_qty !== null && i.stock_reserved) v.stock_qty += i.qty_ordered; // only what was taken
       }
       if (o.promo_code) { const pr = store.promos.find((p) => p.code === o.promo_code); if (pr) pr.used_count = Math.max(0, pr.used_count - 1); }
       o.payment_status = o.payment_status === "paid" || o.payment_status === "awaiting_confirmation" ? "refund_due" : "void";
@@ -619,7 +629,7 @@ export const memoryRepo: Repo = {
   async approveAccount(id, patch) {
     const a = getStore().accounts.find((x) => x.id === id);
     if (!a) return fail("Akun tidak ditemukan.");
-    Object.assign(a, patch, { status: "approved", approved_at: a.approved_at ?? new Date().toISOString(), access_code: a.access_code ?? randomCode(6) });
+    Object.assign(a, { ...patch, preferred_slot_id: patch.preferred_slot_id ?? a.preferred_slot_id }, { status: "approved", approved_at: a.approved_at ?? new Date().toISOString(), access_code: a.access_code ?? randomCode(6) });
     return ok(clone(a));
   },
   async updateAccount(id, patch) {
@@ -634,6 +644,7 @@ export const memoryRepo: Repo = {
     const a = getStore().accounts.find((x) => x.id === id);
     if (!a) return fail("Akun tidak ditemukan.");
     a.access_code = randomCode(6);
+    for (const [t, s] of getStore().sessions) if (s.account_id === id) getStore().sessions.delete(t); // old code's sessions end (as in SQL)
     return ok(clone(a));
   },
 
@@ -764,8 +775,10 @@ export const memoryRepo: Repo = {
   async claimStandingRun(standingOrderId, date) {
     const store = getStore();
     const prev = store.standingRuns.find((r) => r.standing_order_id === standingOrderId && r.delivery_date === date);
-    // a run that failed may be retried (after the problem is fixed); one that placed an order, or is in progress, may not
-    if (prev && prev.order_id === null && prev.error !== null) { prev.error = null; prev.created_at = new Date().toISOString(); return clone(prev); }
+    // a run that failed may be retried (after the problem is fixed), and so may one that stopped half-way more than
+    // 10 minutes ago (the order itself is protected by its client_ref); one that placed an order may not
+    const stale = prev && prev.order_id === null && prev.error === null && Date.parse(prev.created_at) < Date.now() - 600_000;
+    if (prev && prev.order_id === null && (prev.error !== null || stale)) { prev.error = null; prev.created_at = new Date().toISOString(); return clone(prev); }
     if (prev) return null;
     const run: StandingOrderRun = { id: newId("sr"), standing_order_id: standingOrderId, delivery_date: date, order_id: null, order_code: null, error: null, note: null, created_at: new Date().toISOString() };
     store.standingRuns.push(run);
@@ -786,7 +799,8 @@ export const memoryRepo: Repo = {
   },
   async expireUnpaidOrders() {
     const now = Date.now();
-    const due = getStore().orders.filter((o) => o.pay_by && Date.parse(o.pay_by) < now && o.payment_status === "unpaid" && (o.status === "new" || o.status === "confirmed"));
+    const payable = (id: string) => payments.some((p) => p.order_id === id && p.status === "pending" && p.expires_at && Date.parse(p.expires_at) > now);
+    const due = getStore().orders.filter((o) => o.pay_by && Date.parse(o.pay_by) < now && o.payment_status === "unpaid" && (o.status === "new" || o.status === "confirmed") && !payable(o.id));
     for (const o of due) await this.updateOrderStatus(o.id, "cancelled", "Dibatalkan otomatis: pembayaran belum diterima sampai batas waktu.");
     jobs.set("expire_unpaid", { job: "expire_unpaid", last_at: new Date().toISOString(), result: `${due.length} dibatalkan` });
     return due.length;
@@ -898,7 +912,8 @@ export const memoryRepo: Repo = {
     if (!/^62\d{8,13}$/.test(p)) return fail("Nomor WhatsApp tidak valid.");
     const cur = codes.get(p);
     if (cur && Date.now() - cur.created < 60_000) return fail("Kode baru saja dikirim. Tunggu satu menit sebelum meminta lagi.");
-    codes.set(p, { hash: codeHash, expires: Date.now() + 600_000, attempts: 0, created: Date.now() });
+    // a new code keeps the wrong-try count of the last 15 minutes (mirrors customer_request_code)
+    codes.set(p, { hash: codeHash, expires: Date.now() + 600_000, attempts: cur && Date.now() - cur.created < 900_000 ? cur.attempts : 0, created: Date.now() });
     return ok(p);
   },
   async customerLogin(phone, codeHash, tokenHash) {
@@ -964,6 +979,84 @@ export const memoryRepo: Repo = {
   async getOrdersByPhone(phone, limit) {
     const p = normalizePhone(phone);
     return clone(getStore().orders.filter((o) => o.phone === p && o.segment === "retail").sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit));
+  },
+  async markDelivered(id, note, cod) {
+    const o = getStore().orders.find((x) => x.id === id);
+    if (!o) return fail("Pesanan tidak ditemukan.");
+    if (o.status === "cancelled" || o.status === "completed") return fail("Pesanan ini sudah selesai atau dibatalkan.");
+    if (o.has_catch_weight && o.total_final === null) return fail("Timbang pesanan ini terlebih dahulu.");
+    if (cod !== null && (!Number.isFinite(cod) || cod < 0 || cod > 100_000_000)) return fail("Jumlah uang tunai tidak valid.");
+    const n = note?.trim().slice(0, 200) || null;
+    const at = new Date().toISOString();
+    Object.assign(o, { status: "completed", delivered_at: at, delivery_note: n, pay_by: null });
+    if (cod !== null) o.cod_collected = cod;
+    o.history.push({ status: "completed", at, note: n ? `Diterima: ${n}` : "Diterima" });
+    if (o.payment_method === "cod" && cod !== null && cod >= (o.total_final ?? o.total_est) && o.payment_status !== "paid") {
+      o.payment_status = "paid";
+      o.history.push({ status: "paid", at, note: "Tunai saat diantar" });
+    }
+    return ok(clone(o));
+  },
+  async createClaim(code, phone, c, windowHours) {
+    const o = getStore().orders.find((x) => x.code === code.trim().toUpperCase() && x.phone === normalizePhone(phone));
+    if (!o) return fail("Pesanan tidak ditemukan.");
+    if (o.status !== "completed" || !o.delivered_at) return fail("Laporan dapat dikirim setelah pesanan diterima.");
+    if (Date.now() > Date.parse(o.delivered_at) + windowHours * 3600_000) return fail("Batas waktu laporan sudah lewat. Hubungi kami melalui WhatsApp.");
+    if (!c.items.length) return fail("Pilih produk yang bermasalah.");
+    if (c.photos.length > 3 || JSON.stringify(c.photos).length > 2_400_000) return fail("Maksimal 3 foto.");
+    if (c.items.some((it) => !o.items.some((i) => i.id === it.item_id))) return fail("Produk tidak ada di pesanan ini.");
+    if (claims.filter((x) => x.order_id === o.id).length >= 3) return fail("Laporan untuk pesanan ini sudah kami terima. Hubungi kami melalui WhatsApp.");
+    const row: Claim = { id: newId("cl"), order_id: o.id, items: c.items, reason: c.reason, note: c.note.slice(0, 500), photos: c.photos, status: "open", resolution_note: "", refund_amount: null, created_at: new Date().toISOString(), resolved_at: null };
+    claims.push(row);
+    return ok(row.id);
+  },
+  async resolveClaim(id, status, note, refund) {
+    const c = claims.find((x) => x.id === id);
+    if (!c) return fail("Laporan tidak ditemukan.");
+    if (c.status !== "open") return fail("Laporan ini sudah diputuskan.");
+    if (status === "refund" && (refund === null || !(refund > 0))) return fail("Isi jumlah pengembalian dana.");
+    if (status === "declined" && !note.trim()) return fail("Tulis alasan penolakan untuk pelanggan.");
+    Object.assign(c, { status, resolution_note: note.slice(0, 500), refund_amount: status === "refund" ? refund : null, resolved_at: new Date().toISOString() });
+    const o = getStore().orders.find((x) => x.id === c.order_id);
+    if (o) {
+      const what = status === "replace" ? "Diganti pada pengiriman berikutnya" : status === "refund" ? `Dana dikembalikan Rp${Math.round(refund!).toLocaleString("id-ID")}` : "Ditolak";
+      o.internal_note = [o.internal_note, `[Garansi] ${what}${note.trim() ? `: ${note.trim()}` : ""}`].filter(Boolean).join("\n");
+    }
+    return ok(c.order_id);
+  },
+  async listClaims(filter) {
+    return clone(claims.filter((c) => (!filter?.status || c.status === filter.status) && (!filter?.orderId || c.order_id === filter.orderId)).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, filter?.limit ?? 100));
+  },
+  async addStockAlert(productId, phone) {
+    const p = normalizePhone(phone);
+    if (!alerts.some((a) => a.product_id === productId && a.phone === p && !a.notified)) alerts.push({ product_id: productId, phone: p, notified: false });
+  },
+  async takeStockAlerts(productId) {
+    const waiting = alerts.filter((a) => a.product_id === productId && !a.notified);
+    for (const a of waiting) a.notified = true;
+    return waiting.map((a) => a.phone);
+  },
+  async stockAlertCounts() {
+    const out: Record<string, number> = {};
+    for (const a of alerts) if (!a.notified) out[a.product_id] = (out[a.product_id] ?? 0) + 1;
+    return out;
+  },
+  async addPurchase(p) {
+    if (!(p.qty > 0) || p.total_cost < 0) return fail("Jumlah harus lebih dari 0 dan harga tidak boleh negatif.");
+    const row: Purchase = { ...p, id: newId("pu"), created_at: new Date().toISOString() };
+    purchases.push(row);
+    return ok(clone(row));
+  },
+  async deletePurchase(id) {
+    const i = purchases.findIndex((x) => x.id === id);
+    if (i >= 0) purchases.splice(i, 1);
+  },
+  async listPurchases(filter) {
+    return clone(purchases.filter((x) => (!filter.date || x.delivery_date === filter.date) && (!filter.from || x.delivery_date >= filter.from) && (!filter.to || x.delivery_date <= filter.to)).sort((a, b) => a.created_at.localeCompare(b.created_at)));
+  },
+  async listOrdersAutoCancelled(hours) {
+    const now = Date.now(), since = now - hours * 3600_000;
+    return clone(getStore().orders.filter((o) => o.status === "cancelled" && o.pay_by && Date.parse(o.pay_by) < now && Date.parse(o.pay_by) > since).slice(0, 50));
   },
   async listOrdersPastPayBy() {
     const now = Date.now();

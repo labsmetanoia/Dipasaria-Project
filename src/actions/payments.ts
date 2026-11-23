@@ -23,7 +23,8 @@ export async function startQrisAction(code: string, phone: string): Promise<R<Pu
 export async function qrisStatusAction(code: string, phone: string): Promise<R<Awaited<ReturnType<typeof paymentState>>>> {
   if (!(await allow("paymentPoll", await clientIp()))) return { ok: false, error: TOO_MANY };
   const order = await findOrder(code, phone);
-  if (!order) return { ok: false, error: "Pesanan tidak ditemukan." };
+  // Only orders that already have a QR can be polled, so this generous limit cannot be used to guess order codes.
+  if (!order || !(await (await getRepo()).listPayments(order.id)).length) return { ok: false, error: "Pesanan tidak ditemukan." };
   return { ok: true, data: await paymentState(order) };
 }
 

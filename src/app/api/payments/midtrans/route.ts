@@ -23,7 +23,8 @@ export async function POST(req: Request) {
     const payment = await repo.getPayment(String(body.order_id));
     if (!payment) return NextResponse.json({ ok: true, ignored: "unknown order_id" }); // not one of ours: acknowledge, do nothing
     const st = await midtrans.getStatus(payment.id);
-    if (!st) return NextResponse.json({ ok: true, ignored: "status unavailable" });
+    // Midtrans could not confirm right now: answer 503 so it sends the notification again later.
+    if (!st) return NextResponse.json({ error: "status unavailable" }, { status: 503 });
     const outcome = st.status === "pending" ? "noop" : await applyGatewayResult(payment, st.status, st.amount, st.raw);
     return NextResponse.json({ ok: true, outcome });
   } catch (e) {

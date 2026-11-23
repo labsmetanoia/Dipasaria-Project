@@ -7,6 +7,8 @@ import type {
   GatewayOutcome,
   Payment,
   WaMessage,
+  Claim,
+  Purchase,
   Customer,
   CustomerAddress,
   BusinessAccount,
@@ -23,7 +25,7 @@ import type {
   StandingOrderRun,
   Variant,
 } from "../types";
-import type { OrderFilter, Repo, Result, SalesRow } from "./repo";
+import type { Repo, Result, SalesRow } from "./repo";
 import { normalizePhone } from "../format";
 import { newId } from "../ids";
 
@@ -165,6 +167,10 @@ function mapOrder(r: Row): Order {
     weighed_at: (r.weighed_at as string | null) ?? null,
     pay_by: (r.pay_by as string | null) ?? null,
     wa_opt_in: r.wa_opt_in !== false,
+    substitution: (r.substitution as Order["substitution"]) ?? "contact",
+    delivered_at: (r.delivered_at as string | null) ?? null,
+    delivery_note: (r.delivery_note as string | null) ?? null,
+    cod_collected: numOrNull(r.cod_collected),
     promo_code: (r.promo_code as string | null) ?? null,
     customer_note: (r.customer_note as string) ?? "",
     internal_note: (r.internal_note as string) ?? "",
@@ -452,7 +458,8 @@ export const supabaseRepo: Repo = {
   async upsertProduct(p) {
     const { error } = await sb().from("products").upsert({ ...p, id: p.id || newId("p") });
     if (error) return fail(msg(error));
-    const prod = await this.getProductBySlug(p.slug);
+    // read back by slug including inactive products (saving a product that is switched off is valid)
+    const prod = (await this.getProducts({ includeInactive: true, includeCost: true })).find((x) => x.slug === p.slug);
     return prod ? ok(prod) : fail("Produk tidak ditemukan.");
   },
   async updateVariant(id, patch) {
@@ -573,7 +580,9 @@ export const supabaseRepo: Repo = {
       if ((error as { code?: string }).code !== "23505") throw error;
       // Already claimed: take it over only if that attempt failed (no order, an error recorded), so failures can be retried.
       const { data: retry, error: e2 } = await sb().from("standing_order_runs").update({ error: null, created_at: new Date().toISOString() })
-        .eq("standing_order_id", standingOrderId).eq("delivery_date", date).is("order_id", null).not("error", "is", null).select("*").maybeSingle();
+        .eq("standing_order_id", standingOrderId).eq("delivery_date", date).is("order_id", null)
+        // failed runs, or runs that stopped half-way more than 10 minutes ago (the order is protected by its client_ref)
+        .or(`error.not.is.null,created_at.lt.${new Date(Date.now() - 600_000).toISOString()}`).select("*").maybeSingle();
       if (e2) throw e2;
       return retry ? mapRun(retry as Row) : null;
     }
@@ -726,7 +735,12 @@ export const supabaseRepo: Repo = {
   async updateCustomer(id, patch) {
     const row: Record<string, unknown> = {};
     if (patch.name !== undefined) row.name = patch.name;
-    if (patch.marketing_opt_in !== undefined) { row.marketing_opt_in = patch.marketing_opt_in; row.marketing_opt_in_at = patch.marketing_opt_in ? new Date().toISOString() : null; }
+    if (patch.marketing_opt_in !== undefined) {
+      // the consent date records when it was given: only change it when the answer changes
+      const { data: cur } = await sb().from("customers").select("marketing_opt_in").eq("id", id).maybeSingle();
+      if (!cur || Boolean((cur as Row).marketing_opt_in) !== patch.marketing_opt_in) { row.marketing_opt_in = patch.marketing_opt_in; row.marketing_opt_in_at = patch.marketing_opt_in ? new Date().toISOString() : null; }
+    }
+    if (!Object.keys(row).length) { const { data } = await sb().from("customers").select("*").eq("id", id).maybeSingle(); return data ? mapCustomer(data as Row) : null; }
     const { data, error } = await sb().from("customers").update(row).eq("id", id).select("*").maybeSingle();
     if (error) throw error;
     return data ? mapCustomer(data as Row) : null;
@@ -769,6 +783,74 @@ export const supabaseRepo: Repo = {
     if (error) throw error;
     return (data as Row[]).map(mapOrder);
   },
+  async markDelivered(id, note, cod) {
+    const { error } = await sb().rpc("mark_delivered", { p_order_id: id, p_note: note, p_cod: cod });
+    if (error) return fail(msg(error));
+    const o = await fetchOrder(id);
+    return o ? ok(o) : fail("Pesanan tidak ditemukan.");
+  },
+  async createClaim(code, phone, c, windowHours) {
+    const { data, error } = await sb().rpc("create_claim", { p_code: code, p_phone: phone, p_items: c.items, p_reason: c.reason, p_note: c.note, p_photos: c.photos, p_window_hours: windowHours });
+    return error ? fail(msg(error)) : ok(String(data));
+  },
+  async resolveClaim(id, status, note, refund) {
+    const { data, error } = await sb().rpc("resolve_claim", { p_id: id, p_status: status, p_note: note, p_refund: refund });
+    return error ? fail(msg(error)) : ok(String(data));
+  },
+  async listClaims(filter) {
+    let q = sb().from("claims").select("*").order("created_at", { ascending: false }).limit(filter?.limit ?? 100);
+    if (filter?.status) q = q.eq("status", filter.status);
+    if (filter?.orderId) q = q.eq("order_id", filter.orderId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map((r) => ({
+      id: String(r.id), order_id: String(r.order_id), items: (r.items as Claim["items"]) ?? [], reason: r.reason as Claim["reason"], note: String(r.note ?? ""),
+      photos: ((r.photos as string[]) ?? []).map(String), status: r.status as Claim["status"], resolution_note: String(r.resolution_note ?? ""),
+      refund_amount: numOrNull(r.refund_amount), created_at: String(r.created_at), resolved_at: (r.resolved_at as string | null) ?? null,
+    }));
+  },
+  async addStockAlert(productId, phone) {
+    const { error } = await sb().from("stock_alerts").upsert({ id: newId("sa"), product_id: productId, phone: normalizePhone(phone), notified_at: null }, { onConflict: "product_id,phone" });
+    if (error) throw error;
+  },
+  async takeStockAlerts(productId) {
+    // mark first, then read what this call marked: two admins saving at once cannot notify anyone twice
+    const stamp = new Date().toISOString();
+    const { data, error } = await sb().from("stock_alerts").update({ notified_at: stamp }).eq("product_id", productId).is("notified_at", null).select("phone");
+    if (error) throw error;
+    return ((data as Row[]) ?? []).map((r) => String(r.phone));
+  },
+  async stockAlertCounts() {
+    const { data, error } = await sb().from("stock_alerts").select("product_id").is("notified_at", null).limit(5000);
+    if (error) throw error;
+    const out: Record<string, number> = {};
+    for (const r of (data as Row[]) ?? []) out[String(r.product_id)] = (out[String(r.product_id)] ?? 0) + 1;
+    return out;
+  },
+  async addPurchase(p) {
+    const { data, error } = await sb().from("purchases").insert({ ...p, id: newId("pu") }).select("*").single();
+    return error ? fail(msg(error)) : ok(mapPurchase(data as Row));
+  },
+  async deletePurchase(id) {
+    const { error } = await sb().from("purchases").delete().eq("id", id);
+    if (error) throw error;
+  },
+  async listPurchases(filter) {
+    let q = sb().from("purchases").select("*").order("created_at");
+    if (filter.date) q = q.eq("delivery_date", filter.date);
+    if (filter.from) q = q.gte("delivery_date", filter.from);
+    if (filter.to) q = q.lte("delivery_date", filter.to);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map(mapPurchase);
+  },
+  async listOrdersAutoCancelled(hours) {
+    const now = new Date();
+    const { data, error } = await sb().from("orders").select(ORDER_SELECT).eq("status", "cancelled")
+      .lt("pay_by", now.toISOString()).gt("pay_by", new Date(now.getTime() - hours * 3600_000).toISOString()).limit(50);
+    if (error) throw error;
+    return (data as Row[]).map(mapOrder);
+  },
   async listOrdersPastPayBy() {
     const { data, error } = await sb().from("orders").select(ORDER_SELECT).eq("payment_status", "unpaid").in("status", ["new", "confirmed"]).lt("pay_by", new Date().toISOString()).limit(200);
     if (error) throw error;
@@ -778,7 +860,7 @@ export const supabaseRepo: Repo = {
 
 function mapWa(r: Row): WaMessage {
   return {
-    id: String(r.id), order_id: String(r.order_id), kind: r.kind as WaMessage["kind"], dedupe: String(r.dedupe ?? ""), phone: String(r.phone),
+    id: String(r.id), order_id: (r.order_id as string | null) ?? null, kind: r.kind as WaMessage["kind"], dedupe: String(r.dedupe ?? ""), phone: String(r.phone),
     template: String(r.template), params: ((r.params as unknown[]) ?? []).map(String), body: String(r.body), status: r.status as WaMessage["status"],
     provider_id: (r.provider_id as string | null) ?? null, error: (r.error as string | null) ?? null, attempts: num(r.attempts),
     created_at: String(r.created_at), sent_at: (r.sent_at as string | null) ?? null,
@@ -822,5 +904,12 @@ function mapAddress(r: Row): CustomerAddress {
   return {
     id: String(r.id), customer_id: String(r.customer_id), label: String(r.label ?? ""), recipient: String(r.recipient ?? ""), address: String(r.address),
     area_id: (r.area_id as string | null) ?? null, maps_url: (r.maps_url as string | null) ?? null, is_default: Boolean(r.is_default), created_at: String(r.created_at),
+  };
+}
+
+function mapPurchase(r: Row): Purchase {
+  return {
+    id: String(r.id), delivery_date: String(r.delivery_date).slice(0, 10), product_id: String(r.product_id), kind: r.kind as Purchase["kind"],
+    qty: num(r.qty), unit: String(r.unit), total_cost: num(r.total_cost), supplier: String(r.supplier ?? ""), note: String(r.note ?? ""), created_at: String(r.created_at),
   };
 }

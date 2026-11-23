@@ -6,7 +6,7 @@ import { updateSettingsAction, upsertAreaAction, upsertSlotAction } from "@/acti
 import { Field } from "@/components/ui";
 
 
-const WA_EVENT_LIST: Array<[WaKind, string]> = [["received", "Pesanan diterima"], ["invoice", "Tagihan akhir setelah ditimbang"], ["paid", "Pembayaran diterima"], ["delivering", "Dalam pengiriman"], ["reminder", "Pengingat pembayaran (30 menit sebelum batas)"], ["cancelled", "Pesanan dibatalkan"], ["standing", "Pesanan rutin dibuat (restoran)"]];
+const WA_EVENT_LIST: Array<[WaKind, string]> = [["received", "Pesanan diterima"], ["invoice", "Tagihan akhir setelah ditimbang"], ["paid", "Pembayaran diterima"], ["delivering", "Dalam pengiriman"], ["reminder", "Pengingat pembayaran (30 menit sebelum batas)"], ["cancelled", "Pesanan dibatalkan"], ["standing", "Pesanan rutin dibuat (restoran)"], ["delivered", "Pesanan sudah diterima (dengan tautan garansi)"], ["claim", "Keputusan laporan garansi"], ["restock", "Produk tersedia lagi (untuk yang minta dikabari)"]];
 export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[] }) {
   const [s, setS] = useState(initial);
   const [areas, setAreas] = useState(a0);

@@ -1,7 +1,8 @@
 "use client";
 import { Minus, Plus } from "lucide-react";
 
-export function QtyStepper({ value, min, step, onChange, unit, size = "md" }: { value: number; min: number; step: number; onChange: (v: number) => void; unit: string; size?: "sm" | "md" }) {
+// The minimum is enforced by the callers (the cart removes a line below it, the product sheet clamps to it).
+export function QtyStepper({ value, step, onChange, unit, size = "md" }: { value: number; min: number; step: number; onChange: (v: number) => void; unit: string; size?: "sm" | "md" }) {
  const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toLocaleString("id-ID", { maximumFractionDigits: 2 }));
  const btn = size === "sm" ? "h-8 w-8" : "h-11 w-11";
  return (

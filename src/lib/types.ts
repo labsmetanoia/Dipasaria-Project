@@ -161,6 +161,8 @@ export interface BusinessAccount {
 
 export interface OrderItem {
   id: string;
+  /** stock was deducted for this line at order time (only these lines give stock back on cancel) */
+  stock_reserved?: boolean;
   order_id: string;
   product_id: string;
   variant_id: string;
@@ -221,6 +223,12 @@ export interface Order {
   pay_by?: string | null;
   /** Customer agreed to order updates on WhatsApp (default true). */
   wa_opt_in?: boolean;
+  /** If an item is short at the dawn auction: similar replacement, contact first, or leave it out. */
+  substitution?: Substitution;
+  /** Proof of delivery. */
+  delivered_at?: string | null;
+  delivery_note?: string | null;
+  cod_collected?: number | null;
   customer_note: string;
   internal_note: string;
   created_at: string;
@@ -253,6 +261,7 @@ export interface PlaceOrderInput {
   client_ref?: string;
   /** consent to automatic order updates on WhatsApp */
   wa_opt_in?: boolean;
+  substitution?: Substitution;
 }
 
 export interface Quote {
@@ -389,12 +398,13 @@ export interface Payment {
 /** What recording a verified gateway result did to the order. */
 export type GatewayOutcome = "paid" | "mismatch" | "late" | "duplicate" | "updated" | "noop";
 
-export type WaKind = "received" | "invoice" | "paid" | "delivering" | "reminder" | "cancelled" | "standing";
+export type WaKind = "received" | "invoice" | "paid" | "delivering" | "reminder" | "cancelled" | "standing" | "delivered" | "claim" | "restock";
 
 /** One automatic WhatsApp message to a customer (outbox row). */
 export interface WaMessage {
   id: string;
-  order_id: string;
+  /** null for messages not tied to an order (back-in-stock alerts) */
+  order_id: string | null;
   kind: WaKind;
   dedupe: string;
   phone: string;
@@ -434,3 +444,37 @@ export interface CustomerAddress {
 }
 
 export type CustomerLoginResult = { status: "ok"; customerId: string } | { status: "wrong" | "expired" | "locked" };
+
+export type Substitution = "similar" | "contact" | "remove";
+
+export type ClaimReason = "not_fresh" | "wrong_item" | "short_weight" | "damaged" | "missing" | "other";
+
+/** A freshness-guarantee report from the customer, decided by the owner. */
+export interface Claim {
+  id: string;
+  order_id: string;
+  items: Array<{ item_id: string; product_name?: string }>;
+  reason: ClaimReason;
+  note: string;
+  /** small JPEG data URLs, compressed in the browser */
+  photos: string[];
+  status: "open" | "replace" | "refund" | "declined";
+  resolution_note: string;
+  refund_amount: number | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+/** Dawn buying log: a purchase, or what was left over / thrown away, for a delivery date. */
+export interface Purchase {
+  id: string;
+  delivery_date: string;
+  product_id: string;
+  kind: "purchase" | "leftover" | "waste";
+  qty: number;
+  unit: string;
+  total_cost: number;
+  supplier: string;
+  note: string;
+  created_at: string;
+}

@@ -5,4 +5,5 @@ alter table categories add column if not exists name_en text, add column if not 
 alter table products add column if not exists description_en text, add column if not exists origin_en text, add column if not exists storage_note_en text;
 alter table variants add column if not exists label_en text;
 alter table prep_options add column if not exists label_en text, add column if not exists note_en text;
--- Then re-run seed.sql to load English copy and the two value boxes (it upserts by id).
+-- English copy for existing catalogue rows is no longer loaded by re-running seed.sql: since November 2026 seed.sql only
+-- inserts missing rows, so it can never overwrite live prices, stock or settings. Edit English names in the back-office.

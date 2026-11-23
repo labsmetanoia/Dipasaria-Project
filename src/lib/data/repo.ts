@@ -4,6 +4,9 @@ import type {
   GatewayOutcome,
   Payment,
   WaMessage,
+  Claim,
+  ClaimReason,
+  Purchase,
   Customer,
   CustomerAddress,
   CustomerLoginResult,
@@ -156,6 +159,8 @@ export interface Repo {
   listOrdersPayBySoon(minutes: number): Promise<Order[]>;
   /** Unpaid orders already past their payment deadline (about to be cancelled automatically). */
   listOrdersPastPayBy(): Promise<Order[]>;
+  /** Orders cancelled because their payment deadline passed, within the last `hours` (for the customer message). */
+  listOrdersAutoCancelled(hours: number): Promise<Order[]>;
 
   // Household customer accounts (codes and session tokens arrive already hashed)
   customerRequestCode(phone: string, codeHash: string): Promise<Result<string>>;
@@ -171,4 +176,25 @@ export interface Repo {
   deleteAddress(customerId: string, id: string): Promise<void>;
   /** Household orders placed with this phone number, newest first. */
   getOrdersByPhone(phone: string, limit: number): Promise<Order[]>;
+
+  // Delivery mode
+  /** Completes the order with time, who received it and any cash collected (cash covering the total pays a COD order). */
+  markDelivered(id: string, note: string | null, cod: number | null): Promise<Result<Order>>;
+
+  // Freshness-guarantee claims
+  createClaim(code: string, phone: string, c: { items: Claim["items"]; reason: ClaimReason; note: string; photos: string[] }, windowHours: number): Promise<Result<string>>;
+  resolveClaim(id: string, status: "replace" | "refund" | "declined", note: string, refund: number | null): Promise<Result<string>>;
+  listClaims(filter?: { status?: Claim["status"]; orderId?: string; limit?: number }): Promise<Claim[]>;
+
+  // "Kabari saya" back-in-stock alerts
+  addStockAlert(productId: string, phone: string): Promise<void>;
+  /** Waiting customers for a product, marked as notified in the same step (each is told once). */
+  takeStockAlerts(productId: string): Promise<string[]>;
+  /** Waiting customers per product (not yet notified). */
+  stockAlertCounts(): Promise<Record<string, number>>;
+
+  // Dawn buying log
+  addPurchase(p: Omit<Purchase, "id" | "created_at">): Promise<Result<Purchase>>;
+  deletePurchase(id: string): Promise<void>;
+  listPurchases(filter: { date?: string; from?: string; to?: string }): Promise<Purchase[]>;
 }

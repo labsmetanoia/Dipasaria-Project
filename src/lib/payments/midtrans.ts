@@ -55,7 +55,9 @@ type MidtransBody = {
 
 async function call(path: string, init: RequestInit = {}): Promise<MidtransBody> {
   const res = await fetch(base() + path, { ...init, headers: headers(), signal: AbortSignal.timeout(10_000), cache: "no-store" });
-  const body = (await res.json().catch(() => ({}))) as MidtransBody;
+  const body = (await res.json().catch(() => null)) as MidtransBody | null;
+  // An outage or a non-JSON answer is an error, never "no information": callers must retry, not assume.
+  if (!body || (res.status >= 500 && !body.status_code)) throw new Error(`Midtrans ${res.status}: tidak ada jawaban yang valid`);
   return body;
 }
 

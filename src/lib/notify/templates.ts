@@ -38,6 +38,21 @@ export const TEMPLATES: Record<WaKind, Template> = {
     label: "Pesanan dibatalkan",
     body: "Halo {{1}}, pesanan {{2}} dibatalkan karena {{3}}. Bila Anda sudah membayar, dana akan kami kembalikan.\n\nPesan kembali: {{4}}\n\nTerima kasih.",
   },
+  delivered: {
+    name: "dipasaria_pesanan_sampai",
+    label: "Pesanan sudah diterima",
+    body: "Halo {{1}}, pesanan {{2}} sudah diterima. Terima kasih!\n\nBila ada produk yang kurang segar atau tidak sesuai, laporkan dengan foto dalam 2 jam dan kami ganti atau kembalikan dananya: {{3}}\n\nSalam segar, Dipasaria.",
+  },
+  claim: {
+    name: "dipasaria_keputusan_garansi",
+    label: "Keputusan laporan garansi",
+    body: "Halo {{1}}, laporan Anda untuk pesanan {{2}} sudah kami proses: {{3}}\n\nTerima kasih sudah memberi tahu kami.",
+  },
+  restock: {
+    name: "dipasaria_stok_tersedia",
+    label: "Produk tersedia lagi",
+    body: "Kabar baik: {{1}} sudah tersedia lagi untuk pengiriman berikutnya.\n\nPesan di sini: {{2}}\n\nAnda menerima pesan ini karena meminta dikabari di situs Dipasaria.",
+  },
   standing: {
     name: "dipasaria_pesanan_rutin",
     label: "Pesanan rutin dibuat",
@@ -70,7 +85,7 @@ function payInstruction(o: Order, s: Settings, gatewayQris: boolean): string {
 const when = (o: Order) => `${formatDate(o.delivery_date, "long")}, ${o.slot_label}`;
 const amount = (o: Order) => rupiah(o.total_final ?? o.total_est);
 
-export interface BuildContext { settings: Settings; gatewayQris: boolean; reason?: string; missing?: string[] }
+export interface BuildContext { settings: Settings; gatewayQris: boolean; reason?: string; missing?: string[]; decision?: string }
 
 /** Template parameters for an order event, in {{1}}, {{2}}… order. */
 export function buildParams(kind: WaKind, o: Order, ctx: BuildContext): string[] {
@@ -82,7 +97,15 @@ export function buildParams(kind: WaKind, o: Order, ctx: BuildContext): string[]
     delivering: [o.customer_name, o.code, o.slot_label, link],
     reminder: [o.customer_name, o.code, amount(o), o.pay_by ? formatDateTime(o.pay_by) : "-", link],
     cancelled: [o.customer_name, o.code, ctx.reason ?? "permintaan atau ketersediaan barang", `${link.split("/pesanan/")[0]}/belanja`],
+    delivered: [o.customer_name, o.code, link],
+    claim: [o.customer_name, o.code, ctx.decision ?? "-"],
+    restock: [], // not tied to an order: see restockParams
     standing: [o.customer_name, when(o), o.code, ctx.missing?.length ? `Tidak tersedia malam ini: ${ctx.missing.join(" ")} Produk lainnya tetap dikirim.` : "Semua produk tersedia.", link],
   };
   return raw[kind].map(cleanParam);
+}
+
+/** Back-in-stock alert parameters: product name and the product page. */
+export function restockParams(productName: string, url: string): string[] {
+  return [productName, url].map(cleanParam);
 }

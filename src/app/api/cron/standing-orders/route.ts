@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   // recorded as failed (visible and retryable in the back-office) instead of silently targeting a later day.
   const date = url.searchParams.get("date") ?? jakartaTomorrow(nowJakarta());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: "invalid date" }, { status: 400 });
-  await expireIfDue(true);
+  await expireIfDue("force");
   const results = await runStandingOrders(repo, date);
   for (const r of results) if (r.status === "placed" && r.order_id) await notify(r.order_id, "standing", { missing: r.missing });
   for (const r of results.filter((x) => x.status === "failed")) await reportError("job", `Pesanan rutin gagal: ${r.account_name}: ${r.error}`, { path: "/api/cron/standing-orders" });

@@ -26,7 +26,7 @@ export default async function ResepPage() {
       />
       <section className="container-x py-14 md:py-20">
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {recipes.map((r) => <RecipeCard key={r.slug} recipe={r} locale={locale} total={recipeTotal(resolveRecipe(r, products), segment, account)} />)}
+          {recipes.map((r) => <RecipeCard key={r.slug} level={2} recipe={r} locale={locale} total={recipeTotal(resolveRecipe(r, products), segment, account)} />)}
         </div>
       </section>
     </>

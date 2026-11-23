@@ -50,10 +50,13 @@ export async function startQris(order: Order): Promise<Result<PublicPayment>> {
     await gw.cancel(p.id).catch(() => undefined);
     await repo.recordGatewayPayment(p.id, "cancelled", null, { reason: "superseded" });
   }
+  // A QR must expire before the order's own deadline; too close to it, a new QR would outlive the order.
+  if (order.pay_by && Date.parse(order.pay_by) - now < 7 * 60_000) return { ok: false, error: "Batas waktu pembayaran pesanan ini hampir habis. Hubungi kami melalui WhatsApp agar pesanan tetap diproses." };
   let expires = now + QR_MINUTES * 60_000;
   if (order.pay_by) expires = Math.min(expires, Date.parse(order.pay_by) - 5 * 60_000);
   expires = Math.max(expires, now + 2 * 60_000);
-  const id = `${order.code}-Q${list.length + 1}`;
+  // Unique even if two tabs ask at once or an earlier attempt reached the gateway but not our database.
+  const id = `${order.code}-Q${list.length + 1}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
   try {
     const charge = await gw.createQris({ id, amount, expiresAt: new Date(expires), order });
     const p = await repo.createPayment({ id, order_id: order.id, provider: gw.name, method: "qris", amount, qr_string: charge.qr_string, qr_url: charge.qr_url, expires_at: charge.expires_at });

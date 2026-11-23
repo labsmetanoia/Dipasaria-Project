@@ -5,7 +5,9 @@ import type { Locale } from "@/lib/i18n";
 import { rupiah } from "@/lib/format";
 import { Photo } from "@/components/Photo";
 
-export function RecipeCard({ recipe, locale, total }: { recipe: Recipe; locale: Locale; total: number }) {
+/** `level` lets a page without section headings (the recipe index) keep heading order valid. */
+export function RecipeCard({ recipe, locale, total, level = 3 }: { recipe: Recipe; locale: Locale; total: number; level?: 2 | 3 }) {
+  const H = level === 2 ? "h2" : "h3";
   const en = locale === "en";
   const c = recipe[locale];
   return (
@@ -19,7 +21,7 @@ export function RecipeCard({ recipe, locale, total }: { recipe: Recipe; locale: 
           <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{recipe.minutes} {en ? "min" : "menit"}</span>
           <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" />{recipe.servings} {en ? "people" : "orang"}</span>
         </p>
-        <h3 className="mt-2 text-[1.55rem] leading-none">{c.title}</h3>
+        <H className="mt-2 text-[1.55rem] leading-none">{c.title}</H>
         <p className="mt-2 line-clamp-2 font-sans text-[13.5px] text-mute">{c.excerpt}</p>
         <div className="mt-auto flex items-end justify-between gap-3 border-t border-line pt-4">
           <div>

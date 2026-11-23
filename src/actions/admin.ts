@@ -168,8 +168,19 @@ export async function deletePromoAction(id: string) {
 
 export async function updateSettingsAction(patch: Partial<Settings>) {
   await guard();
+  if (patch.cutoff_time !== undefined) {
+    // "20.00" is how times are written on the site; the database needs "20:00" (a wrong format would stop every checkout)
+    const t = String(patch.cutoff_time).trim().replace(".", ":");
+    const m = t.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return wrap({ ok: false as const, error: "Batas pemesanan harus berupa jam, misalnya 20:00." });
+    patch = { ...patch, cutoff_time: `${m[1].padStart(2, "0")}:${m[2]}` };
+  }
+  for (const k of ["min_order_retail", "min_order_business", "free_delivery_retail", "free_delivery_business", "catch_weight_buffer_pct", "max_days_ahead"] as const) {
+    if (patch[k] !== undefined && (!Number.isFinite(Number(patch[k])) || Number(patch[k]) < 0)) return wrap({ ok: false as const, error: "Angka di pengaturan tidak boleh negatif." });
+  }
+  if (patch.max_days_ahead !== undefined && (Number(patch.max_days_ahead) < 1 || Number(patch.max_days_ahead) > 30)) return wrap({ ok: false as const, error: "Maksimal hari pemesanan ke depan: 1–30 hari." });
   if (patch.wa_events !== undefined) {
-    const allowed = ["received", "invoice", "paid", "delivering", "reminder", "cancelled", "standing"];
+    const allowed = ["received", "invoice", "paid", "delivering", "reminder", "cancelled", "standing", "delivered", "claim", "restock"];
     patch = { ...patch, wa_events: (Array.isArray(patch.wa_events) ? patch.wa_events : []).filter((k) => allowed.includes(k)) };
   }
   if (patch.payment_window_minutes !== undefined) {
@@ -240,7 +251,7 @@ export async function resolveErrorsAction(fingerprints: string[] | "all"): Promi
 
 export async function runExpiryNowAction(): Promise<ActionResult<number>> {
   await guard();
-  const n = await expireIfDue(true);
+  const n = await expireIfDue("force");
   revalidatePath("/admin", "layout");
   return { ok: true, data: n };
 }

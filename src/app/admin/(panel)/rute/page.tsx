@@ -14,7 +14,7 @@ import { PAYMENT_LABEL, UNIT_LABEL } from "@/lib/config";
 
 export default async function RoutePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   await requireAdmin();
-  await expireIfDue(); // unpaid orders past their deadline must not reach the buying list or the route
+  await expireIfDue("wait"); // unpaid orders past their deadline must not reach the buying list or the route
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();

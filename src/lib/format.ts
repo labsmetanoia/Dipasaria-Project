@@ -119,6 +119,7 @@ export function relativeDayLabel(isoDate: string, today: string, locale: Loc = "
 export function normalizePhone(raw: string): string {
   let p = raw.replace(/[^\d+]/g, "");
   if (p.startsWith("+")) p = p.slice(1);
+  if (p.startsWith("620")) p = "62" + p.slice(3); // "+62 0812…" is the same number as "0812…" (same rule as normalize_phone in SQL)
   if (p.startsWith("0")) p = "62" + p.slice(1);
   if (p.startsWith("8")) p = "62" + p;
   return p;

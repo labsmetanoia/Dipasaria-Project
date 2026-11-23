@@ -1,8 +1,8 @@
 -- Generated from src/lib/data/seed.ts. Edit the TS file and re-run `node scripts/gen-seed.mts`.
 -- Prices are launch placeholders: replace them with your own price list before sharing the link.
 
-insert into settings (id, store_name, tagline, tagline_en, whatsapp_number, bank_name, bank_account, bank_holder, qris_image_url, cutoff_time, min_order_retail, min_order_business, free_delivery_retail, free_delivery_business, catch_weight_buffer_pct, max_days_ahead, instagram, address_line, announcement, announcement_en, hero_image_url, payment_window_minutes, wa_events, about_image_url) values (1, 'Dipasaria', 'Protein pilihan untuk dapur Jakarta', 'Trusted protein for Jakarta''s kitchens', '6281100000000', 'BCA', '0000000000', 'PT Dipasaria', null, '20:00', 150000, 750000, 250000, 750000, 5, 6, 'dipasaria.id', 'Jakarta Utara', null, null, null, 120, array['received','invoice','paid','delivering','reminder','cancelled','standing']::text[], null)
-on conflict (id) do update set store_name = excluded.store_name, tagline = excluded.tagline, tagline_en = excluded.tagline_en, whatsapp_number = excluded.whatsapp_number, bank_name = excluded.bank_name, bank_account = excluded.bank_account, bank_holder = excluded.bank_holder, qris_image_url = excluded.qris_image_url, cutoff_time = excluded.cutoff_time, min_order_retail = excluded.min_order_retail, min_order_business = excluded.min_order_business, free_delivery_retail = excluded.free_delivery_retail, free_delivery_business = excluded.free_delivery_business, catch_weight_buffer_pct = excluded.catch_weight_buffer_pct, max_days_ahead = excluded.max_days_ahead, instagram = excluded.instagram, address_line = excluded.address_line, announcement = excluded.announcement, announcement_en = excluded.announcement_en, hero_image_url = excluded.hero_image_url, payment_window_minutes = excluded.payment_window_minutes, wa_events = excluded.wa_events, about_image_url = excluded.about_image_url;
+insert into settings (id, store_name, tagline, tagline_en, whatsapp_number, bank_name, bank_account, bank_holder, qris_image_url, cutoff_time, min_order_retail, min_order_business, free_delivery_retail, free_delivery_business, catch_weight_buffer_pct, max_days_ahead, instagram, address_line, announcement, announcement_en, hero_image_url, payment_window_minutes, wa_events, about_image_url) values (1, 'Dipasaria', 'Protein pilihan untuk dapur Jakarta', 'Trusted protein for Jakarta''s kitchens', '6281100000000', 'BCA', '0000000000', 'PT Dipasaria', null, '20:00', 150000, 750000, 250000, 750000, 5, 6, 'dipasaria.id', 'Jakarta Utara', null, null, null, 120, array['received','invoice','paid','delivering','reminder','cancelled','standing','delivered','claim','restock']::text[], null)
+on conflict (id) do nothing;
 
 insert into categories (id, slug, name, name_en, description, description_en, sort, icon, image_url, is_seafood) values
   ('c_ikan', 'ikan-segar', 'Ikan segar', 'Fresh Fish', 'Dipilih dari lelang Muara Baru sebelum subuh, dengan jenis dan ukuran yang jelas.', 'Auctioned at Muara Baru before dawn, named by species, graded by size.', 1, 'fish', '/images/site/cat-ikan-segar.jpg', true),
@@ -13,7 +13,7 @@ insert into categories (id, slug, name, name_en, description, description_en, so
   ('c_telur', 'telur', 'Telur', 'Eggs', 'Telur ayam negeri, ayam kampung, bebek, dan puyuh; per rak, atau per peti untuk kebutuhan restoran.', 'Chicken, free-range, duck and quail eggs; by the tray, or by the crate for restaurants.', 6, 'egg', '/images/site/cat-telur.jpg', false),
   ('c_paket', 'paket-hemat', 'Paket hemat', 'Value Boxes', 'Paket isi freezer yang lebih hemat daripada membeli satuan.', 'Freezer-ready boxes priced below buying the items separately.', 8, 'box', '/images/products/kotak-freezer-keluarga.jpg', false),
   ('c_bumbu', 'bumbu-dapur', 'Bumbu dapur', 'Pantry & Condiments', 'Kebutuhan dapur yang rutin Anda beli setiap minggu, dikirim dalam pengiriman yang sama.', 'The kitchen staples you buy every week, in the same delivery.', 7, 'bottle', '/images/site/cat-bumbu-dapur.jpg', false)
-on conflict (id) do update set slug = excluded.slug, name = excluded.name, name_en = excluded.name_en, description = excluded.description, description_en = excluded.description_en, sort = excluded.sort, icon = excluded.icon, image_url = excluded.image_url, is_seafood = excluded.is_seafood;
+on conflict (id) do nothing;
 
 insert into products (id, slug, category_id, name, name_en, scientific_name, aliases, description, description_en, origin, origin_en, storage_class, storage_note, storage_note_en, is_catch_weight, available_today, is_active, is_featured, image_url, icon, sort) values
   ('p_kakap', 'kakap-merah', 'c_ikan', 'Kakap Merah', 'Malabar Snapper', 'Lutjanus malabaricus', array['bambangan','red snapper','kakap']::text[], 'Kakap merah asli, bukan Red Bass yang kerap dijual dengan nama yang sama. Dagingnya putih dan padat, cocok dikukus, dibakar, atau digoreng.', 'The true red snapper, not the Red Bass often sold under that name. Firm white flesh for steaming, grilling or frying.', 'Muara Baru, didaratkan menjelang subuh', 'Muara Baru, landed at dawn', 'chilled', 'Simpan pada suhu 0–4 °C, lalu masak dalam 24 jam atau segera bekukan.', 'Keep at 0–4 °C; cook within 24 hours or freeze.', true, true, true, true, '/images/products/kakap-merah.jpg', 'fish', 1),
@@ -69,7 +69,7 @@ insert into products (id, slug, category_id, name, name_en, scientific_name, ali
   ('p_box_keluarga', 'kotak-freezer-keluarga', 'c_paket', 'Kotak Freezer Keluarga', 'Family Freezer Box', null, array['paket','bundle','freezer box','kotak hemat']::text[], 'Udang kupas belah punggung 500 g, fillet dori 1 kg, nugget ayam 500 g, dan sayap ayam 1 kg. Persediaan protein keluarga untuk seminggu, Rp9.000 lebih hemat daripada membeli satuan.', 'Peeled & deveined shrimp 500 g, dori fillet 1 kg, chicken nuggets 500 g and chicken wings 1 kg. A week of family protein, Rp9,000 below buying separately.', 'Dikemas di ruang pengemasan kami', 'Packed at our packing table', 'frozen', 'Simpan pada suhu −18 °C. Cairkan di bagian bawah kulkas, bukan pada suhu ruang.', 'Keep at −18 °C. Thaw in the fridge, never at room temperature.', false, true, true, true, '/images/products/kotak-freezer-keluarga.jpg', 'box', 51),
   ('p_box_seafood', 'kotak-seafood-weekend', 'c_paket', 'Kotak Seafood Akhir Pekan', 'Weekend Seafood Box', null, array['paket','bundle','salmon box','kotak seafood']::text[], 'Fillet salmon 2 × 200 g, tuna saku 250 g, dan udang kupas belah punggung 500 g. Cukup untuk dua makan malam istimewa dan satu tumisan cepat, Rp21.000 lebih hemat daripada membeli satuan.', 'Salmon fillet 2 × 200 g, tuna saku 250 g and peeled & deveined shrimp 500 g. Two special dinners and one quick stir-fry, Rp21,000 below buying separately.', 'Dikemas di ruang pengemasan kami', 'Packed at our packing table', 'frozen', 'Simpan pada suhu −18 °C. Cairkan di bagian bawah kulkas, bukan pada suhu ruang.', 'Keep at −18 °C. Thaw in the fridge, never at room temperature.', false, true, true, true, '/images/products/kotak-seafood-weekend.jpg', 'box', 52),
   ('p_paket_bakar', 'paket-ikan-bakar', 'c_paket', 'Paket Ikan Bakar', 'Grill Night Box', null, array['paket bakar','bbq','grill']::text[], 'Kakap putih ±1 kg yang sudah disiangi, cumi segar 500 g, sambal bawang, dan jeruk nipis 500 g. Cukup untuk 4–5 orang.', 'Barramundi ±1 kg (gutted), fresh squid 500 g, shallot sambal and limes 500 g. Serves 4–5.', 'Dikemas di ruang pengemasan kami', 'Packed at our packing table', 'chilled', 'Simpan pada suhu 0–4 °C, lalu masak dalam 24 jam atau segera bekukan.', 'Keep at 0–4 °C; cook within 24 hours or freeze.', false, true, true, true, '/images/products/paket-ikan-bakar.jpg', 'box', 53)
-on conflict (id) do update set slug = excluded.slug, category_id = excluded.category_id, name = excluded.name, name_en = excluded.name_en, scientific_name = excluded.scientific_name, aliases = excluded.aliases, description = excluded.description, description_en = excluded.description_en, origin = excluded.origin, origin_en = excluded.origin_en, storage_class = excluded.storage_class, storage_note = excluded.storage_note, storage_note_en = excluded.storage_note_en, is_catch_weight = excluded.is_catch_weight, available_today = excluded.available_today, is_active = excluded.is_active, is_featured = excluded.is_featured, image_url = excluded.image_url, icon = excluded.icon, sort = excluded.sort;
+on conflict (id) do nothing;
 
 insert into variants (id, product_id, label, label_en, unit, min_qty, step_qty, price_retail, price_business, cost, stock_qty, business_only, is_active, sort) values
   ('v_kakap_l', 'p_kakap', '1–2 kg/ekor', '1–2 kg/fish', 'kg', 0.5, 0.5, 115000, 92000, 78000, null, false, true, 1),
@@ -134,7 +134,7 @@ insert into variants (id, product_id, label, label_en, unit, min_qty, step_qty, 
   ('v_box_keluarga', 'p_box_keluarga', '1 kotak (4 produk)', '1 kotak (4 items)', 'box', 1, 1, 219000, 199000, 168000, 12, false, true, 1),
   ('v_box_seafood', 'p_box_seafood', '1 kotak (3 produk)', '1 kotak (3 items)', 'box', 1, 1, 299000, 275000, 234000, 10, false, true, 1),
   ('v_paket_bakar', 'p_paket_bakar', '1 paket (4 produk)', '1 paket (4 items)', 'box', 1, 1, 189000, 172000, 148000, 10, false, true, 1)
-on conflict (id) do update set product_id = excluded.product_id, label = excluded.label, label_en = excluded.label_en, unit = excluded.unit, min_qty = excluded.min_qty, step_qty = excluded.step_qty, price_retail = excluded.price_retail, price_business = excluded.price_business, cost = excluded.cost, stock_qty = excluded.stock_qty, business_only = excluded.business_only, is_active = excluded.is_active, sort = excluded.sort;
+on conflict (id) do nothing;
 
 insert into prep_options (id, product_id, label, label_en, surcharge, note, note_en, sort) values
   ('pp_kakap_siangi', 'p_kakap', 'Disiangi (sisik dan isi perut dibuang)', 'Gutted & scaled', 3000, null, null, 1),
@@ -167,7 +167,7 @@ insert into prep_options (id, product_id, label, label_en, surcharge, note, note
   ('pp_kepiting_potong', 'p_kepiting', 'Dibersihkan dan dipotong', 'Cleaned and cut', 10000, null, null, 1),
   ('pp_sotong_bersih', 'p_sotong', 'Dibersihkan (tinta dan tulang dibuang)', 'Cleaned (ink and bone removed)', 6000, null, null, 1),
   ('pp_sotong_tinta', 'p_sotong', 'Dibersihkan, tinta disimpan terpisah', 'Cleaned, ink kept separately', 6000, null, null, 2)
-on conflict (id) do update set product_id = excluded.product_id, label = excluded.label, label_en = excluded.label_en, surcharge = excluded.surcharge, note = excluded.note, note_en = excluded.note_en, sort = excluded.sort;
+on conflict (id) do nothing;
 
 insert into delivery_areas (id, name, fee, is_active, sort) values
   ('a_utara', 'Jakarta Utara (Kelapa Gading, Sunter, Pluit, PIK)', 15000, true, 1),
@@ -175,13 +175,13 @@ insert into delivery_areas (id, name, fee, is_active, sort) values
   ('a_selatan', 'Jakarta Selatan (Senopati, Kemang, Blok M)', 25000, true, 3),
   ('a_barat_timur', 'Jakarta Barat dan Timur', 25000, true, 4),
   ('a_tangerang', 'Tangerang, BSD, dan Gading Serpong', 35000, true, 5)
-on conflict (id) do update set name = excluded.name, fee = excluded.fee, is_active = excluded.is_active, sort = excluded.sort;
+on conflict (id) do nothing;
 
 insert into delivery_slots (id, label, start_time, end_time, segment, capacity, is_active, sort) values
   ('s_dapur', 'Pengiriman dapur', '05:00', '08:00', 'business', 15, true, 1),
   ('s_pagi', 'Siang', '10:00', '13:00', 'all', 12, true, 2),
   ('s_sore', 'Sore', '15:00', '18:00', 'retail', 12, true, 3)
-on conflict (id) do update set label = excluded.label, start_time = excluded.start_time, end_time = excluded.end_time, segment = excluded.segment, capacity = excluded.capacity, is_active = excluded.is_active, sort = excluded.sort;
+on conflict (id) do nothing;
 
 insert into promos (id, code, type, value, min_spend, segment, quota, used_count, first_order_only, starts_at, ends_at, is_active, description) values
   ('pr_welcome', 'SELAMATDATANG', 'percent', 10, 150000, 'retail', 200, 0, true, null, null, true, 'Diskon 10% untuk pesanan pertama rumah tangga'),

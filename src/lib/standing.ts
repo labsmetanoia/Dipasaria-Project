@@ -145,6 +145,8 @@ async function runOne(repo: Repo, so: StandingOrder, date: string, ctx: RunConte
         slot_id: so.slot_id,
         payment_method: so.payment_method,
         customer_note: note.slice(0, 400),
+        // the same run never creates two orders, even if it is retried after a crash or a lost response
+        client_ref: `so:${so.id}:${date}`,
       }, account);
       if (res.ok) break;
       // Stock can change between the check and the order (another customer bought the last kilo): drop that line and retry.

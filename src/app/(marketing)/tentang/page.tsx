@@ -119,7 +119,8 @@ export default async function TentangPage() {
       <PageHero eyebrow={c.eyebrow} title={c.title} sub={c.sub} icon="fish" image={IMAGES.story ?? settings.about_image_url} />
       <Band>
         <div className="grid gap-10 lg:grid-cols-12">
-          <div className="lg:col-span-5"><p className="eyebrow">{c.storyEyebrow}</p><h2 className="mt-2 text-[2.6rem] sm:text-[3.4rem]">{c.storyTitle}</h2>{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/brand/badge-arch.svg" alt="Dipasaria · Segar & terpilih · Muara Baru, Jakarta" className="mt-8 hidden w-44 drop-shadow-[0_16px_30px_rgba(0,0,0,.18)] lg:block" /></div>
+          <div className="lg:col-span-5"><p className="eyebrow">{c.storyEyebrow}</p><h2 className="mt-2 text-[2.6rem] sm:text-[3.4rem]">{c.storyTitle}</h2>{/* eslint-disable-next-line @next/next/no-img-element */}
+<img src="/brand/badge-arch.svg" alt="Dipasaria · Segar & terpilih · Muara Baru, Jakarta" className="mt-8 hidden w-44 drop-shadow-[0_16px_30px_rgba(0,0,0,.18)] lg:block" /></div>
           <div className="space-y-5 font-sans text-[15px] leading-relaxed text-ink/80 lg:col-span-7">{c.story.map((x) => <p key={x}>{x}</p>)}</div>
         </div>
       </Band>
@@ -164,7 +165,7 @@ export default async function TentangPage() {
             {c.sources.map(([k, v]) => <div key={k} className="grid gap-1 py-5 sm:grid-cols-3"><dt className="font-display text-[18px] font-bold uppercase">{k}</dt><dd className="font-sans text-[14px] leading-relaxed text-mute sm:col-span-2">{v}</dd></div>)}
           </dl>
           <div className="lg:col-span-5">
-            <div className="bg-ocean-950 p-7 text-white"><p className="eyebrow">{c.dns}</p><ul className="mt-4 space-y-2.5 font-sans text-[14px] text-white/80">{c.dnsList.map((d) => <li key={d} className="flex gap-3"><span className="mt-2 h-1.5 w-1.5 flex-none bg-coral-500" />{d}</li>)}</ul></div>
+            <div className="bg-ocean-950 p-7 text-white"><p className="eyebrow text-coral-500!">{c.dns}</p><ul className="mt-4 space-y-2.5 font-sans text-[14px] text-white/80">{c.dnsList.map((d) => <li key={d} className="flex gap-3"><span className="mt-2 h-1.5 w-1.5 flex-none bg-coral-500" />{d}</li>)}</ul></div>
             <div className="mt-4 bg-coral-500 p-7 text-ocean-950"><h3 className="text-[1.6rem]">{c.guaranteeT}</h3><p className="mt-2 font-sans text-[13.5px] leading-relaxed">{c.guaranteeD}</p><Link href="/belanja" className="btn-primary mt-5">{c.cta} <ArrowRight className="h-4 w-4" /></Link></div>
           </div>
         </div>

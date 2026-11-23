@@ -30,6 +30,7 @@ declare p text;
 begin
   p := regexp_replace(coalesce(raw, ''), '[^0-9+]', '', 'g');
   if left(p, 1) = '+' then p := substr(p, 2); end if;
+  if left(p, 3) = '620' then p := '62' || substr(p, 4); end if; -- "+62 0812…" is the same number as "0812…"
   if left(p, 1) = '0' then p := '62' || substr(p, 2); end if;
   if left(p, 1) = '8' then p := '62' || p; end if;
   return p;
@@ -66,7 +67,7 @@ create table if not exists settings (
   -- minutes a household transfer/QRIS order with a known total has to be paid before it is cancelled automatically (0 = never)
   payment_window_minutes int not null default 120 check (payment_window_minutes between 0 and 10080),
   -- which automatic WhatsApp messages are sent to customers
-  wa_events text[] not null default array['received','invoice','paid','delivering','reminder','cancelled','standing']
+  wa_events text[] not null default array['received','invoice','paid','delivering','reminder','cancelled','standing','delivered','claim','restock']
 );
 
 create table if not exists categories (
@@ -234,7 +235,13 @@ create table if not exists orders (
   -- unpaid by this time → cancelled automatically by expire_unpaid_orders(); null = never (weighed orders, accounts, COD, terms)
   pay_by timestamptz,
   -- the customer agreed at checkout to receive order updates on WhatsApp
-  wa_opt_in boolean not null default true
+  wa_opt_in boolean not null default true,
+  -- if an item is short at the dawn auction: replace with similar / contact me first / just leave it out
+  substitution text not null default 'contact' check (substitution in ('similar','contact','remove')),
+  -- proof of delivery (delivery mode)
+  delivered_at timestamptz,
+  delivery_note text,
+  cod_collected numeric check (cod_collected is null or cod_collected >= 0)
 );
 create index if not exists orders_pay_by_idx on orders(pay_by) where payment_status = 'unpaid';
 
@@ -261,8 +268,8 @@ create index if not exists payments_order_idx on payments(order_id, created_at d
 -- twice; `body` is the text as the customer reads it (also used for sending by hand when the API is not set up).
 create table if not exists wa_messages (
   id text primary key,
-  order_id text not null references orders(id) on delete cascade,
-  kind text not null check (kind in ('received','invoice','paid','delivering','reminder','cancelled','standing')),
+  order_id text references orders(id) on delete cascade, -- null for messages not tied to an order (back-in-stock alerts)
+  kind text not null check (kind in ('received','invoice','paid','delivering','reminder','cancelled','standing','delivered','claim','restock')),
   dedupe text not null default '',
   phone text not null,
   template text not null,
@@ -301,7 +308,9 @@ create table if not exists order_items (
   prep_surcharge numeric not null default 0,
   unit_cost numeric not null default 0,
   line_total_est numeric not null,
-  line_total_final numeric
+  line_total_final numeric,
+  -- stock was deducted for this line at order time (only these lines give stock back on cancel)
+  stock_reserved boolean not null default false
 );
 create index if not exists order_items_order_idx on order_items(order_id);
 
@@ -412,6 +421,49 @@ create table if not exists login_codes (
   created_at timestamptz not null default now()
 );
 
+-- Freshness-guarantee claims: reported by the customer from the order page within the window after delivery,
+-- decided by the owner. Photos are small JPEGs (compressed in the browser) stored as data URLs.
+create table if not exists claims (
+  id text primary key default new_id('cl'),
+  order_id text not null references orders(id) on delete cascade,
+  items jsonb not null default '[]'::jsonb,
+  reason text not null check (reason in ('not_fresh','wrong_item','short_weight','damaged','missing','other')),
+  note text not null default '',
+  photos jsonb not null default '[]'::jsonb,
+  status text not null default 'open' check (status in ('open','replace','refund','declined')),
+  resolution_note text not null default '',
+  refund_amount numeric check (refund_amount is null or refund_amount >= 0),
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
+create index if not exists claims_order_idx on claims(order_id);
+create index if not exists claims_status_idx on claims(status, created_at desc);
+
+-- "Kabari saya": customers waiting for a sold-out product; notified once when it is available again.
+create table if not exists stock_alerts (
+  id text primary key default new_id('sa'),
+  product_id text not null references products(id) on delete cascade,
+  phone text not null,
+  created_at timestamptz not null default now(),
+  notified_at timestamptz,
+  unique (product_id, phone)
+);
+
+-- Dawn buying log: what was actually bought (and at what price), and what was left over or thrown away.
+create table if not exists purchases (
+  id text primary key default new_id('pu'),
+  delivery_date date not null,
+  product_id text not null references products(id),
+  kind text not null default 'purchase' check (kind in ('purchase','leftover','waste')),
+  qty numeric not null check (qty > 0),
+  unit text not null,
+  total_cost numeric not null default 0 check (total_cost >= 0),
+  supplier text not null default '',
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists purchases_date_idx on purchases(delivery_date);
+
 -- Supabase Auth users allowed into the back-office.
 create table if not exists admins (
   user_id uuid primary key,
@@ -427,10 +479,46 @@ create or replace function is_admin() returns boolean language sql stable securi
   select exists (select 1 from admins where user_id = auth.uid());
 $$;
 
+-- Data-integrity rules, added idempotently so upgraded projects get them too. NOT VALID: enforced for every new
+-- write without failing on old rows.
+do $$
+declare c record;
+begin
+  for c in select * from (values
+    ('variants', 'variants_prices_nonneg', 'check (price_retail >= 0 and price_business >= 0 and cost >= 0)'),
+    ('variants', 'variants_min_qty_pos', 'check (min_qty > 0)'),
+    ('variants', 'variants_stock_nonneg', 'check (stock_qty is null or stock_qty >= 0)'),
+    ('prep_options', 'prep_surcharge_nonneg', 'check (surcharge >= 0)'),
+    ('delivery_areas', 'areas_fee_nonneg', 'check (fee >= 0)'),
+    ('delivery_slots', 'slots_capacity_nonneg', 'check (capacity >= 0)'),
+    ('promos', 'promos_value_valid', 'check (value >= 0 and (type <> ''percent'' or value <= 100))'),
+    ('business_accounts', 'accounts_discount_range', 'check (discount_pct between 0 and 100)'),
+    ('settings', 'settings_cutoff_format', 'check (cutoff_time ~ ''^([01][0-9]|2[0-3]):[0-5][0-9]$'')'),
+    ('settings', 'settings_payment_window_range', 'check (payment_window_minutes between 0 and 10080)')
+  ) as t(tbl, name, def) loop
+    if not exists (select 1 from pg_constraint where conname = c.name) then
+      execute format('alter table %I add constraint %I %s not valid', c.tbl, c.name, c.def);
+    end if;
+  end loop;
+end $$;
+
+-- One promo per code regardless of letter case (checkout matches codes case-insensitively).
+do $$ begin
+  create unique index if not exists promos_code_upper_key on promos (upper(code));
+exception when unique_violation then
+  raise notice 'promos: two codes differ only in letter case; rename one, then re-run this file';
+end $$;
+
+-- Cleanup deletes and lookups on these columns run on every login.
+create index if not exists login_attempts_at_idx on login_attempts(at);
+create index if not exists rate_hits_at_idx on rate_hits(at);
+create index if not exists business_sessions_expires_idx on business_sessions(expires_at);
+create index if not exists customer_sessions_expires_idx on customer_sessions(expires_at);
+
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -539,13 +627,14 @@ begin
     exit when not exists (select 1 from orders where orders.code = v_code);
   end loop;
   insert into orders (id, code, segment, account_id, customer_name, phone, address, area_id, area_name, maps_url, delivery_date,
-    slot_id, slot_label, payment_method, payment_status, status, customer_note, history, client_ref, wa_opt_in)
+    slot_id, slot_label, payment_method, payment_status, status, customer_note, history, client_ref, wa_opt_in, substitution)
   values (oid, v_code, seg, acc.id, trim(p->>'customer_name'), v_phone, trim(p->>'address'), area.id, area.name, v_maps, d,
     slot.id, slot.label || ' ' || replace(slot.start_time, ':', '.') || '–' || replace(slot.end_time, ':', '.'), pm, 'unpaid', 'new', coalesce(trim(p->>'customer_note'), ''),
-    jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())), v_ref, coalesce(p->>'wa_opt_in', 'true') <> 'false');
+    jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())), v_ref, coalesce(p->>'wa_opt_in', 'true') <> 'false',
+    case when p->>'substitution' in ('similar','contact','remove') then p->>'substitution' else 'contact' end);
 
   -- lines
-  for line in select * from jsonb_array_elements(p->'lines') loop
+  for line in select value from jsonb_array_elements(p->'lines') order by value->>'variant_id', value->>'prep_option_id' loop
     select * into var from variants where id = line->>'variant_id' and is_active for update;
     if not found then raise exception 'Salah satu produk sudah tidak tersedia.'; end if;
     select * into prod from products where id = var.product_id and is_active;
@@ -580,11 +669,11 @@ begin
     end if;
 
     insert into order_items (order_id, product_id, variant_id, category_id, product_name, variant_label, unit, storage_class,
-      is_catch_weight, qty_ordered, unit_price, prep_option_id, prep_label, prep_surcharge, unit_cost, line_total_est)
+      is_catch_weight, qty_ordered, unit_price, prep_option_id, prep_label, prep_surcharge, unit_cost, line_total_est, stock_reserved)
     values (oid, prod.id, var.id, prod.category_id, prod.name, var.label, var.unit, prod.storage_class,
       prod.is_catch_weight, q, price,
       case when has_prep then prep.id end, case when has_prep then prep.label end, case when has_prep then prep.surcharge else 0 end,
-      var.cost, round(price * q));
+      var.cost, round(price * q), var.stock_qty is not null);
 
     v_subtotal := v_subtotal + round(price * q);
     has_catch := has_catch or prod.is_catch_weight;
@@ -651,6 +740,7 @@ begin
   if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
   if o.status in ('cancelled', 'completed') then raise exception 'Pesanan yang sudah selesai atau dibatalkan tidak dapat ditimbang ulang.'; end if;
   if o.payment_status = 'paid' then raise exception 'Pesanan sudah lunas. Batalkan status lunas terlebih dahulu bila perlu menimbang ulang.'; end if;
+  if o.payment_status = 'awaiting_confirmation' then raise exception 'Pelanggan sudah melaporkan pembayaran untuk tagihan ini. Periksa dananya dulu: tandai lunas, atau ubah ke belum dibayar sebelum menimbang ulang.'; end if;
 
   for it in select * from jsonb_array_elements(p_items) loop
     begin w := (it->>'qty_final')::numeric; exception when others then w := null; end;
@@ -710,7 +800,9 @@ begin
   if p_status = 'cancelled' then
     if o.status in ('delivering', 'completed') then raise exception 'Pesanan yang sudah dikirim tidak dapat dibatalkan. Catat retur atau pengembalian dana di catatan internal.'; end if;
     for it in select * from order_items where order_id = p_order_id loop
-      update variants set stock_qty = stock_qty + it.qty_ordered where id = it.variant_id and stock_qty is not null;
+      if it.stock_reserved then
+        update variants set stock_qty = stock_qty + it.qty_ordered where id = it.variant_id and stock_qty is not null;
+      end if;
     end loop;
     if o.promo_code is not null then update promos set used_count = greatest(0, used_count - 1) where code = o.promo_code; end if;
     update orders set payment_status = case when o.payment_status in ('paid', 'awaiting_confirmation') then 'refund_due' else 'void' end where id = p_order_id;
@@ -770,6 +862,7 @@ declare r record; n int := 0;
 begin
   for r in select id from orders
             where pay_by < now() and payment_status = 'unpaid' and status in ('new', 'confirmed')
+              and not exists (select 1 from payments p where p.order_id = orders.id and p.status = 'pending' and p.expires_at > now())
             order by pay_by
             for update skip locked loop
     perform set_order_status(r.id, 'cancelled', 'Dibatalkan otomatis: pembayaran belum diterima sampai batas waktu.');
@@ -786,11 +879,14 @@ end $$;
 create or replace function record_gateway_payment(p_payment_id text, p_status text, p_amount numeric, p_raw jsonb)
 returns text
 language plpgsql security definer set search_path = public as $$
-declare pay payments%rowtype; o orders%rowtype; fmt text;
+declare pay payments%rowtype; o orders%rowtype; fmt text; oid text;
 begin
-  if p_status not in ('pending', 'paid', 'expired', 'failed', 'cancelled') then raise exception 'Status pembayaran gateway tidak valid.'; end if;
+  if p_status is null or p_status not in ('pending', 'paid', 'expired', 'failed', 'cancelled') then raise exception 'Status pembayaran gateway tidak valid.'; end if;
+  -- lock order before payment, the same order as cancel and weighing use, so they cannot deadlock
+  select order_id into oid from payments where id = p_payment_id;
+  if oid is null then raise exception 'Pembayaran tidak ditemukan.'; end if;
+  select * into o from orders where id = oid for update;
   select * into pay from payments where id = p_payment_id for update;
-  if not found then raise exception 'Pembayaran tidak ditemukan.'; end if;
   if pay.status = 'paid' or p_status = 'pending' then return 'noop'; end if;
   if p_status <> 'paid' then
     update payments set status = p_status, raw = p_raw where id = p_payment_id and status = 'pending';
@@ -798,8 +894,7 @@ begin
   end if;
 
   update payments set status = 'paid', paid_at = now(), amount_paid = p_amount, raw = p_raw where id = p_payment_id;
-  select * into o from orders where id = pay.order_id for update;
-  fmt := 'Rp' || replace(to_char(p_amount, 'FM999,999,999'), ',', '.');
+  fmt := coalesce('Rp' || replace(to_char(p_amount, 'FM999,999,999'), ',', '.'), 'nominal tidak diketahui');
   if o.status = 'cancelled' then
     update orders set payment_status = 'refund_due',
            internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] ' || fmt || ' diterima (' || p_payment_id || ') setelah pesanan dibatalkan. Kembalikan dana ke pelanggan.')
@@ -808,7 +903,7 @@ begin
   elsif o.payment_status = 'paid' then
     update orders set internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] Pembayaran ganda ' || fmt || ' (' || p_payment_id || '). Kembalikan kelebihan dana.') where id = o.id;
     return 'duplicate';
-  elsif o.total_final is null or p_amount <> o.total_final then
+  elsif o.total_final is null or p_amount is null or p_amount <> o.total_final then
     update orders set payment_status = 'awaiting_confirmation', pay_by = null,
            internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] Diterima ' || fmt || ', tagihan ' || coalesce('Rp' || replace(to_char(o.total_final, 'FM999,999,999'), ',', '.'), 'belum final') || '. Periksa selisih sebelum menandai lunas.')
      where id = o.id;
@@ -818,6 +913,83 @@ begin
          history = history || jsonb_build_object('status', 'paid', 'at', now(), 'note', 'QRIS otomatis')
    where id = o.id;
   return 'paid';
+end $$;
+
+-- ---------- delivery mode ----------
+-- Proof of delivery: completes the order, records time, who received it and any cash collected on delivery.
+-- Cash covering the final total marks a COD order paid.
+create or replace function mark_delivered(p_order_id text, p_note text, p_cod numeric)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare o orders%rowtype; v_total numeric;
+begin
+  select * into o from orders where id = p_order_id for update;
+  if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
+  if o.status in ('cancelled', 'completed') then raise exception 'Pesanan ini sudah selesai atau dibatalkan.'; end if;
+  if o.has_catch_weight and o.total_final is null then raise exception 'Timbang pesanan ini terlebih dahulu.'; end if;
+  if p_cod is not null and (p_cod < 0 or p_cod > 100000000) then raise exception 'Jumlah uang tunai tidak valid.'; end if;
+  v_total := coalesce(o.total_final, o.total_est);
+  update orders
+     set status = 'completed', delivered_at = now(),
+         delivery_note = nullif(left(trim(coalesce(p_note, '')), 200), ''),
+         cod_collected = case when p_cod is not null then p_cod else cod_collected end,
+         payment_status = case when o.payment_method = 'cod' and p_cod is not null and p_cod >= v_total and o.payment_status <> 'paid' then 'paid' else payment_status end,
+         pay_by = null,
+         history = history
+           || jsonb_strip_nulls(jsonb_build_object('status', 'completed', 'at', now(), 'note', 'Diterima' || coalesce(': ' || nullif(left(trim(coalesce(p_note, '')), 200), ''), '')))
+           || case when o.payment_method = 'cod' and p_cod is not null and p_cod >= v_total and o.payment_status <> 'paid'
+                   then jsonb_build_array(jsonb_build_object('status', 'paid', 'at', now(), 'note', 'Tunai saat diantar')) else '[]'::jsonb end
+   where id = p_order_id;
+end $$;
+
+-- ---------- freshness-guarantee claims ----------
+-- The customer (order code + phone) reports a problem within p_window_hours after delivery.
+create or replace function create_claim(p_code text, p_phone text, p_items jsonb, p_reason text, p_note text, p_photos jsonb, p_window_hours numeric)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare o orders%rowtype; cid text; n int;
+begin
+  select * into o from orders where code = upper(trim(p_code)) and phone = normalize_phone(p_phone) for update;
+  if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
+  if o.status <> 'completed' or o.delivered_at is null then raise exception 'Laporan dapat dikirim setelah pesanan diterima.'; end if;
+  if now() > o.delivered_at + make_interval(secs => p_window_hours * 3600) then
+    raise exception 'Batas waktu laporan sudah lewat. Hubungi kami melalui WhatsApp.';
+  end if;
+  if p_reason is null or p_reason not in ('not_fresh','wrong_item','short_weight','damaged','missing','other') then raise exception 'Pilih alasan laporan.'; end if;
+  if jsonb_typeof(coalesce(p_items, 'null'::jsonb)) <> 'array' or jsonb_array_length(p_items) = 0 then raise exception 'Pilih produk yang bermasalah.'; end if;
+  if jsonb_typeof(coalesce(p_photos, '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_photos, '[]'::jsonb)) > 3 or length(coalesce(p_photos, '[]'::jsonb)::text) > 2400000 then
+    raise exception 'Maksimal 3 foto.';
+  end if;
+  if exists (select 1 from jsonb_array_elements(p_items) e where not exists (select 1 from order_items oi where oi.order_id = o.id and oi.id = e->>'item_id')) then
+    raise exception 'Produk tidak ada di pesanan ini.';
+  end if;
+  select count(*) into n from claims where order_id = o.id;
+  if n >= 3 then raise exception 'Laporan untuk pesanan ini sudah kami terima. Hubungi kami melalui WhatsApp.'; end if;
+  insert into claims (order_id, items, reason, note, photos)
+  values (o.id, p_items, p_reason, left(coalesce(p_note, ''), 500), coalesce(p_photos, '[]'::jsonb))
+  returning id into cid;
+  return cid;
+end $$;
+
+create or replace function resolve_claim(p_id text, p_status text, p_note text, p_refund numeric)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare c claims%rowtype;
+begin
+  if p_status not in ('replace','refund','declined') then raise exception 'Keputusan tidak valid.'; end if;
+  select * into c from claims where id = p_id for update;
+  if not found then raise exception 'Laporan tidak ditemukan.'; end if;
+  if c.status <> 'open' then raise exception 'Laporan ini sudah diputuskan.'; end if;
+  if p_status = 'refund' and (p_refund is null or p_refund <= 0) then raise exception 'Isi jumlah pengembalian dana.'; end if;
+  if p_status = 'declined' and coalesce(trim(p_note), '') = '' then raise exception 'Tulis alasan penolakan untuk pelanggan.'; end if;
+  update claims set status = p_status, resolution_note = left(coalesce(p_note, ''), 500),
+         refund_amount = case when p_status = 'refund' then p_refund end, resolved_at = now()
+   where id = p_id;
+  update orders set internal_note = trim(both E'\n' from internal_note || E'\n' || '[Garansi] ' ||
+         case p_status when 'replace' then 'Diganti pada pengiriman berikutnya' when 'refund' then 'Dana dikembalikan Rp' || replace(to_char(p_refund, 'FM999,999,999'), ',', '.') else 'Ditolak' end ||
+         coalesce(': ' || nullif(trim(p_note), ''), ''))
+   where id = c.order_id;
+  return c.order_id;
 end $$;
 
 -- Sliding-window rate limit: true (and the hit is counted) while under p_max hits in the last p_window_seconds.
@@ -903,16 +1075,18 @@ returns text
 language plpgsql security definer set search_path = public as $$
 declare aid text; tok text; v_phone text := normalize_phone(p_phone);
 begin
-  -- Lockout against guessing access codes: 5 failed attempts per phone number in 15 minutes.
-  if (select count(*) from login_attempts where phone = v_phone and at > now() - interval '15 minutes') >= 5 then
-    raise exception 'Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit atau hubungi kami melalui WhatsApp.';
-  end if;
+  perform pg_advisory_xact_lock(hashtext('bl:' || v_phone)); -- concurrent tries are counted one by one
   select id into aid from business_accounts
    where phone = v_phone and status = 'approved'
      and access_code is not null and upper(access_code) = upper(trim(p_code));
   if aid is null then
+    -- Wrong codes: after 5 in 15 minutes every further wrong try is refused with a lockout message. The right code
+    -- still works, so nobody can lock a restaurant out; guessing a 6-character code is also capped per device by the app.
+    if (select count(*) from login_attempts where phone = v_phone and at > now() - interval '15 minutes') >= 5 then
+      raise exception 'Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit atau hubungi kami melalui WhatsApp.';
+    end if;
     insert into login_attempts (phone) values (v_phone);
-    delete from login_attempts where at < now() - interval '1 day';
+    if random() < 0.05 then delete from login_attempts where at < now() - interval '1 day'; end if;
     return null;
   end if;
   delete from login_attempts where phone = v_phone;
@@ -935,7 +1109,8 @@ begin
   end if;
   insert into login_codes (phone, code_hash, expires_at, attempts, created_at)
   values (v_phone, p_code_hash, now() + interval '10 minutes', 0, now())
-  on conflict (phone) do update set code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, created_at = now();
+  on conflict (phone) do update set code_hash = excluded.code_hash, expires_at = excluded.expires_at, created_at = now(),
+    attempts = case when login_codes.created_at > now() - interval '15 minutes' then login_codes.attempts else 0 end;
   delete from login_codes where expires_at < now() - interval '1 day';
   return v_phone;
 end $$;
@@ -1052,7 +1227,7 @@ begin
     'place_order(jsonb, text)', 'weigh_order(text, jsonb)', 'set_order_status(text, text, text)', 'set_payment_status(text, text)',
     'customer_confirm_payment(text, text)', 'apply_account(jsonb)', 'approve_account(text, numeric, text, boolean, text)',
     'regenerate_access_code(text)', 'business_login(text, text)', 'daily_summary(date)', 'buying_list(date)', 'sales_report(date, date)',
-    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
+    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'mark_delivered(text, text, numeric)', 'create_claim(text, text, jsonb, text, text, jsonb, numeric)', 'resolve_claim(text, text, text, numeric)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

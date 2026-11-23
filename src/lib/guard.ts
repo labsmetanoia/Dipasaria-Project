@@ -5,9 +5,15 @@ import { getRepo } from "./data";
 import { reportError } from "./monitor";
 
 /** The visitor's IP as set by the hosting proxy (Vercel sets x-real-ip and x-forwarded-for). */
+/**
+ * The visitor's IP, from the header your host sets. On Vercel (the default) that is x-real-ip / x-forwarded-for, which
+ * Vercel overwrites, so visitors cannot fake it. Behind another proxy set CLIENT_IP_HEADER to the header that proxy
+ * sets (for example cf-connecting-ip for Cloudflare); never rely on a header the visitor can send themselves.
+ */
 export async function clientIp(): Promise<string> {
   const h = await headers();
-  const ip = h.get("x-real-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const custom = process.env.CLIENT_IP_HEADER?.toLowerCase();
+  const ip = custom ? h.get(custom)?.split(",")[0]?.trim() : h.get("x-real-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim();
   return ip && ip.length <= 64 ? ip : "local";
 }
 

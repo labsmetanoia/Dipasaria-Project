@@ -20,7 +20,7 @@ create or replace function _date() returns text language sql as $$
 $$;
 
 do $$
-declare oid text; o orders%rowtype; n int; stock_before numeric; stock_after numeric; tok text; v_code text; summ jsonb;
+declare oid text; o orders%rowtype; n int; stock_before numeric; stock_after numeric; tok text; v_code text; summ jsonb; cid text;
 begin
   -- 1. Retail order: prices from the price list, prep surcharge, catch weight, delivery fee, first-order promo
   select stock_qty into stock_before from variants where id = 'v_udang_beku';
@@ -192,9 +192,10 @@ begin
   -- 14. Access-code guessing is locked out after 5 failures; codes use the unambiguous alphabet
   delete from login_attempts;
   for i in 1..5 loop perform business_login('081200000001', 'WRONG' || i); end loop;
-  perform _expect_error($q$select business_login('081200000001', 'BHR123')$q$, 'Terlalu banyak');
-  delete from login_attempts;
-  if business_login('081200000001', 'BHR123') is null then raise exception 'login after lockout reset'; end if;
+  perform _expect_error($q$select business_login('081200000001', 'WRONG6')$q$, 'Terlalu banyak');
+  -- the right code still works: a stranger's wrong tries cannot lock the restaurant out
+  if business_login('081200000001', 'BHR123') is null then raise exception 'right code refused during lockout'; end if;
+  if (select count(*) from login_attempts where phone = '6281200000001') <> 0 then raise exception 'successful login should clear failures'; end if;
   if random_code(6) !~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$' then raise exception 'random_code alphabet'; end if;
 
   -- 15. Unpaid household orders expire and release stock; any payment clears the deadline; weighed orders get none
@@ -308,6 +309,87 @@ begin
   update login_codes set expires_at = now() - interval '1 second' where phone = '6281277770030';
   if customer_login('081277770030', 'hash-c', 'tok4') <> 'expired' then raise exception 'expired code'; end if;
   if (select count(*) from customers where phone = '6281277770030') <> 1 then raise exception 'one customer per phone'; end if;
+
+  -- 21. Audit round 2
+  -- phone formats: "+62 0812…" is the same number as "0812…"
+  if normalize_phone('+62 0812-9999-0040') <> '6281299990040' or normalize_phone('0812 9999 0040') <> '6281299990040' then raise exception 'normalize_phone +62 0…'; end if;
+  -- gateway result without an amount is never "paid"; without a status it is refused
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Null', 'phone', '081277770040', 'address', 'Jl. Uji 40', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  insert into payments (id, order_id, provider, amount) select 'PAY-N1', id, 'mock', total_final from orders where id = oid;
+  perform _expect_error($q$select record_gateway_payment('PAY-N1', null, 1000, null)$q$, 'tidak valid');
+  if record_gateway_payment('PAY-N1', 'paid', null, null) <> 'mismatch' then raise exception 'paid without amount must be a mismatch'; end if;
+  if (select payment_status from orders where id = oid) <> 'awaiting_confirmation' then raise exception 'paid without amount marked the order paid'; end if;
+  -- no re-weighing after the customer reported a payment
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Klaim', 'phone', '081277770041', 'address', 'Jl. Uji 41', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'transfer', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 2))));
+  perform weigh_order(oid, (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 2.1)) from order_items where order_id = oid and is_catch_weight));
+  perform customer_confirm_payment((select code from orders where id = oid), '081277770041');
+  perform _expect_error(format($q$select weigh_order('%s', (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 2.9)) from order_items where order_id = '%s' and is_catch_weight))$q$, oid, oid), 'melaporkan pembayaran');
+  -- cancelling gives back only stock that was taken
+  update variants set stock_qty = null where id = 'v_kakap_l';
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Stok', 'phone', '081277770042', 'address', 'Jl. Uji 42', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 3))));
+  update variants set stock_qty = 0 where id = 'v_kakap_l';
+  perform set_order_status(oid, 'cancelled', 'uji');
+  if (select stock_qty from variants where id = 'v_kakap_l') <> 0 then raise exception 'cancel created phantom stock'; end if;
+  update variants set stock_qty = null where id = 'v_kakap_l';
+  -- integrity rules
+  perform _expect_error($q$update settings set cutoff_time = '20.00'$q$, 'settings_cutoff_format');
+  perform _expect_error($q$update variants set price_retail = -1 where id = 'v_salmon'$q$, 'variants_prices_nonneg');
+  perform _expect_error($q$update business_accounts set discount_pct = 150 where id = 'ba_bahari'$q$, 'accounts_discount_range');
+  perform _expect_error($q$update promos set value = 120 where type = 'percent'$q$, 'promos_value_valid');
+  perform _expect_error($q$insert into promos (code, type, value) values (lower((select code from promos limit 1)), 'fixed', 1)$q$, 'duplicate key');
+  -- the expiry job leaves an order alone while its QR can still be paid
+  oid := place_order(jsonb_build_object('customer_name', 'Audit QR Aktif', 'phone', '081277770043', 'address', 'Jl. Uji 43', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 2))));
+  insert into payments (id, order_id, provider, amount, expires_at) select 'PAY-Q1', id, 'mock', total_final, now() + interval '3 minutes' from orders where id = oid;
+  update orders set pay_by = now() - interval '1 minute' where id = oid;
+  perform expire_unpaid_orders();
+  if (select status from orders where id = oid) = 'cancelled' then raise exception 'expired an order with a payable QR'; end if;
+  update payments set expires_at = now() - interval '1 second' where id = 'PAY-Q1';
+  perform expire_unpaid_orders();
+  if (select status from orders where id = oid) <> 'cancelled' then raise exception 'order not expired after its QR expired'; end if;
+  -- a fresh login code keeps the wrong-try count of the last 15 minutes
+  delete from login_codes where phone = '6281277770044';
+  perform customer_request_code('081277770044', 'h1');
+  for i in 1..3 loop perform customer_login('081277770044', 'bad' || i, 'x'); end loop;
+  update login_codes set created_at = now() - interval '2 minutes' where phone = '6281277770044';
+  perform customer_request_code('081277770044', 'h2');
+  if (select attempts from login_codes where phone = '6281277770044') <> 3 then raise exception 'new code reset the wrong-try count'; end if;
+
+  -- 22. Value features: substitution preference, delivery mode, guarantee claims, restock outbox, buying log
+  oid := place_order(jsonb_build_object('customer_name', 'Audit Antar', 'phone', '081277770050', 'address', 'Jl. Uji 50', 'area_id', 'a_selatan', 'substitution', 'similar',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 2), jsonb_build_object('variant_id', 'v_salmon', 'qty', 1))));
+  if (select substitution from orders where id = oid) <> 'similar' then raise exception 'substitution not stored'; end if;
+  perform _expect_error(format($q$select mark_delivered('%s', 'x', null)$q$, oid), 'Timbang');
+  perform _expect_error(format($q$select create_claim((select code from orders where id = '%s'), '081277770050', '[]'::jsonb, 'not_fresh', '', '[]'::jsonb, 2)$q$, oid), 'setelah pesanan diterima');
+  perform weigh_order(oid, (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 2.05)) from order_items where order_id = oid and is_catch_weight));
+  perform mark_delivered(oid, 'Diterima satpam', null);
+  if (select status || '/' || (delivered_at is not null)::text || '/' || delivery_note from orders where id = oid) <> 'completed/true/Diterima satpam' then raise exception 'mark_delivered'; end if;
+  perform _expect_error(format($q$select mark_delivered('%s', '', null)$q$, oid), 'sudah selesai');
+  -- claims: items must belong to the order, at most 3 photos, inside the window
+  perform _expect_error(format($q$select create_claim((select code from orders where id = '%s'), '081277770050', '[{"item_id":"nope"}]'::jsonb, 'not_fresh', '', '[]'::jsonb, 2)$q$, oid), 'tidak ada di pesanan');
+  perform _expect_error(format($q$select create_claim((select code from orders where id = '%s'), '081277770050', (select jsonb_agg(jsonb_build_object('item_id', id)) from order_items where order_id = '%s'), 'not_fresh', '', '["a","b","c","d"]'::jsonb, 2)$q$, oid, oid), 'Maksimal 3 foto');
+  cid := create_claim((select code from orders where id = oid), '0812 7777 0050', (select jsonb_agg(jsonb_build_object('item_id', id)) from order_items where order_id = oid and is_catch_weight), 'not_fresh', 'bau', '["data:image/jpeg;base64,AAAA"]'::jsonb, 2);
+  if cid is null then raise exception 'claim not created'; end if;
+  perform _expect_error(format($q$select resolve_claim('%s', 'refund', 'maaf', null)$q$, cid), 'jumlah pengembalian');
+  perform _expect_error(format($q$select resolve_claim('%s', 'declined', '', null)$q$, cid), 'alasan penolakan');
+  perform resolve_claim(cid, 'refund', 'Maaf, ikan kurang segar', 50000);
+  if (select status || '/' || refund_amount from claims where id = cid) <> 'refund/50000' then raise exception 'resolve_claim'; end if;
+  if (select internal_note from orders where id = oid) not like '%[Garansi] Dana dikembalikan Rp50.000%' then raise exception 'claim note on order'; end if;
+  perform _expect_error(format($q$select resolve_claim('%s', 'replace', '', null)$q$, cid), 'sudah diputuskan');
+  update orders set delivered_at = now() - interval '3 hours' where id = oid;
+  perform _expect_error(format($q$select create_claim((select code from orders where id = '%s'), '081277770050', (select jsonb_agg(jsonb_build_object('item_id', id)) from order_items where order_id = '%s'), 'other', '', '[]'::jsonb, 2)$q$, oid, oid), 'Batas waktu laporan');
+  -- COD cash covering the total marks the order paid
+  update business_accounts set allow_cod = true where id = 'ba_bahari';
+  oid := place_order(jsonb_build_object('customer_name', 'Audit COD', 'phone', '081200000001', 'address', 'Jl. Uji 51', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'cod', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 10))), 'ba_bahari');
+  perform mark_delivered(oid, null, (select total_final from orders where id = oid));
+  if (select payment_status from orders where id = oid) <> 'paid' then raise exception 'COD cash should mark paid'; end if;
+  -- outbox rows without an order (back-in-stock alerts) and the buying log
+  insert into wa_messages (id, kind, dedupe, phone, template, body) values ('wa_r1', 'restock', 'p_salmon:6281277770050', '6281277770050', 'dipasaria_stok_tersedia', 'x');
+  perform _expect_error($q$insert into purchases (delivery_date, product_id, qty, unit, total_cost) values (current_date, 'p_salmon', 0, 'kg', 1)$q$, 'purchases_qty_check');
 
   raise notice 'all assertions passed';
 end $$;
