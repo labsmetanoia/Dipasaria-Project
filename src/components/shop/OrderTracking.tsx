@@ -11,10 +11,14 @@ import { PaymentBadge } from "@/components/ui";
 import { ReorderButton } from "./ReorderPanel";
 import { Emblem } from "@/components/Logo";
 import { QrisPay } from "./QrisPay";
+import { ClaimForm } from "./ClaimForm";
+import { ShieldCheck } from "lucide-react";
 
 const STEPS: Order["status"][] = ["new", "confirmed", "packing", "delivering", "completed"];
 
-export function OrderTracking({ order: initial, settings, isNew, qrisAuto }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean }) {
+export type ClaimSummary = { id: string; status: "open" | "replace" | "refund" | "declined"; resolution_note: string; refund_amount: number | null; created_at: string };
+
+export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claims = [], claimUntil = null }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean; claims?: ClaimSummary[]; claimUntil?: string | null }) {
  const { t, locale } = useT();
  const [order, setOrder] = useState(initial);
  const [pending, start] = useTransition();
@@ -104,6 +108,14 @@ export function OrderTracking({ order: initial, settings, isNew, qrisAuto }: { o
         </div>
       )}
       {!finalKnown && order.status !== "cancelled" && <div className=" bg-tide-50 px-5 py-4 text-sm text-tide-700">{t.tracking.catchPending}</div>}
+      {order.delivered_at && <div className="card flex items-start gap-3 p-5 text-sm"><CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-success-600" /><p>{locale === "en" ? "Delivered" : "Diterima"} {formatDateTime(order.delivered_at, locale)} WIB{order.delivery_note ? ` · ${order.delivery_note}` : ""}</p></div>}
+      {claims.map((c) => (
+        <div key={c.id} className="card flex items-start gap-3 p-5 text-sm">
+          <ShieldCheck className="mt-0.5 h-5 w-5 flex-none text-tide-600" />
+          <p>{locale === "en" ? "Your report" : "Laporan Anda"} ({formatDateTime(c.created_at, locale)}): <b>{c.status === "open" ? (locale === "en" ? "being reviewed" : "sedang kami periksa") : c.status === "replace" ? (locale === "en" ? "replaced on your next delivery" : "diganti pada pengiriman berikutnya") : c.status === "refund" ? `${locale === "en" ? "refunded" : "dana dikembalikan"}${c.refund_amount ? ` ${rupiah(c.refund_amount)}` : ""}` : (locale === "en" ? "not accepted" : "belum dapat kami ganti")}</b>{c.resolution_note ? ` · ${c.resolution_note}` : ""}</p>
+        </div>
+      ))}
+      {claimUntil && claims.length < 3 && <ClaimForm order={order} until={claimUntil} />}
       <div className="flex flex-wrap gap-2">
         <a href={waLink(settings.whatsapp_number, msgCustomerAsk(order.code, settings))} target="_blank" rel="noreferrer" className="btn-secondary"><MessageCircle className="h-4 w-4" /> {t.tracking.ask}</a>
         <ReorderButton order={order} className="btn-secondary" />

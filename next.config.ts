@@ -29,6 +29,8 @@ const security = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // guarantee reports carry up to 3 photos (compressed in the browser to well under 1 MB each)
+  experimental: { serverActions: { bodySizeLimit: "3mb" } },
   images: {
     // Only our own files and photos uploaded to Supabase Storage are optimised: no open image proxy.
     remotePatterns: [{ protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" }],

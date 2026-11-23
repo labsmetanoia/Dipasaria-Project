@@ -15,7 +15,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();
-  const [summary, orders, accounts, errors] = await Promise.all([repo.dailySummary(date), repo.listOrders({ date }), repo.listAccounts(), repo.listErrors({ limit: 50 }).catch(() => [])]);
+  const [summary, orders, accounts, errors, openClaims] = await Promise.all([repo.dailySummary(date), repo.listOrders({ date }), repo.listAccounts(), repo.listErrors({ limit: 50 }).catch(() => []), repo.listClaims({ status: "open", limit: 50 })]);
   const pendingAccounts = accounts.filter((a) => a.status === "pending");
   const toConfirm = orders.filter((o) => o.status === "new");
   const toWeigh = orders.filter((o) => o.has_catch_weight && !o.weighed_at && o.status !== "cancelled");
@@ -28,6 +28,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         <div><p className="eyebrow">Ringkasan harian</p><h1 className="text-2xl text-ocean-900">Pengiriman</h1></div>
         <DateSelector date={date} />
       </div>
+      {openClaims.length > 0 && <Link href="/admin/garansi" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{openClaims.length} laporan garansi menunggu keputusan →</Link>}
       {errors.length > 0 && <Link href="/admin/sistem" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{errors.length} jenis error belum ditangani ({errors.reduce((s, e) => s + e.count, 0)} kejadian). Lihat Sistem →</Link>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

@@ -1,0 +1,93 @@
+# Tests on every push and pull request: lint, types and build; database functions and the backup cycle; the browser
+# journeys (storefront, checkout, accounts, admin) plus the Midtrans and WhatsApp integrations against local stand-ins.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  checks:
+    name: Lint, types, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  database:
+    name: SQL functions and backups
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v6
+      - name: SQL tests (schema, seed, every function)
+        run: bash scripts/test-sql.sh
+      - name: Backup cycle (dump, verify, encrypt, restore)
+        run: bash scripts/backup/test.sh
+
+  browser:
+    name: Browser journeys and integrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SESSION_SECRET: ci-session-secret-0123456789abcdef
+      DEMO_MODE: "1"
+      DEMO_ADMIN_PASSWORD: dipasaria
+      CRON_SECRET: cron-test
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Main journeys (fresh demo server)
+        run: |
+          npx next start -p 3000 > server-3000.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health > /dev/null && break; sleep 2; done
+          node scripts/test-e2e.cjs
+      - name: Midtrans QRIS against a local stand-in
+        run: |
+          MIDTRANS_SERVER_KEY=SB-Mid-server-TESTKEY MIDTRANS_API_BASE=http://127.0.0.1:4010 npx next start -p 3003 > server-3003.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3003/api/health > /dev/null && break; sleep 2; done
+          node scripts/test-midtrans.cjs
+      - name: WhatsApp Cloud API against a local stand-in
+        run: |
+          WHATSAPP_TOKEN=test-token WHATSAPP_PHONE_NUMBER_ID=1234567890 WHATSAPP_API_BASE=http://127.0.0.1:4020 npx next start -p 3006 > server-3006.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3006/api/health > /dev/null && break; sleep 2; done
+          node scripts/test-whatsapp.cjs
+      - name: Keep server logs and screenshots when something fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-test-output
+          path: |
+            server-*.log
+            docs/screenshots/
+          retention-days: 7

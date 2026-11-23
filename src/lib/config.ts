@@ -65,3 +65,6 @@ export const BUSINESS_TYPES = [
   "Warung / pengecer produk beku",
   "Lainnya",
 ];
+
+/** The freshness guarantee: problems can be reported with photos this many hours after delivery (as promised on /tentang). */
+export const CLAIM_WINDOW_HOURS = 2;

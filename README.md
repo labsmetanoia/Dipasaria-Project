@@ -8,7 +8,7 @@ Corporate website, installable mobile storefront (PWA) and founder back-office f
 | Corporate pages | `/tentang`, `/restoran`, `/rumah-tangga`, `/panduan`, `/kontak`, `/privasi` | Prospects, partners, search engines |
 | Back-office | `/admin` | The founder, from a phone at 02:30 or a laptop in the afternoon |
 
-Audit report, fix list and feature roadmap (November 2026): `docs/audit-report.md`. Next recommendations: `docs/roadmap-next.md`. Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
+Audit report, fix list and feature roadmap (November 2026): `docs/audit-report.md`. Next recommendations: `docs/roadmap-next.md`. Second audit with its fixes and seven value features (23 November 2026): `docs/audit-round-2.md`. Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
 
 ## Run it in two minutes (demo mode, no database)
 
@@ -26,7 +26,7 @@ Open http://localhost:3000. `npm run dev` always allows demo mode. On a deployme
 
 ## Go live on Supabase + Vercel (about two hours)
 
-1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` again. `seed.sql` is safe to re-run too: it only inserts missing rows and never overwrites prices, stock, settings or the bank account. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`; `007_whatsapp_notifications.sql` adds WhatsApp opt-in and settings; `008_customer_accounts.sql` goes with household accounts, whose tables `schema.sql` creates; `009_integrity_fixes.sql` fixes stock returns on cancel, phone formats and cut-off format before the new data-integrity rules apply.)
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` again. `seed.sql` is safe to re-run too: it only inserts missing rows and never overwrites prices, stock, settings or the bank account. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`; `007_whatsapp_notifications.sql` adds WhatsApp opt-in and settings; `008_customer_accounts.sql` goes with household accounts, whose tables `schema.sql` creates; `009_integrity_fixes.sql` fixes stock returns on cancel, phone formats and cut-off format before the new data-integrity rules apply; `010_value_features.sql` goes with substitution preferences, delivery confirmation, guarantee claims, restock alerts and the buying log.)
 2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
 3. **Example accounts**: `seed.sql` no longer creates them. On a project seeded before November 2026, migration 004 suspends them; you can also delete them: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
 4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`; generate secrets with `openssl rand -hex 32`). The server refuses to start in production if Supabase or `SESSION_SECRET` is missing, so a typo cannot silently put the shop into demo mode. Deploy, connect your domain. `vercel.json` schedules the standing-order job daily at 19.45 WIB; Vercel sends `CRON_SECRET` with each call.
@@ -179,10 +179,12 @@ Practise once a month: restore into a scratch project and check that your latest
 | Time | Screen | What you do |
 | --- | --- | --- |
 | 20:00 | Ringkasan | Cut-off passes; confirm new orders (WA konfirmasi button opens WhatsApp with the message filled in) |
-| 02:30 | Belanja subuh | Buying list by temperature zone with the +5% buffer and the cleaning partner's prep notes; tick as you buy |
+| 02:30 | Belanja subuh | Buying list by temperature zone with the +5% buffer and the cleaning partner's prep notes; tick as you buy and log what you paid (**Catat**); log leftovers and waste after the round to see real margin and shrinkage |
 | 04:30 | Pesanan → order | Type weighed kg, **Simpan timbangan**; server re-prices promo and delivery fee; send **WA invoice final** |
-| 05:00 | Rute & packing | Drops grouped by slot and area, bags per temperature zone, amount to collect for COD, **WA sedang dikirim** |
-| 08:00 | Pesanan | Mark delivered and, once money is in the bank app, **Tandai lunas** |
+| 05:00 | Rute & packing | Drops grouped by slot and area, bags per temperature zone, amount to collect for COD, the customer's substitution choice, **WA sedang dikirim** |
+| 06:00–08:00 | Rute & packing | **Diterima** at each drop (who received it, COD cash counted) or **Gagal antar** with the reason; the summary shows COD collected and still due |
+| Morning | Garansi | Decide guarantee claims (replace, refund or decline); the customer is told by WhatsApp |
+| 08:00 | Pesanan | Once transfer money is in the bank app, **Tandai lunas** |
 | Afternoon | Produk & stok | Update prices and costs before 18:00; the margin column turns red under 10% |
 | Weekly | Laporan | Sales, gross margin, non-seafood share; CSV export for the accountant |
 
@@ -207,6 +209,15 @@ Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette 
 - *Standing orders* for approved business accounts (`/akun`): choose items (or start from a past order), weekdays, delivery slot and payment; pause, edit, delete, or skip a single date. Every evening at 19.45 WIB, before the 20.00 cut-off, `src/app/api/cron/standing-orders` places the next day's orders through the normal pricing and stock rules; `standing_order_runs` has a unique key per order and date so a repeated run never duplicates. The back-office page **Pesanan rutin** shows weekly recurring value, what is due tomorrow, a manual "process now" button, WhatsApp reminders and run history. Rules are in `src/lib/standing.ts`.
 - The hero headline is larger and the favicon now uses a dedicated tab-sized mark (`/favicon.ico` and `icons/favicon.svg`); the service worker cache version was bumped so browsers drop the old icon and photos.
 
+**Round 12: second audit and value features.** 32 issues found and fixed (7 high: gateway payment checks, expiry racing a paid QR, Midtrans outages, the cut-off format, restaurant lock-out, re-running the seed, and the backup check). Seven features, each with a measurable aim (details in `docs/audit-round-2.md`):
+- *Substitution preference* at checkout: replace with similar, call me first, or remove.
+- *Delivery mode* on the route sheet: delivered with recipient and COD cash, or failed with a reason; the customer sees it and gets a WhatsApp message.
+- *Two-hour freshness guarantee*: the customer reports with photos from the order page; the owner decides on **Garansi**, tracked against a 1.5% of sales budget.
+- *Kabari saya*: sold-out products take a WhatsApp number and send one message when back in stock; **Produk & stok** shows how many are waiting.
+- *Buying log*: actual purchase cost, leftovers and waste per product; real margin and shrinkage on the buying list and in **Laporan**.
+- *Lengkapi masakan*: the cart offers the missing ingredients of a recipe whose main fish is in the cart, in one tap.
+- *CI*: every test suite runs on each change.
+
 ## What is built
 
 **Storefront**: bilingual catalogue by category with quick-add on cards, add-to-cart toast and a sticky cart bar, "today's catch" / "kitchen favourites" / "stock the freezer" sections, two value boxes, search across Indonesian/English/scientific/market names, product sheet with size grades, preparation options (siangi, fillet, kupas) and storage notes, catch-weight transparency ("perkiraan" totals until weighed), cart with minimum-order progress bar, three-step checkout with delivery areas, date chips honouring the 20:00 WIB cut-off, slots with live remaining capacity, promo codes, QRIS/transfer/COD/terms, order confirmation, tracking by order code + WhatsApp number from any device, "Saya sudah bayar", business login without passwords, one-tap **Pesan lagi**, installable PWA with offline fallback.
@@ -220,7 +231,8 @@ Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette 
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` / `npm run build` / `npm start` | Next.js |
-| `npm run typecheck` | TypeScript |
+| `npm run typecheck` / `npm run lint` | TypeScript / ESLint |
+| `.github/workflows/ci.yml` | Runs lint, types, build, the SQL and backup suites and the three browser suites on every push and pull request |
 | `node scripts/test-e2e.cjs` | Main end-to-end suite (Playwright); start a fresh demo server first, see the file header |
 | `npm run test:backup` | Dump → verify → encrypt → disaster-restore on a local PostgreSQL, plus the failure cases (run `npm run test:sql` first) |
 | `node scripts/test-whatsapp.cjs` | WhatsApp notifications against a local Cloud API stand-in (see the file header) |

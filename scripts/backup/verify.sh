@@ -19,8 +19,9 @@ end $$;
 SQL
 
 # The public schema already exists in any new database; that one notice is expected, anything else fails the check.
+# No "grep -q" here: it stops reading early, and with pipefail the broken pipe made a failed restore look clean.
 pg_restore --no-owner --no-privileges --dbname "$TARGET" "$DUMP" 2> "$DIR/restore.log" || true
-if grep -v 'schema "public" already exists' "$DIR/restore.log" | grep -qE "error:"; then
+if grep -v 'schema "public" already exists' "$DIR/restore.log" | grep -E "error:" > /dev/null; then
   echo "Restore failed:"; cat "$DIR/restore.log"; exit 1
 fi
 

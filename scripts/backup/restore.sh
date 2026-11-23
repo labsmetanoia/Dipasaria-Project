@@ -16,6 +16,6 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --quiet --pinentry-mode loopback --passphrase-fd 0 --decrypt --output "$TMP/backup.dump" "$SRC"
 pg_restore --no-owner --no-privileges --dbname "$TARGET_DATABASE_URL" "$TMP/backup.dump" 2> "$TMP/restore.log" || true
-if grep -v 'schema "public" already exists' "$TMP/restore.log" | grep -qE "error:"; then cat "$TMP/restore.log"; exit 1; fi
+if grep -v 'schema "public" already exists' "$TMP/restore.log" | grep -E "error:" > /dev/null; then cat "$TMP/restore.log"; exit 1; fi
 psql "$TARGET_DATABASE_URL" -X -At -c "select 'orders: ' || count(*) from orders"
 echo "Restored. Continue with steps 4 and 5 at the top of this file."

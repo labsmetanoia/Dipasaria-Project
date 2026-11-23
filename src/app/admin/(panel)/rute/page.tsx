@@ -11,6 +11,9 @@ import { Empty, PaymentBadge, StatusBadge } from "@/components/ui";
 import { formatDate, rupiah, jamRange } from "@/lib/format";
 import { msgOutForDelivery, waTo } from "@/lib/wa";
 import { PAYMENT_LABEL, UNIT_LABEL } from "@/lib/config";
+import { DeliveryActions } from "@/components/admin/DeliveryActions";
+
+const SUBST: Record<string, string> = { similar: "Bila kosong: ganti sejenis", contact: "Bila kosong: hubungi dulu", remove: "Bila kosong: hapus saja" };
 
 export default async function RoutePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   await requireAdmin();
@@ -20,12 +23,22 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
   const repo = await getRepo();
   const [orders, slots, settings] = await Promise.all([repo.listOrders({ date }), repo.getSlots({ includeInactive: true }), repo.getSettings()]);
   const live = orders.filter((o) => o.status !== "cancelled");
+  const delivered = live.filter((o) => o.delivered_at);
+  const codDue = live.filter((o) => o.payment_method === "cod").reduce((s, o) => s + (o.total_final ?? o.total_est), 0);
+  const codIn = live.reduce((s, o) => s + (o.cod_collected ?? 0), 0);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><p className="eyebrow">Rute dan pengemasan</p><h1 className="text-2xl text-ocean-900">{formatDate(date, "weekday")} · {live.length} titik antar</h1></div>
         <div className="flex gap-2"><DateSelector date={date} /><PrintButton /></div>
       </div>
+      {live.length > 0 && (
+        <div className="no-print grid grid-cols-3 gap-2 text-center text-sm">
+          <div className="card p-3"><p className="text-xs text-mute">Sudah diterima</p><p className="text-xl font-bold">{delivered.length}/{live.length}</p></div>
+          <div className="card p-3"><p className="text-xs text-mute">Tunai COD diterima</p><p className="text-xl font-bold">{rupiah(codIn)}</p></div>
+          <div className="card p-3"><p className="text-xs text-mute">Tagihan COD hari ini</p><p className="text-xl font-bold">{rupiah(codDue)}</p></div>
+        </div>
+      )}
       {live.length === 0 ? <Empty title="Tidak ada pengiriman untuk tanggal ini" /> : slots.map((s) => {
         const list = live.filter((o) => o.slot_id === s.id);
         if (!list.length) return null;
@@ -64,6 +77,9 @@ export default async function RoutePage({ searchParams }: { searchParams: Promis
                             <a className="no-print btn-secondary px-2.5 py-1 text-xs" target="_blank" rel="noreferrer" href={waTo(o.phone, msgOutForDelivery(o, settings))}><MessageCircle className="h-3.5 w-3.5" /> WA: dalam pengiriman</a>
                           </div>
                           {o.customer_note && <p className="mt-2  bg-warn-50 px-2 py-1 text-xs text-warn-600">“{o.customer_note}”</p>}
+                          {o.substitution && o.substitution !== "contact" && <p className="mt-1 text-[11px] font-semibold text-tide-700">{SUBST[o.substitution]}</p>}
+                          <DeliveryActions orderId={o.id} cod={o.payment_method === "cod"} due={o.total_final ?? o.total_est} deliveredAt={o.delivered_at ?? null} note={o.delivery_note ?? null}
+                            blocked={o.status === "completed" ? "Selesai" : o.has_catch_weight && o.total_final === null ? "Timbang dulu sebelum diantar." : null} />
                         </div>
                       );
                     })}

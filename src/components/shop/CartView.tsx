@@ -13,6 +13,7 @@ import { useCart } from "@/store/cart";
 import { QtyStepper } from "./QtyStepper";
 import { ProductArt } from "@/components/ProductArt";
 import { Empty } from "@/components/ui";
+import { RecipeComplete } from "./RecipeComplete";
 
 /** Two-stage progress: first to the minimum order, then on to the free-delivery threshold. */
 export function MinOrderBar({ subtotal, min, free }: { subtotal: number; min: number; free?: number }) {
@@ -80,6 +81,7 @@ export function CartView({ products, settings, areas, account }: { products: Pro
             </div>
           );
         })}
+        <RecipeComplete lines={lines} products={products} account={account} />
       </div>
       <aside className="min-w-0 lg:col-span-5">
         <div className="card sticky top-32 p-5">

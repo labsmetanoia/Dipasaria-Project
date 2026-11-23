@@ -32,7 +32,7 @@ function MoneyCell({ value, onSave, disabled }: { value: number; onSave: (n: num
   );
 }
 
-export function ProductsTable({ products: initial, categories }: { products: Product[]; categories: Category[] }) {
+export function ProductsTable({ products: initial, categories, waiting = {} }: { products: Product[]; categories: Category[]; waiting?: Record<string, number> }) {
   const [products, setProducts] = useState(initial);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
@@ -71,7 +71,7 @@ export function ProductsTable({ products: initial, categories }: { products: Pro
                 <tr key={v.id} className={`${!p.available_today ? "bg-sand-50/70 text-mute" : ""} ${vi > 0 ? "" : "border-t-2 border-sand-200"}`}>
                   <td className="px-3 py-2">{vi === 0 && <button onClick={() => toggleAvail(p)} className={`relative h-6 w-11 rounded-full transition ${p.available_today ? "bg-success-600" : "bg-sand-300"}`} aria-label="Tersedia hari ini"><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${p.available_today ? "left-[22px]" : "left-0.5"}`} /></button>}</td>
                   <td className="px-3 py-2">
-                    {vi === 0 ? <Link href={`/admin/produk/${p.id}`} className="font-semibold text-ocean-900 hover:underline">{p.name}</Link> : <span className="text-transparent select-none">{p.name}</span>}
+                    {vi === 0 ? <><Link href={`/admin/produk/${p.id}`} className="font-semibold text-ocean-900 hover:underline">{p.name}</Link>{waiting[p.id] ? <span className="ml-1.5 whitespace-nowrap bg-warn-50 px-1.5 py-0.5 text-[10px] font-semibold text-warn-600" title="Pelanggan yang minta dikabari saat tersedia lagi; mereka otomatis dikabari begitu produk diaktifkan.">{waiting[p.id]} menunggu</span> : null}</> : <span className="text-transparent select-none">{p.name}</span>}
                     <span className="ml-2 text-xs text-mute">{v.label} · {UNIT_LABEL[v.unit]}{v.business_only ? " · bisnis" : ""}{p.is_catch_weight && vi === 0 ? " · ditimbang" : ""}</span>
                     {vi === 0 && <span className="ml-2 align-middle"><StorageBadge storage={p.storage_class} /></span>}
                   </td>

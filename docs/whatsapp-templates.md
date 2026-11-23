@@ -16,10 +16,13 @@ The app fills the variables from the order (`src/lib/notify/templates.ts`). If y
 |---|---|---|
 | `dipasaria_pesanan_diterima` | An order is placed (checkout) | 5 |
 | `dipasaria_tagihan_akhir` | An order with weighed items is weighed (corrected amounts are sent again) | 5 |
-| `dipasaria_pembayaran_diterima` | Payment is confirmed (QRIS gateway or "Tandai lunas") | 4 |
+| `dipasaria_pembayaran_diterima` | Payment is confirmed (QRIS gateway, "Tandai lunas", or COD cash recorded at delivery) | 4 |
 | `dipasaria_dalam_pengiriman` | The order is marked "Dalam pengiriman" | 4 |
 | `dipasaria_pengingat_bayar` | 30 minutes before an unpaid order's payment deadline | 5 |
 | `dipasaria_pesanan_dibatalkan` | An order is cancelled (by you, or automatically when unpaid) | 4 |
+| `dipasaria_pesanan_sampai` | Delivery mode records the order as received; includes the 2-hour guarantee link | 3 |
+| `dipasaria_keputusan_garansi` | You decide a freshness-guarantee report (replace, refund or decline) | 3 |
+| `dipasaria_stok_tersedia` | A sold-out product is switched back on, for customers who tapped "Kabari saya" | 2 |
 | `dipasaria_pesanan_rutin` | A restaurant's standing order is placed (with any items left out) | 5 |
 
 ## Pesanan diterima: `dipasaria_pesanan_diterima`
@@ -137,6 +140,59 @@ Samples:
 - `{{3}}`: pembayaran belum kami terima sampai batas waktu
 - `{{4}}`: https://dipasaria.id/belanja
 
+## Pesanan sudah diterima: `dipasaria_pesanan_sampai`
+
+Body:
+
+```
+Halo {{1}}, pesanan {{2}} sudah diterima. Terima kasih!
+
+Bila ada produk yang kurang segar atau tidak sesuai, laporkan dengan foto dalam 2 jam dan kami ganti atau kembalikan dananya: {{3}}
+
+Salam segar, Dipasaria.
+```
+
+Samples:
+
+- `{{1}}`: Ibu Rina
+- `{{2}}`: DP-261116-AB2C
+- `{{3}}`: https://dipasaria.id/pesanan/DP-261116-AB2C?hp=6281300000001
+
+## Keputusan laporan garansi: `dipasaria_keputusan_garansi`
+
+Body:
+
+```
+Halo {{1}}, laporan Anda untuk pesanan {{2}} sudah kami proses: {{3}}
+
+Terima kasih sudah memberi tahu kami.
+```
+
+Samples:
+
+- `{{1}}`: Ibu Rina
+- `{{2}}`: DP-261116-AB2C
+- `{{3}}`: dana Anda kami kembalikan (Rp95.000). Maaf, kakap kurang segar.
+
+## Produk tersedia lagi: `dipasaria_stok_tersedia`
+
+Body:
+
+```
+Kabar baik: {{1}} sudah tersedia lagi untuk pengiriman berikutnya.
+
+Pesan di sini: {{2}}
+
+Anda menerima pesan ini karena meminta dikabari di situs Dipasaria.
+```
+
+Samples:
+
+- `{{1}}`: Kakap Merah
+- `{{2}}`: https://dipasaria.id/belanja/produk/kakap-merah
+
+Meta may classify back-in-stock messages as **Marketing**: they are sent only to customers who asked for them, but if Meta re-categorises the template, the price per message is the marketing rate.
+
 ## Pesanan rutin dibuat: `dipasaria_pesanan_rutin`
 
 Body:
@@ -156,7 +212,6 @@ Samples:
 - `{{3}}`: DP-261116-BHR1
 - `{{4}}`: Tidak tersedia malam ini: Telur Ayam Negeri habis hari ini. Produk lainnya tetap dikirim.
 - `{{5}}`: https://dipasaria.id/pesanan/DP-261116-BHR1?hp=6281200000001
-
 ## Login code: `dipasaria_kode_masuk` (category **Authentication**)
 
 This one is different: in WhatsApp Manager choose category **Authentication**, language Indonesian, name `dipasaria_kode_masuk`, and code delivery **Copy code**. Meta writes the text itself ("*{{1}}* adalah kode verifikasi Anda."). Optionally tick "Add security recommendation" and set the expiry to 10 minutes, matching the app.

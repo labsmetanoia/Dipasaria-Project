@@ -9,7 +9,9 @@ import { runStandingOrders, type RunOutcome } from "@/lib/standing";
 import type { StandingOrder } from "@/lib/types";
 import { expireIfDue } from "@/lib/expiry";
 import { cancelOpenAtGateway, syncPayment } from "@/lib/payments/service";
-import { notify, deliver, waApiEnabled } from "@/lib/notify/service";
+import { notify, deliver, waApiEnabled, notifyRestock } from "@/lib/notify/service";
+import type { Purchase } from "@/lib/types";
+import { rupiah } from "@/lib/format";
 import { after } from "next/server";
 
 export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
@@ -111,7 +113,15 @@ export async function regenerateCodeAction(id: string) {
 // ---- catalogue ----
 export async function updateVariantAction(id: string, patch: Partial<Variant>) {
   await guard();
-  const r = await (await getRepo()).updateVariant(id, patch);
+  const repo = await getRepo();
+  const before = (await repo.getProducts({ includeInactive: true })).find((p) => p.variants.some((v) => v.id === id));
+  const wasOut = before?.variants.find((v) => v.id === id)?.stock_qty === 0;
+  const r = await repo.updateVariant(id, patch);
+  // stock back from zero: tell the customers who asked to be told ("Kabari saya")
+  if (r.ok && before && wasOut && patch.stock_qty !== undefined && (patch.stock_qty === null || Number(patch.stock_qty) > 0) && before.available_today) {
+    const p = before;
+    after(() => notifyRestock({ id: p.id, name: p.name, slug: p.slug }));
+  }
   revalidatePath("/", "layout");
   return wrap(r);
 }
@@ -125,7 +135,12 @@ export async function createVariantAction(v: Omit<Variant, "id">) {
 
 export async function setAvailabilityAction(productId: string, available: boolean) {
   await guard();
-  const r = await (await getRepo()).setProductAvailability(productId, available);
+  const repo = await getRepo();
+  const r = await repo.setProductAvailability(productId, available);
+  if (r.ok && available) {
+    const p = (await repo.getProducts({ includeInactive: true })).find((x) => x.id === productId);
+    if (p && p.variants.some((v) => v.is_active && v.stock_qty !== 0)) after(() => notifyRestock({ id: p.id, name: p.name, slug: p.slug }));
+  }
   revalidatePath("/", "layout");
   return wrap(r);
 }
@@ -215,6 +230,71 @@ export async function syncPaymentsAction(orderId: string): Promise<ActionResult<
   revalidatePath("/admin", "layout");
   const o = await repo.getOrder(orderId);
   return o ? { ok: true, data: o } : { ok: false, error: "Pesanan tidak ditemukan." };
+}
+
+// ---------- Delivery mode ----------
+
+/** Proof of delivery: completes the order and tells the customer (with the guarantee link). */
+export async function markDeliveredAction(id: string, note: string, cod: number | null): Promise<ActionResult<Order>> {
+  await guard();
+  const cash = cod === null || cod === undefined || String(cod).trim() === "" ? null : Math.round(Number(cod));
+  if (cash !== null && !Number.isFinite(cash)) return { ok: false, error: "Jumlah uang tunai tidak valid." };
+  const r = await (await getRepo()).markDelivered(String(id), typeof note === "string" ? note : null, cash);
+  if (r.ok) { const o = r.data; after(() => notify(o, "delivered")); }
+  revalidatePath("/admin", "layout");
+  return wrap(r);
+}
+
+/** Could not deliver: noted on the order (it stays out for delivery, to be retried or cancelled). */
+export async function deliveryFailedAction(id: string, reason: string): Promise<ActionResult<Order>> {
+  await guard();
+  const repo = await getRepo();
+  const o = await repo.getOrder(String(id));
+  if (!o) return { ok: false, error: "Pesanan tidak ditemukan." };
+  const why = String(reason ?? "").trim().slice(0, 200) || "tanpa keterangan";
+  const stamp = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" });
+  const r = await repo.updateOrderInternalNote(o.id, [o.internal_note, `[Antar ${stamp}] Gagal: ${why}`].filter(Boolean).join("\n"));
+  revalidatePath("/admin", "layout");
+  return wrap(r);
+}
+
+// ---------- Freshness-guarantee claims ----------
+
+const DECISION_TEXT = { replace: "kami ganti pada pengiriman berikutnya", refund: "dana Anda kami kembalikan", declined: "belum dapat kami ganti" } as const;
+
+export async function resolveClaimAction(id: string, status: "replace" | "refund" | "declined", note: string, refund: number | null): Promise<ActionResult<null>> {
+  await guard();
+  if (!["replace", "refund", "declined"].includes(status)) return { ok: false, error: "Keputusan tidak valid." };
+  const amount = status === "refund" ? Math.round(Number(refund)) : null;
+  const text = String(note ?? "").trim().slice(0, 500);
+  const r = await (await getRepo()).resolveClaim(String(id), status, text, amount);
+  if (!r.ok) return { ok: false, error: r.error };
+  const decision = `${DECISION_TEXT[status]}${status === "refund" && amount ? ` (${rupiah(amount)})` : ""}${text ? `. ${text}` : ""}`;
+  const orderId = r.data;
+  after(() => notify(orderId, "claim", { decision, dedupe: String(id) }));
+  revalidatePath("/admin", "layout");
+  return { ok: true, data: null };
+}
+
+// ---------- Dawn buying log ----------
+
+export async function addPurchaseAction(p: Omit<Purchase, "id" | "created_at">): Promise<ActionResult<Purchase>> {
+  await guard();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(p?.delivery_date))) return { ok: false, error: "Tanggal tidak valid." };
+  if (!["purchase", "leftover", "waste"].includes(p.kind)) return { ok: false, error: "Jenis catatan tidak valid." };
+  const qty = Number(p.qty), cost = p.kind === "purchase" ? Math.round(Number(p.total_cost)) : 0;
+  if (!(qty > 0) || qty > 10000) return { ok: false, error: "Isi jumlah lebih dari 0." };
+  if (!Number.isFinite(cost) || cost < 0) return { ok: false, error: "Harga tidak valid." };
+  const r = await (await getRepo()).addPurchase({ delivery_date: p.delivery_date, product_id: String(p.product_id), kind: p.kind, qty, unit: String(p.unit).slice(0, 20), total_cost: cost, supplier: String(p.supplier ?? "").trim().slice(0, 80), note: String(p.note ?? "").trim().slice(0, 200) });
+  revalidatePath("/admin/belanja-subuh");
+  return wrap(r);
+}
+
+export async function deletePurchaseAction(id: string): Promise<ActionResult<null>> {
+  await guard();
+  await (await getRepo()).deletePurchase(String(id));
+  revalidatePath("/admin/belanja-subuh");
+  return { ok: true, data: null };
 }
 
 // ---------- WhatsApp outbox ----------

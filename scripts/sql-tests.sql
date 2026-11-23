@@ -290,7 +290,7 @@ begin
   insert into wa_messages (id, order_id, kind, dedupe, phone, template, body) values ('wa_t3', oid, 'invoice', '250000', '62812', 't', 'x');
   insert into wa_messages (id, order_id, kind, dedupe, phone, template, body) values ('wa_t4', oid, 'invoice', '262500', '62812', 't', 'x');
   if (select count(*) from wa_messages where order_id = oid) <> 3 then raise exception 'a corrected invoice (new amount) should be allowed'; end if;
-  if (select wa_events from settings) <> array['received','invoice','paid','delivering','reminder','cancelled','standing'] then raise exception 'default WhatsApp events'; end if;
+  if (select wa_events from settings) <> array['received','invoice','paid','delivering','reminder','cancelled','standing','delivered','claim','restock'] then raise exception 'default WhatsApp events'; end if;
 
   -- 20. Household login: one code per phone, a minute between requests, 5 wrong tries lock it, a session on success
   perform customer_request_code('0812 7777 0030', 'hash-a');

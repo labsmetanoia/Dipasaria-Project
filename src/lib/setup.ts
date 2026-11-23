@@ -47,6 +47,8 @@ async function databaseProblems(): Promise<SetupProblem[]> {
       ["007", () => sb.from("settings").select("wa_events").limit(1)],
       ["008", () => sb.from("customers").select("id").limit(1)],
       ["009", () => sb.from("order_items").select("stock_reserved").limit(1)],
+      ["010", () => sb.from("claims").select("id").limit(1)],
+      ["010", () => sb.from("orders").select("substitution, delivered_at").limit(1)],
     ];
     const missing = new Set<string>();
     for (const [m, q] of checks) if ((await q()).error) missing.add(m);

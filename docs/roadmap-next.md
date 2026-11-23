@@ -2,6 +2,8 @@
 
 **Date:** 17 November 2026 · **Basis:** the platform as built on branch `claude/amazing-cori-ggmx09` (audit fixes plus roadmap items R2–R8 and R12; see `docs/audit-report.md`)
 
+> **Update, 23 November 2026:** N0 (CI), N1 (buying log), N2 (freshness guarantee), N3 (delivery confirmation and COD count, without a separate driver role yet) and N11 (substitution preference and "Kabari saya") are built. See `docs/audit-round-2.md` for details and the revised order of the rest.
+
 Effort figures are my build estimates in working days. "Feasibility" says how each item fits the existing architecture: Next.js server actions, Supabase SQL functions, and the repo interface with its two adapters.
 
 ---

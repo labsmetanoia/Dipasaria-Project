@@ -435,6 +435,106 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   check((await a.locator("tr", { hasText: "6281377770001" }).count()) === 0, "deleting the account removes the profile (orders stay)");
   await hm.close();
 
+  // 8e) Value features: recipe add-ons, substitution choice, delivery mode, freshness guarantee, buying log, "Kabari saya"
+  const vm = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const v = await vm.newPage();
+  // cart suggests the rest of a recipe when its main fish is in the cart
+  await v.goto(BASE + "/belanja/produk/kakap-putih", { waitUntil: "networkidle" });
+  for (let i = 0; i < 2; i++) await v.getByRole("button", { name: "Tambah", exact: true }).click();
+  await v.getByRole("button", { name: "Tambah ke keranjang" }).click();
+  await v.goto(BASE + "/keranjang", { waitUntil: "networkidle" });
+  check((await v.getByText(/Lengkapi masakan/).count()) >= 1, "cart offers the missing recipe ingredients for the fish in the cart");
+  const linesBefore = await v.locator("button[aria-label='Hapus']").count();
+  await v.getByRole("button", { name: /Tambah semua/ }).first().click();
+  await v.waitForTimeout(500);
+  check((await v.locator("button[aria-label='Hapus']").count()) > linesBefore, "'Tambah semua' adds the recipe's other ingredients to the cart");
+  await v.screenshot({ path: `${OUT}/54-cart-recipe-complete-mobile.png`, fullPage: true });
+  // checkout with a substitution choice
+  await v.goto(BASE + "/checkout", { waitUntil: "networkidle" });
+  await v.waitForSelector("h2:has-text(\"Penerima\")");
+  await v.getByLabel("Nama penerima", { exact: true }).fill("Uji Antar Garansi");
+  await v.getByLabel("Nomor WhatsApp").fill("0813 9999 0005");
+  await v.getByLabel("Wilayah").selectOption({ index: 3 });
+  await v.getByLabel("Alamat lengkap").fill("Jl. Uji No. 5, Jakarta Selatan");
+  await v.getByRole("button", { name: "Lanjut" }).click();
+  await v.getByRole("button", { name: "Lanjut" }).click();
+  await v.locator("label", { hasText: "Ganti dengan yang sejenis dan setara" }).click();
+  await v.screenshot({ path: `${OUT}/55-checkout-substitution-mobile.png`, fullPage: true });
+  await v.getByRole("button", { name: "Buat pesanan" }).click();
+  await v.waitForURL(/\/pesanan\/DP-/, { timeout: 15000 });
+  const vUrl = v.url();
+  const vCode = vUrl.match(/DP-[A-Z0-9-]+/)[0];
+  const vd = vCode.match(/DP-(\d{2})(\d{2})(\d{2})/); const vDate = `20${vd[1]}-${vd[2]}-${vd[3]}`;
+  // admin: substitution visible; weigh the kakap; deliver from the route sheet
+  await a.goto(BASE + "/admin/pesanan?all=1&q=" + encodeURIComponent("Uji Antar Garansi"), { waitUntil: "networkidle" });
+  await a.getByText("Uji Antar Garansi").first().click();
+  await a.waitForSelector("text=Simpan berat");
+  check((await a.getByText("ganti dengan yang sejenis").count()) === 1, "admin sees the customer's substitution choice");
+  const vw = a.locator('input[aria-label^="Berat "]');
+  for (let i = 0; i < (await vw.count()); i++) await vw.nth(i).fill((await vw.nth(i).getAttribute("placeholder")));
+  await a.getByRole("button", { name: /Simpan berat/ }).click();
+  await a.waitForTimeout(1200);
+  await a.goto(BASE + "/admin/rute?date=" + vDate, { waitUntil: "networkidle" });
+  const stop = a.locator("div.card", { hasText: "Uji Antar Garansi" }).first();
+  check((await stop.getByText("Bila kosong: ganti sejenis").count()) === 1, "route card shows the substitution choice for the packer");
+  await stop.getByRole("button", { name: "Diterima" }).click();
+  await stop.getByLabel("Diterima oleh").fill("Satpam lobi");
+  await stop.getByRole("button", { name: "Simpan: sudah diterima" }).click();
+  await a.waitForSelector("text=Diterima", { timeout: 10000 });
+  await a.waitForTimeout(800);
+  check((await a.locator("div.card", { hasText: "Uji Antar Garansi" }).first().getByText(/Diterima .* Satpam lobi/).count()) === 1, "delivery mode records the delivery time and who received it");
+  await a.screenshot({ path: `${OUT}/56-admin-delivery-mode-desktop.png`, fullPage: true });
+  // customer: delivered, then a guarantee report with a photo
+  await v.goto(vUrl, { waitUntil: "networkidle" });
+  check((await v.getByText(/Diterima .* WIB · Satpam lobi/).count()) === 1, "customer sees when and to whom the order was delivered");
+  await v.getByRole("button", { name: "Laporkan masalah" }).click();
+  await v.locator("label", { hasText: "Kakap Putih" }).first().locator("input[type=checkbox]").check();
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  await v.locator("input[type=file]").setInputFiles({ name: "ikan.png", mimeType: "image/png", buffer: png });
+  await v.waitForSelector("img[alt='Foto 1']");
+  await v.screenshot({ path: `${OUT}/57-guarantee-report-mobile.png`, fullPage: true });
+  await v.getByRole("button", { name: "Kirim laporan" }).click();
+  await v.waitForSelector("text=Laporan diterima", { timeout: 15000 });
+  check(true, "customer reports a problem with a photo within the guarantee window");
+  // admin decides; customer sees the decision
+  await a.goto(BASE + "/admin", { waitUntil: "networkidle" });
+  check((await a.getByText(/laporan garansi menunggu keputusan/).count()) === 1, "dashboard flags the open guarantee report");
+  await a.goto(BASE + "/admin/garansi", { waitUntil: "networkidle" });
+  const claimCard = a.locator("div.card", { hasText: vCode }).first();
+  check((await claimCard.locator("img[alt^='Foto 1']").count()) === 1, "the report's photo is visible to the owner");
+  await claimCard.locator("label", { hasText: "Kembalikan dana" }).click();
+  await claimCard.getByLabel("Pesan untuk pelanggan").fill("Maaf, kakap kurang segar.");
+  await a.screenshot({ path: `${OUT}/58-admin-guarantee-desktop.png`, fullPage: true });
+  await claimCard.getByRole("button", { name: /Simpan keputusan/ }).click();
+  await a.waitForSelector("text=Tidak ada laporan yang menunggu.", { timeout: 10000 });
+  await v.reload({ waitUntil: "networkidle" });
+  check((await v.getByText(/dana dikembalikan Rp/).count()) === 1, "customer sees the refund decision on the order page");
+  await a.goto(BASE + "/admin/whatsapp", { waitUntil: "networkidle" });
+  check((await a.getByText("Pesanan sudah diterima").count()) >= 1 && (await a.getByText("Keputusan laporan garansi").count()) >= 1, "delivered and guarantee-decision WhatsApp messages are prepared");
+  // buying log: record what was paid at the auction
+  await a.goto(BASE + "/admin/belanja-subuh?date=" + vDate, { waitUntil: "networkidle" });
+  const row = a.locator("div.divide-y > *").filter({ hasText: "Kakap Putih" }).first();
+  await row.getByLabel("Total bayar (Rp)").fill("190000");
+  await row.getByLabel("Pemasok atau lot").fill("Lelang Muara Baru lot 12");
+  await row.getByRole("button", { name: "Catat" }).click();
+  await a.waitForSelector("text=Lelang Muara Baru lot 12", { timeout: 10000 });
+  check((await a.getByText("Rp190.000").count()) >= 1 && (await a.getByText("Modal dan susut hari ini").count()) === 1, "buying log records the price paid and shows actual cost and margin");
+  await a.screenshot({ path: `${OUT}/59-admin-buying-log-desktop.png`, fullPage: true });
+  // "Kabari saya": eggs were switched off for the standing-order test above
+  await v.goto(BASE + "/belanja/produk/telur-ayam", { waitUntil: "networkidle" });
+  await v.getByLabel("Nomor WhatsApp").fill("0813 9999 0006");
+  await v.getByRole("button", { name: "Kabari" }).click();
+  await v.waitForSelector("text=Kami kabari lewat WhatsApp");
+  check(true, "a sold-out product offers 'Kabari saya' and records the request");
+  await a.goto(BASE + "/admin/produk", { waitUntil: "networkidle" });
+  const egg = a.locator("tr", { hasText: "Telur Ayam Negeri" }).first();
+  check((await egg.getByText("1 menunggu").count()) === 1, "admin sees how many customers wait for the product");
+  await egg.getByRole("button", { name: "Tersedia hari ini" }).click();
+  await a.waitForTimeout(1500);
+  await a.goto(BASE + "/admin/whatsapp", { waitUntil: "networkidle" });
+  check((await a.getByText("Produk tersedia lagi").count()) >= 1, "switching the product back on prepares the back-in-stock message");
+  await vm.close();
+
   // 9) Rate limit: a script guessing logins from one device is stopped (on top of the per-phone lockout)
   const rl = await browser.newContext();
   const r = await rl.newPage();

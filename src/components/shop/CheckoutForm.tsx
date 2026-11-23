@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Tag, ShieldCheck, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import type { Substitution } from "@/lib/types";
 import type { BusinessAccount, CustomerAddress, DeliveryArea, DeliverySlot, PaymentMethod, Product, Promo, Settings } from "@/lib/types";
 import Link from "next/link";
 import { availableDates, quote, segmentOf, slotsForSegment } from "@/lib/pricing";
@@ -46,6 +47,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  const [slotId, setSlotId] = useState("");
  const [payment, setPayment] = useState<PaymentMethod>("qris");
  const [note, setNote] = useState("");
+ const [subst, setSubst] = useState<Substitution>("contact");
  const [promoCode, setPromoCode] = useState("");
  const [promo, setPromo] = useState<Promo | null>(null);
  const [promoMsg, setPromoMsg] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  submitting.current = true;
  setError(null);
  start(async () => {
- const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current, wa_opt_in: waOptIn }, { turnstileToken: tsToken, saveAddress: household && addrId === "new" && saveNew ? { label: newLabel } : null });
+ const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current, wa_opt_in: waOptIn, substitution: subst }, { turnstileToken: tsToken, saveAddress: household && addrId === "new" && saveNew ? { label: newLabel } : null });
  if (!r.ok) { submitting.current = false; setError(r.error); setTsReset((n) => n + 1); return; }
  if (!account) saveCustomer({ name, phone, address, area_id: areaId, maps_url: maps });
  rememberOrder({ code: r.data.code, phone: r.data.phone, at: new Date().toISOString() });
@@ -226,6 +228,17 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
                 {promo && <p className="mt-1.5 text-xs font-bold text-success-600">{promo.code}: {promo.description}</p>}
                 {promoMsg && <p className="mt-1.5 text-xs text-gold-ink">{promoMsg}</p>}
               </div>
+              <fieldset className="mt-5">
+                <legend className="text-sm font-semibold text-ink">{t.checkout.substTitle}</legend>
+                <p className="text-xs text-mute">{t.checkout.substHint}</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {(["similar", "contact", "remove"] as const).map((k) => (
+                    <label key={k} className={`flex cursor-pointer items-start gap-2 border px-3 py-2 text-sm ${subst === k ? "border-ocean-950 bg-ocean-950/5" : "border-line"}`}>
+                      <input type="radio" name="subst" checked={subst === k} onChange={() => setSubst(k)} className="mt-0.5 accent-ocean-950" />{t.checkout.subst[k]}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <div className="mt-5"><Field label={t.checkout.note}><textarea className="input" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.checkout.notePlaceholder} /></Field></div>
             </section>
             <button type="button" onClick={() => setStep(1)} className="btn-secondary"><ArrowLeft className="h-4 w-4" /> {t.checkout.prev}</button>

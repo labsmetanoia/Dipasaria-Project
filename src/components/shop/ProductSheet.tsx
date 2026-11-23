@@ -8,6 +8,7 @@ import { pick } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/dict";
 import { useT } from "@/lib/i18n/client";
 import { useCart } from "@/store/cart";
+import { StockAlert } from "./StockAlert";
 import { QtyStepper } from "./QtyStepper";
 
 export function ProductSheet({ product, account }: { product: Product; account: BusinessAccount | null }) {
@@ -95,6 +96,7 @@ export function ProductSheet({ product, account }: { product: Product; account: 
       <button ref={ctaRef} type="button" disabled={off || outOfStock} onClick={doAdd} className="btn-accent w-full py-4 text-[13.5px]">
         {added ? <><Check className="h-4 w-4" /> {t.shop.added}</> : off ? t.shop.soldOut : outOfStock ? t.shop.outOfStock : <><ShoppingBag className="h-4 w-4" /> {t.shop.addToCart}</>}
       </button>
+      {(off || outOfStock) && <StockAlert productId={product.id} />}
       {variant.stock_qty !== null && variant.stock_qty <= 5 && variant.stock_qty > 0 && <p className="-mt-3 font-sans text-xs text-gold-ink">{fmt(t.shop.leftInStock, { n: variant.stock_qty, unit })}</p>}
 
       <div className="grid grid-cols-4 gap-2 border-y border-line py-4">
