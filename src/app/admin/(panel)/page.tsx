@@ -6,7 +6,8 @@ import { getRepo } from "@/lib/data";
 import { pickDate } from "@/lib/ops";
 import { DateSelector } from "@/components/admin/DateSelector";
 import { Stat, StatusBadge, PaymentBadge } from "@/components/ui";
-import { rupiah } from "@/lib/format";
+import { nowJakarta, rupiah } from "@/lib/format";
+import { buildLedger } from "@/lib/receivables";
 import { STATUS_LABEL } from "@/lib/config";
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
@@ -16,6 +17,10 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   const date = pickDate(dp);
   const repo = await getRepo();
   const [summary, orders, accounts, errors, openClaims] = await Promise.all([repo.dailySummary(date), repo.listOrders({ date }), repo.listAccounts(), repo.listErrors({ limit: 50 }).catch(() => []), repo.listClaims({ status: "open", limit: 50 })]);
+  const receivables = await repo.listReceivables().catch(() => null);
+  const today = nowJakarta().date;
+  const overdueAccounts = receivables ? accounts.map((a) => buildLedger(a, receivables.orders, receivables.payments, receivables.allocations, today)).filter((l) => l.overdue > 0) : [];
+  const overdueTotal = overdueAccounts.reduce((s, l) => s + l.overdue, 0);
   const pendingAccounts = accounts.filter((a) => a.status === "pending");
   const toConfirm = orders.filter((o) => o.status === "new");
   const toWeigh = orders.filter((o) => o.has_catch_weight && !o.weighed_at && o.status !== "cancelled");
@@ -29,6 +34,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         <DateSelector date={date} />
       </div>
       {openClaims.length > 0 && <Link href="/admin/garansi" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{openClaims.length} laporan garansi menunggu keputusan →</Link>}
+      {overdueTotal > 0 && <Link href="/admin/piutang" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">Piutang lewat jatuh tempo {rupiah(overdueTotal)} dari {overdueAccounts.length} restoran →</Link>}
       {errors.length > 0 && <Link href="/admin/sistem" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{errors.length} jenis error belum ditangani ({errors.reduce((s, e) => s + e.count, 0)} kejadian). Lihat Sistem →</Link>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

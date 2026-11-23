@@ -2,6 +2,9 @@
 // It applies the same business rules as the SQL functions, via src/lib/pricing.ts.
 
 import type {
+  AccountPayment,
+  ContractPrice,
+  PaymentAllocation,
   AppError,
   GatewayOutcome,
   Payment,
@@ -33,6 +36,7 @@ import { availableDates, lineTotal, quote, segmentOf, slotsForSegment, unitPrice
 import { addDays, isValidPhone, jam, jamRange, normalizePhone, nowJakarta } from "../format";
 import { newId, orderCode, randomCode, sessionToken } from "../ids";
 import { TEXT_LIMITS, paymentChangeError, safeMapsUrl, statusChangeError, weighError } from "../orderRules";
+import { amountOf, buildLedger, dueDateFor, termsBlock } from "../receivables";
 
 interface Store {
   settings: Settings;
@@ -46,6 +50,9 @@ interface Store {
   orders: Order[];
   standing: StandingOrder[];
   standingRuns: StandingOrderRun[];
+  accPayments: AccountPayment[];
+  allocations: PaymentAllocation[];
+  contracts: ContractPrice[];
 }
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -63,8 +70,12 @@ function buildStore(): Store {
     orders: [],
     standing: [],
     standingRuns: [],
+    accPayments: [],
+    allocations: [],
+    contracts: [],
   };
   seedDemoOrders(store);
+  seedReceivables(store);
   // Demo standing order: the seafood restaurant's Monday / Wednesday / Friday kitchen order.
   const now = new Date().toISOString();
   store.standing.push({
@@ -141,6 +152,7 @@ function seedDemoOrders(store: Store) {
       slot_label: `${slot.label} ${jamRange(slot.start_time, slot.end_time)}`,
       payment_method,
       payment_status: payment_method === "terms" || payment_method === "cod" ? "unpaid" : "unpaid",
+      due_date: payment_method === "terms" && account ? dueDateFor(tomorrow, account.payment_terms) : null,
       status,
       subtotal_est: subtotal,
       discount: 0,
@@ -170,6 +182,96 @@ function seedDemoOrders(store: Store) {
   mk(`DP-${tomorrow.replace(/-/g, "").slice(2)}-RT02`, null, { name: "Bapak Arif", phone: "6281300000012", address: "Jl. Senopati No. 21, Jakarta Selatan", area_id: "a_selatan" }, "s_sore", "transfer", "new",
     [["v_udang_beku", 2, null], ["v_dori", 1, null], ["v_sosis", 2, null], ["v_kecap_520", 1, null]], 1);
   store.orders[3].payment_status = "awaiting_confirmation";
+}
+
+/**
+ * Demo receivables: past tempo invoices for the two example restaurants, a payment, and one contract price, so the
+ * Piutang pages show every ageing bucket. Seafood Bahari stays within its terms; Sinar Minang has an invoice past the
+ * grace days (its tempo is refused until paid).
+ */
+function seedReceivables(store: Store) {
+  const today = nowJakarta().date;
+  const past = (code: string, acc: BusinessAccount, daysAgo: number, lines: Array<[string, number]>) => {
+    const items = lines.map(([vid, q]) => itemFrom(store, vid, q, null, "business", acc));
+    for (const i of items) { i.qty_final = i.qty_ordered; i.line_total_final = i.line_total_est; }
+    const subtotal = items.reduce((s, i) => s + i.line_total_est, 0);
+    const slot = store.slots.find((s) => s.id === "s_dapur")!;
+    const area = store.areas.find((a) => a.id === acc.area_id)!;
+    const delivery = addDays(today, -daysAgo);
+    const at = `${delivery}T06:30:00+07:00`;
+    const id = newId("o");
+    const o: Order = {
+      id, code: `DP-${delivery.replace(/-/g, "").slice(2)}-${code}`, segment: "business", account_id: acc.id, customer_name: acc.business_name, phone: acc.phone,
+      address: acc.address, area_id: area.id, area_name: area.name, maps_url: null, delivery_date: delivery, slot_id: slot.id,
+      slot_label: `${slot.label} ${jamRange(slot.start_time, slot.end_time)}`, payment_method: "terms", payment_status: "unpaid", status: "completed",
+      subtotal_est: subtotal, discount: 0, delivery_fee: 0, total_est: subtotal, subtotal_final: subtotal, total_final: subtotal,
+      has_catch_weight: false, weighed_at: null, promo_code: null, due_date: dueDateFor(delivery, acc.payment_terms), delivered_at: new Date(at).toISOString(),
+      delivery_note: "Dapur", customer_note: "", internal_note: "", created_at: new Date(Date.parse(at) - 86400_000).toISOString(),
+      history: [{ status: "new", at: new Date(Date.parse(at) - 86400_000).toISOString() }, { status: "completed", at: new Date(at).toISOString(), note: "Diterima: Dapur" }],
+      items: items.map((i) => ({ ...i, order_id: id })),
+    };
+    store.orders.push(o);
+    return o;
+  };
+  const [bahari, minang] = store.accounts;
+  past("BHR7", bahari, 9, [["v_salmon", 8], ["v_udang_beku", 6], ["v_telur_peti", 1]]);
+  past("BHR8", bahari, 4, [["v_salmon", 6], ["v_dori", 4], ["v_minyak_18l", 1]]);
+  past("MNG5", minang, 20, [["v_ayam8", 10], ["v_minyak_18l", 2], ["v_telur_peti", 1]]);
+  past("MNG6", minang, 8, [["v_ayam8", 8], ["v_telur_peti", 1]]);
+  const pay = (account_id: string, amount: number, daysAgo: number, reference: string) => store.accPayments.push({
+    id: newId("ap"), account_id, amount, paid_on: addDays(today, -daysAgo), method: "transfer", reference, note: "", created_at: new Date(Date.now() - daysAgo * 86400_000).toISOString(),
+  });
+  const first = store.orders.find((o) => o.code.endsWith("-BHR7"))!;
+  pay(bahari.id, amountOf(first), 2, "BCA 0211");
+  pay(minang.id, 500000, 12, "Mandiri 7781");
+  store.contracts.push({ id: "cp_bahari_kakap", account_id: bahari.id, variant_id: "v_kakap_l", price: 88000, starts_on: addDays(today, -30), ends_on: null, note: "Kontrak Q4: kakap merah 1–2 kg", created_at: new Date().toISOString() });
+  allocateCredit(store, bahari.id);
+  allocateCredit(store, minang.id);
+}
+
+/** Same matching as SQL allocate_account_credit(): oldest due invoice first, oldest payment first; releases over-allocations. */
+function allocateCredit(store: Store, accountId: string) {
+  const orderById = new Map(store.orders.map((o) => [o.id, o]));
+  const accPayIds = new Set(store.accPayments.filter((p) => p.account_id === accountId).map((p) => p.id));
+  store.allocations = store.allocations.filter((a) => !(accPayIds.has(a.payment_id) && orderById.get(a.order_id)?.status === "cancelled"));
+  const allocOf = (orderId: string) => store.allocations.filter((a) => a.order_id === orderId).reduce((s, a) => s + a.amount, 0);
+  for (const o of store.orders.filter((x) => x.account_id === accountId)) {
+    let excess = allocOf(o.id) - amountOf(o);
+    if (excess <= 0) continue;
+    const mine = store.allocations.filter((a) => a.order_id === o.id).sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id));
+    for (const a of mine) {
+      if (excess <= 0) break;
+      if (a.amount <= excess) { excess -= a.amount; store.allocations = store.allocations.filter((x) => x.id !== a.id); }
+      else { a.amount -= excess; excess = 0; }
+    }
+  }
+  const usedOf = (paymentId: string) => store.allocations.filter((a) => a.payment_id === paymentId).reduce((s, a) => s + a.amount, 0);
+  const invoices = store.orders
+    .filter((o) => o.account_id === accountId && o.payment_method === "terms" && o.status !== "cancelled" && (o.payment_status === "unpaid" || o.payment_status === "awaiting_confirmation") && o.total_final !== null)
+    .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999") || a.delivery_date.localeCompare(b.delivery_date) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const pays = store.accPayments.filter((p) => p.account_id === accountId).sort((a, b) => a.paid_on.localeCompare(b.paid_on) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  for (const inv of invoices) {
+    let need = (inv.total_final ?? 0) - allocOf(inv.id);
+    for (const p of pays) {
+      if (need <= 0) break;
+      const rem = p.amount - usedOf(p.id);
+      if (rem <= 0) continue;
+      const take = Math.min(need, rem);
+      store.allocations.push({ id: newId("pa"), payment_id: p.id, order_id: inv.id, amount: take, created_at: new Date().toISOString() });
+      need -= take;
+    }
+    if (need <= 0) {
+      inv.payment_status = "paid";
+      inv.pay_by = null;
+      inv.history.push({ status: "paid", at: new Date().toISOString(), note: "Dari pembayaran tempo" });
+    }
+  }
+}
+
+/** Contract prices that still matter (current or future), attached to an account for pricing. */
+function withContracts(store: Store, a: BusinessAccount): BusinessAccount {
+  const today = nowJakarta().date;
+  return { ...clone(a), contract_prices: clone(store.contracts.filter((c) => c.account_id === a.id && (!c.ends_on || c.ends_on >= today))) };
 }
 
 declare global {
@@ -258,9 +360,12 @@ export const memoryRepo: Repo = {
     return getStore().orders.some((o) => o.phone === p && o.status !== "cancelled");
   },
 
-  async placeOrder(input, account) {
+  async placeOrder(input, sessionAccount) {
     const store = getStore();
     const now = nowJakarta();
+    // the stored account is the authority (limit, terms, contract prices), not the copy from the session
+    const stored = sessionAccount ? store.accounts.find((a) => a.id === sessionAccount.id) : undefined;
+    const account = stored ? withContracts(store, stored) : null;
     const segment = segmentOf(account);
     // Idempotency: a retried or double-tapped submit returns the order already created for this checkout.
     const ref = input.client_ref?.trim();
@@ -280,7 +385,7 @@ export const memoryRepo: Repo = {
     const isFirst = !(await this.hasOrderedBefore(phone));
     const q = quote(
       { settings: store.settings, products: store.products, areas: store.areas, promos: store.promos, account, now, isFirstOrder: isFirst },
-      { lines: input.lines, area_id: input.area_id, promo_code: input.promo_code },
+      { lines: input.lines, area_id: input.area_id, promo_code: input.promo_code, delivery_date: input.delivery_date },
     );
     if (q.errors.length) return fail(q.errors[0]);
     if (!q.min_order_met) return fail(`Pesanan belum mencapai minimal pesanan Rp${q.min_order.toLocaleString("id-ID")}.`);
@@ -296,6 +401,10 @@ export const memoryRepo: Repo = {
     if (!["qris", "transfer", "cod", "terms"].includes(pm)) return fail("Metode pembayaran tidak valid.");
     if (pm === "cod" && !(segment === "business" && account?.allow_cod)) return fail("Bayar di tempat (COD) hanya tersedia untuk akun bisnis yang telah disetujui.");
     if (pm === "terms" && !(segment === "business" && account && account.payment_terms !== "prepaid")) return fail("Pembayaran tempo hanya tersedia untuk akun bisnis dengan fasilitas tempo.");
+    if (pm === "terms" && account) {
+      const block = termsBlock(buildLedger(account, store.orders, store.accPayments, store.allocations, now.date), account, store.settings, q.total, now.date);
+      if (block) return fail(block);
+    }
 
     // Reserve stock
     for (const l of q.lines) {
@@ -367,6 +476,7 @@ export const memoryRepo: Repo = {
       delivered_at: null,
       delivery_note: null,
       cod_collected: null,
+      due_date: pm === "terms" && account ? dueDateFor(input.delivery_date, account.payment_terms) : null,
       customer_note: input.customer_note?.trim() ?? "",
       internal_note: "",
       created_at: created,
@@ -375,6 +485,7 @@ export const memoryRepo: Repo = {
     };
     order.pay_by = payByFor(order, store.settings);
     store.orders.unshift(order);
+    if (pm === "terms" && account && !q.has_catch_weight) allocateCredit(store, account.id);
     return ok(clone(order));
   },
 
@@ -412,6 +523,7 @@ export const memoryRepo: Repo = {
       area_id: input.area_id,
       business_type: input.business_type,
       discount_pct: 0,
+      credit_limit: null,
       payment_terms: "prepaid",
       allow_cod: false,
       status: "pending",
@@ -447,7 +559,7 @@ export const memoryRepo: Repo = {
     const s = store.sessions.get(token);
     if (!s || s.expires < Date.now()) return null;
     const acc = store.accounts.find((a) => a.id === s.account_id && a.status === "approved");
-    return acc ? clone(acc) : null;
+    return acc ? withContracts(store, acc) : null;
   },
   async endSession(token) { getStore().sessions.delete(token); },
 
@@ -481,11 +593,21 @@ export const memoryRepo: Repo = {
         if (v && v.stock_qty !== null && i.stock_reserved) v.stock_qty += i.qty_ordered; // only what was taken
       }
       if (o.promo_code) { const pr = store.promos.find((p) => p.code === o.promo_code); if (pr) pr.used_count = Math.max(0, pr.used_count - 1); }
-      o.payment_status = o.payment_status === "paid" || o.payment_status === "awaiting_confirmation" ? "refund_due" : "void";
+      const before = o.payment_status;
+      o.payment_status = before === "paid" || before === "awaiting_confirmation" ? "refund_due" : "void";
       cancelOpenPayments(o.id);
+      // a tempo invoice settled from the restaurant's payments: the money goes back to its credit, nothing to refund
+      if (o.payment_method === "terms") {
+        const alloc = store.allocations.filter((a) => a.order_id === o.id).reduce((s, a) => s + a.amount, 0);
+        if (alloc > 0) {
+          store.allocations = store.allocations.filter((a) => a.order_id !== o.id);
+          if (alloc >= amountOf(o) || (before !== "paid" && before !== "awaiting_confirmation")) o.payment_status = "void";
+        }
+      }
     }
     o.status = status;
     o.history.push({ status, at: new Date().toISOString(), note });
+    if (status === "cancelled" && o.payment_method === "terms" && o.account_id) allocateCredit(store, o.account_id);
     return ok(clone(o));
   },
   async weighOrder(id, items) {
@@ -511,6 +633,7 @@ export const memoryRepo: Repo = {
     o.weighed_at = new Date().toISOString();
     o.history.push({ status: "weighed", at: o.weighed_at });
     cancelOpenPayments(o.id); // a QR issued for the previous amount must not be paid any more
+    if (o.payment_method === "terms" && o.account_id) allocateCredit(store, o.account_id);
     return ok(clone(o));
   },
   async setPaymentStatus(id, status) {
@@ -518,6 +641,10 @@ export const memoryRepo: Repo = {
     if (!o) return fail("Pesanan tidak ditemukan.");
     const err = paymentChangeError(o, status);
     if (err) return fail(err);
+    // a tempo invoice marked unpaid again gives its share of the restaurant's payments back to the account's credit
+    if (o.payment_method === "terms" && o.payment_status === "paid" && (status === "unpaid" || status === "awaiting_confirmation")) {
+      getStore().allocations = getStore().allocations.filter((a) => a.order_id !== o.id);
+    }
     o.payment_status = status;
     if (status === "paid" || status === "awaiting_confirmation") o.pay_by = null;
     if (status === "paid") o.history.push({ status: "paid", at: new Date().toISOString() });
@@ -620,11 +747,11 @@ export const memoryRepo: Repo = {
   },
 
   async listAccounts() {
-    return clone(getStore().accounts).sort((a, b) => (a.status === "pending" ? -1 : 1) - (b.status === "pending" ? -1 : 1) || b.applied_at.localeCompare(a.applied_at));
+    return getStore().accounts.map((a) => withContracts(getStore(), a)).sort((a, b) => (a.status === "pending" ? -1 : 1) - (b.status === "pending" ? -1 : 1) || b.applied_at.localeCompare(a.applied_at));
   },
   async getAccount(id) {
     const a = getStore().accounts.find((x) => x.id === id);
-    return a ? clone(a) : null;
+    return a ? withContracts(getStore(), a) : null;
   },
   async approveAccount(id, patch) {
     const a = getStore().accounts.find((x) => x.id === id);
@@ -635,8 +762,8 @@ export const memoryRepo: Repo = {
   async updateAccount(id, patch) {
     const a = getStore().accounts.find((x) => x.id === id);
     if (!a) return fail("Akun tidak ditemukan.");
-    const { id: _id, ...rest } = patch;
-    void _id;
+    const { id: _id, contract_prices: _cp, ...rest } = patch;
+    void _id; void _cp;
     Object.assign(a, rest);
     return ok(clone(a));
   },
@@ -1061,5 +1188,56 @@ export const memoryRepo: Repo = {
   async listOrdersPastPayBy() {
     const now = Date.now();
     return clone(getStore().orders.filter((o) => o.pay_by && Date.parse(o.pay_by) < now && o.payment_status === "unpaid" && (o.status === "new" || o.status === "confirmed")));
+  },
+
+  async listReceivables(filter) {
+    const store = getStore();
+    const orders = store.orders.filter((o) => o.payment_method === "terms" && o.status !== "cancelled" && o.account_id && (!filter?.accountId || o.account_id === filter.accountId));
+    const payments = store.accPayments.filter((p) => !filter?.accountId || p.account_id === filter.accountId);
+    const ids = new Set(payments.map((p) => p.id));
+    return clone({ orders: orders.map((o) => ({ ...o, items: [] })), payments, allocations: store.allocations.filter((a) => ids.has(a.payment_id)) });
+  },
+  async recordAccountPayment(accountId, p) {
+    const store = getStore();
+    if (!store.accounts.some((a) => a.id === accountId)) return fail("Akun tidak ditemukan.");
+    const today = nowJakarta().date;
+    if (!Number.isFinite(p.amount) || p.amount <= 0 || p.amount > 1_000_000_000 || p.amount !== Math.round(p.amount)) return fail("Jumlah pembayaran tidak valid.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(p.paid_on) || p.paid_on > today || p.paid_on < addDays(today, -366)) return fail("Tanggal pembayaran tidak valid.");
+    if (!["transfer", "cash", "qris", "giro", "other"].includes(p.method)) return fail("Cara pembayaran tidak valid.");
+    const id = newId("ap");
+    store.accPayments.push({ id, account_id: accountId, amount: p.amount, paid_on: p.paid_on, method: p.method, reference: p.reference.trim().slice(0, 80), note: p.note.trim().slice(0, 200), created_at: new Date().toISOString() });
+    allocateCredit(store, accountId);
+    return ok(id);
+  },
+  async deleteAccountPayment(id) {
+    const store = getStore();
+    const p = store.accPayments.find((x) => x.id === id);
+    if (!p) return fail("Pembayaran tidak ditemukan.");
+    const others = (orderId: string) => store.allocations.filter((a) => a.order_id === orderId && a.payment_id !== id).reduce((s, a) => s + a.amount, 0);
+    for (const orderId of new Set(store.allocations.filter((a) => a.payment_id === id).map((a) => a.order_id))) {
+      const o = store.orders.find((x) => x.id === orderId);
+      if (o && o.payment_status === "paid" && amountOf(o) > others(orderId)) {
+        o.payment_status = "unpaid";
+        o.history.push({ status: "unpaid", at: new Date().toISOString(), note: "Pembayaran tempo dihapus" });
+      }
+    }
+    store.allocations = store.allocations.filter((a) => a.payment_id !== id);
+    store.accPayments = store.accPayments.filter((x) => x.id !== id);
+    allocateCredit(store, p.account_id);
+    return ok(undefined);
+  },
+  async listContractPrices(accountId) {
+    return clone(getStore().contracts.filter((c) => !accountId || c.account_id === accountId)).sort((a, b) => a.variant_id.localeCompare(b.variant_id) || b.starts_on.localeCompare(a.starts_on));
+  },
+  async addContractPrice(c) {
+    const store = getStore();
+    if (store.contracts.some((x) => x.account_id === c.account_id && x.variant_id === c.variant_id && x.starts_on === c.starts_on)) return fail("Sudah ada harga kontrak untuk produk ini yang mulai pada tanggal itu.");
+    const row: ContractPrice = { ...c, id: newId("cp"), created_at: new Date().toISOString() };
+    store.contracts.push(row);
+    return ok(clone(row));
+  },
+  async deleteContractPrice(id) {
+    const store = getStore();
+    store.contracts = store.contracts.filter((c) => c.id !== id);
   },
 };

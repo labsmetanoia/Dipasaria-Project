@@ -26,7 +26,7 @@ Open http://localhost:3000. `npm run dev` always allows demo mode. On a deployme
 
 ## Go live on Supabase + Vercel (about two hours)
 
-1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` again. `seed.sql` is safe to re-run too: it only inserts missing rows and never overwrites prices, stock, settings or the bank account. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`; `007_whatsapp_notifications.sql` adds WhatsApp opt-in and settings; `008_customer_accounts.sql` goes with household accounts, whose tables `schema.sql` creates; `009_integrity_fixes.sql` fixes stock returns on cancel, phone formats and cut-off format before the new data-integrity rules apply; `010_value_features.sql` goes with substitution preferences, delivery confirmation, guarantee claims, restock alerts and the buying log.)
+1. **Supabase**: create a free project in the Singapore region. In the SQL editor run `supabase/schema.sql`, then `supabase/seed.sql`. Never run `supabase/seed-demo.sql` on a real project: it adds example restaurant accounts whose access codes are published in this README. (A project created from an earlier schema runs the files in `supabase/migrations/` it has not run yet, in order, then `schema.sql` again. `seed.sql` is safe to re-run too: it only inserts missing rows and never overwrites prices, stock, settings or the bank account. `004_audit_fixes.sql` also suspends the example accounts; `005_protection_and_monitoring.sql` adds the payment deadline, rate limits, error log and partial standing-order notes; `006_qris_gateway.sql` goes with the QRIS gateway, whose `payments` table is created by `schema.sql`; `007_whatsapp_notifications.sql` adds WhatsApp opt-in and settings; `008_customer_accounts.sql` goes with household accounts, whose tables `schema.sql` creates; `009_integrity_fixes.sql` fixes stock returns on cancel, phone formats and cut-off format before the new data-integrity rules apply; `010_value_features.sql` goes with substitution preferences, delivery confirmation, guarantee claims, restock alerts and the buying log; `011_receivables.sql` goes with restaurant receivables and contract prices.)
 2. **Admin user**: Authentication → Users → add your email and password (disable public sign-ups under Auth settings). Then in SQL: `insert into admins (user_id, label) values ('<the user uuid>', 'Pemilik');`
 3. **Example accounts**: `seed.sql` no longer creates them. On a project seeded before November 2026, migration 004 suspends them; you can also delete them: `delete from business_accounts where id in ('ba_bahari','ba_minang','ba_kemang');`
 4. **Vercel** (or any Node host): import this repository, set the environment variables from `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SESSION_SECRET`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`; generate secrets with `openssl rand -hex 32`). The server refuses to start in production if Supabase or `SESSION_SECRET` is missing, so a typo cannot silently put the shop into demo mode. Deploy, connect your domain. `vercel.json` schedules the standing-order job daily at 19.45 WIB; Vercel sends `CRON_SECRET` with each call.
@@ -186,6 +186,8 @@ Practise once a month: restore into a scratch project and check that your latest
 | Morning | Garansi | Decide guarantee claims (replace, refund or decline); the customer is told by WhatsApp |
 | 08:00 | Pesanan | Once transfer money is in the bank app, **Tandai lunas** |
 | Afternoon | Produk & stok | Update prices and costs before 18:00; the margin column turns red under 10% |
+| When a transfer arrives | Piutang | Record a restaurant's payment once; it settles its oldest invoices first |
+| Weekly | Piutang | Check ageing; send each restaurant its statement by WhatsApp (one tap) |
 | Weekly | Laporan | Sales, gross margin, non-seafood share; CSV export for the accountant |
 
 ## Design direction (round 3)
@@ -217,6 +219,14 @@ Benchmarked on a chef's-butcher e-commerce site, with Dipasaria's brand palette 
 - *Buying log*: actual purchase cost, leftovers and waste per product; real margin and shrinkage on the buying list and in **Laporan**.
 - *Lengkapi masakan*: the cart offers the missing ingredients of a recipe whose main fish is in the cart, in one tap.
 - *CI*: every test suite runs on each change.
+
+**Restaurant receivables and contract prices.** Every tempo order is an invoice with a due date. On **Piutang**, the owner:
+- records each transfer once; it settles the oldest invoices first, and any overpayment is kept as credit;
+- sees ageing per restaurant (not yet due, 1–7, 8–14, 15–30, over 30 days) and sets a credit limit;
+- adds contract prices per product with validity dates;
+- prints a statement for any period, or sends it by WhatsApp with a signed link.
+
+The database refuses a tempo order that would pass the limit, or while an invoice is past due beyond the grace days set in **Pengaturan**. The restaurant sees the reason at checkout and its balance on **Akun**. Details are in `docs/audit-round-2.md`, section 10.
 
 ## What is built
 

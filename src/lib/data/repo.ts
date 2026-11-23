@@ -1,4 +1,7 @@
 import type {
+  AccountPayment,
+  ContractPrice,
+  PaymentAllocation,
   AccountApplication,
   AppError,
   GatewayOutcome,
@@ -197,4 +200,15 @@ export interface Repo {
   addPurchase(p: Omit<Purchase, "id" | "created_at">): Promise<Result<Purchase>>;
   deletePurchase(id: string): Promise<void>;
   listPurchases(filter: { date?: string; from?: string; to?: string }): Promise<Purchase[]>;
+
+  // Restaurant receivables (rules in SQL; summaries computed by src/lib/receivables.ts)
+  /** Tempo orders that are not cancelled (no items), payments and their allocations, for one account or all. */
+  listReceivables(filter?: { accountId?: string }): Promise<{ orders: Order[]; payments: AccountPayment[]; allocations: PaymentAllocation[] }>;
+  /** Records the payment and matches it to open invoices, oldest first. Returns the payment id. */
+  recordAccountPayment(accountId: string, p: Pick<AccountPayment, "amount" | "paid_on" | "method" | "reference" | "note">): Promise<Result<string>>;
+  /** Removes a payment; invoices it settled reopen unless other payments still cover them. */
+  deleteAccountPayment(id: string): Promise<Result<void>>;
+  listContractPrices(accountId?: string): Promise<ContractPrice[]>;
+  addContractPrice(c: Pick<ContractPrice, "account_id" | "variant_id" | "price" | "starts_on" | "ends_on" | "note">): Promise<Result<ContractPrice>>;
+  deleteContractPrice(id: string): Promise<void>;
 }

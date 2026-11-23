@@ -24,6 +24,7 @@ The app fills the variables from the order (`src/lib/notify/templates.ts`). If y
 | `dipasaria_keputusan_garansi` | You decide a freshness-guarantee report (replace, refund or decline) | 3 |
 | `dipasaria_stok_tersedia` | A sold-out product is switched back on, for customers who tapped "Kabari saya" | 2 |
 | `dipasaria_pesanan_rutin` | A restaurant's standing order is placed (with any items left out) | 5 |
+| `dipasaria_ringkasan_tagihan` | You send a restaurant its tempo summary from Back-office → Piutang (on request, not automatic) | 7 |
 
 ## Pesanan diterima: `dipasaria_pesanan_diterima`
 
@@ -212,6 +213,30 @@ Samples:
 - `{{3}}`: DP-261116-BHR1
 - `{{4}}`: Tidak tersedia malam ini: Telur Ayam Negeri habis hari ini. Produk lainnya tetap dikirim.
 - `{{5}}`: https://dipasaria.id/pesanan/DP-261116-BHR1?hp=6281200000001
+
+## Ringkasan tagihan tempo: `dipasaria_ringkasan_tagihan`
+
+Body:
+
+```
+Halo {{1}}, ringkasan tagihan tempo {{2}} per {{3}}: sisa tagihan {{4}}, termasuk {{5}} yang sudah lewat jatuh tempo.
+
+Rincian tagihan dan rekening koran: {{6}}
+
+Pembayaran ke {{7}}. Terima kasih.
+```
+
+Samples:
+
+- `{{1}}`: Pak Hendra
+- `{{2}}`: Seafood Bahari Gading
+- `{{3}}`: Senin, 23 November 2026
+- `{{4}}`: Rp3.031.000
+- `{{5}}`: Rp0
+- `{{6}}`: https://dipasaria.id/tagihan/ba_bahari.20825.fFPc7ic79MNRxA5aPUUA34HivyNhTGTV
+- `{{7}}`: BCA 1234567890 a.n. PT Dipasaria
+
+The link is signed and works for 45 days without signing in; it shows only that restaurant's statement and invoices.
 ## Login code: `dipasaria_kode_masuk` (category **Authentication**)
 
 This one is different: in WhatsApp Manager choose category **Authentication**, language Indonesian, name `dipasaria_kode_masuk`, and code delivery **Copy code**. Meta writes the text itself ("*{{1}}* adalah kode verifikasi Anda."). Optionally tick "Add security recommendation" and set the expiry to 10 minutes, matching the app.

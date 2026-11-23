@@ -41,7 +41,7 @@ sql += insert("delivery_slots", ["id", "label", "start_time", "end_time", "segme
 const prc = ["id", "code", "type", "value", "min_spend", "segment", "quota", "used_count", "first_order_only", "starts_at", "ends_at", "is_active", "description"] as const;
 sql += insert("promos", [...prc], seedPromos.map((p) => prc.map((k) => p[k])), "id", true) + "\n";
 
-const bac = ["id", "business_name", "contact_name", "phone", "address", "area_id", "business_type", "discount_pct", "payment_terms", "allow_cod", "status", "access_code", "preferred_slot_id", "notes", "applied_at", "approved_at"] as const;
+const bac = ["id", "business_name", "contact_name", "phone", "address", "area_id", "business_type", "discount_pct", "payment_terms", "allow_cod", "status", "access_code", "preferred_slot_id", "notes", "applied_at", "approved_at", "credit_limit"] as const;
 // Example restaurant accounts live in a separate file so production never gets logins whose codes are published in the docs.
 const demo = `-- DEMO ONLY. Example business accounts whose access codes are published in the README and demo hints.\n-- Never run this on a production database.\n\n` + insert("business_accounts", [...bac], seedAccounts.map((a) => bac.map((k) => a[k])), "id", true);
 

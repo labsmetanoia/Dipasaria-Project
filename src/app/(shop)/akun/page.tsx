@@ -17,7 +17,10 @@ import { getCurrentCustomer, otpChannel } from "@/lib/customer";
 import { customerLogoutAction } from "@/actions/customer";
 import { CustomerLogin } from "@/components/shop/CustomerLogin";
 import { AddressBook, DeleteAccount, ProfileCard } from "@/components/shop/HouseholdAccount";
-import type { Order } from "@/lib/types";
+import type { BusinessAccount, Order, Product } from "@/lib/types";
+import { buildLedger, termsBlock, type Ledger } from "@/lib/receivables";
+import { statementToken } from "@/lib/statementLink";
+import { contractPrice } from "@/lib/pricing";
 import type { Locale } from "@/lib/i18n";
 
 export const metadata = { title: "Akun" };
@@ -38,6 +41,45 @@ function OrderList({ orders, t, locale }: { orders: Order[]; t: Awaited<ReturnTy
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The restaurant's tempo position: balance, what is due when, room left under the limit, agreed prices. */
+function TermsCard({ account, ledger, blocked, products, locale }: { account: BusinessAccount; ledger: Ledger; blocked: string | null; products: Product[]; locale: Locale }) {
+  const en = locale === "en";
+  const agreed = products.flatMap((p) => p.variants.map((v) => ({ p, v, c: contractPrice(v, account) }))).filter((x) => x.c);
+  if (account.payment_terms === "prepaid" && ledger.invoices.length === 0 && agreed.length === 0) return null;
+  return (
+    <section className="card space-y-4 p-5" aria-labelledby="tagihan">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><p className="eyebrow">{en ? "Account statement" : "Tagihan tempo"}</p><h2 id="tagihan" className="mt-1 text-[1.7rem] leading-none">{rupiah(Math.max(0, ledger.balance))} <span className="font-sans text-sm font-normal text-mute">{en ? "outstanding" : "sisa tagihan"}</span></h2></div>
+        <Link href={`/tagihan/${statementToken(account.id)}`} className="btn-secondary text-xs">{en ? "Statement and invoices" : "Rekening koran dan faktur"}</Link>
+      </div>
+      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div><dt className="text-xs text-mute">{en ? "Past due" : "Lewat jatuh tempo"}</dt><dd className={`font-bold ${ledger.overdue ? "text-gold-ink" : ""}`}>{rupiah(ledger.overdue)}</dd></div>
+        <div><dt className="text-xs text-mute">{en ? "Not yet delivered" : "Belum dikirim"}</dt><dd className="font-bold">{rupiah(ledger.upcoming)}</dd></div>
+        <div><dt className="text-xs text-mute">{en ? "Credit available" : "Sisa batas kredit"}</dt><dd className="font-bold">{ledger.available === null ? (en ? "No limit" : "Tanpa batas") : rupiah(ledger.available)}</dd></div>
+        <div><dt className="text-xs text-mute">{en ? "Prepaid credit" : "Saldo kredit"}</dt><dd className="font-bold">{rupiah(ledger.credit)}</dd></div>
+      </dl>
+      {blocked && <p className="border-l-4 border-coral-500 bg-coral-50 px-3 py-2 text-sm">{blocked}</p>}
+      {ledger.open.length > 0 && (
+        <ul className="divide-y divide-line border-t border-line text-sm">
+          {ledger.open.slice(0, 6).map((i) => (
+            <li key={i.order.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <span><b>{i.order.code}</b> <span className="text-xs text-mute">{en ? "delivered" : "dikirim"} {formatDate(i.order.delivery_date, "short", locale)}</span></span>
+              <span className={`text-xs ${i.days_past_due > 0 ? "font-semibold text-gold-ink" : "text-mute"}`}>{i.due_date ? `${en ? "due" : "jatuh tempo"} ${formatDate(i.due_date, "short", locale)}${i.days_past_due > 0 ? (en ? ` · ${i.days_past_due} days late` : ` · lewat ${i.days_past_due} hari`) : ""}` : ""}</span>
+              <span className="font-semibold tabular-nums">{rupiah(i.remaining)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {agreed.length > 0 && (
+        <div className="border-t border-line pt-3 text-xs">
+          <p className="font-semibold">{en ? "Your contract prices" : "Harga kontrak Anda"}</p>
+          <p className="mt-1 text-mute">{agreed.map(({ p, v, c }) => `${p.name} ${v.label} ${rupiah(c!.price)}`).join(" · ")}</p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -82,7 +124,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       </div>
     );
   }
-  const [orders, slots, standing, products] = await Promise.all([repo.getOrdersForAccount(account.id, 10), repo.getSlots(), repo.listStandingOrders({ accountId: account.id }), repo.getProducts()]);
+  const [orders, slots, standing, products, receivables] = await Promise.all([repo.getOrdersForAccount(account.id, 10), repo.getSlots(), repo.listStandingOrders({ accountId: account.id }), repo.getProducts(), repo.listReceivables({ accountId: account.id })]);
+  const ledger = buildLedger(account, receivables.orders, receivables.payments, receivables.allocations);
+  const blocked = account.payment_terms === "prepaid" ? null : termsBlock(ledger, account, settings, 0);
   const runs = (await Promise.all(standing.map((s) => repo.listStandingRuns({ standingOrderId: s.id, limit: 3 })))).flat();
   const businessSlots = slots.filter((s) => s.segment !== "retail");
   const firstDate = availableDates(settings, nowJakarta())[0];
@@ -104,6 +148,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <p className="mt-4 text-xs text-white/50">{t.account.kitchenAddress}: {account.address}</p>
       </div>
       {orders[0] && <div className="card flex flex-wrap items-center justify-between gap-3 p-5"><div><p className="font-bold text-ocean-950">{fmt(t.account.reorderLike, { date: formatDate(orders[0].delivery_date, "short", locale) })}</p><p className="text-xs text-mute">{orders[0].items.map((i) => `${i.product_name} ${i.qty_ordered} ${i.unit}`).join(" · ")}</p></div><ReorderButton order={orders[0]} /></div>}
+      <TermsCard account={account} ledger={ledger} blocked={blocked} products={products} locale={locale} />
       {account.status === "approved" && <StandingOrdersPanel initial={standing} runs={runs} products={products} slots={businessSlots} payments={allowedPayments(account)} account={account} firstDate={firstDate} presets={presets} />}
       <section>
         <h2 className="mb-3 font-bold text-ocean-950">{t.account.history}</h2>

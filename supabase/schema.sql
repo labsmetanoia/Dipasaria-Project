@@ -67,7 +67,9 @@ create table if not exists settings (
   -- minutes a household transfer/QRIS order with a known total has to be paid before it is cancelled automatically (0 = never)
   payment_window_minutes int not null default 120 check (payment_window_minutes between 0 and 10080),
   -- which automatic WhatsApp messages are sent to customers
-  wa_events text[] not null default array['received','invoice','paid','delivering','reminder','cancelled','standing','delivered','claim','restock']
+  wa_events text[] not null default array['received','invoice','paid','delivering','reminder','cancelled','standing','delivered','claim','restock'],
+  -- days a restaurant's tempo invoice may be past due before new tempo orders are refused
+  terms_grace_days int not null default 3 check (terms_grace_days between 0 and 60)
 );
 
 create table if not exists categories (
@@ -187,7 +189,9 @@ create table if not exists business_accounts (
   preferred_slot_id text references delivery_slots(id),
   notes text not null default '',
   applied_at timestamptz not null default now(),
-  approved_at timestamptz
+  approved_at timestamptz,
+  -- most a restaurant may owe on tempo (open invoices, including orders not yet delivered); null = no limit
+  credit_limit numeric check (credit_limit is null or credit_limit >= 0)
 );
 
 create table if not exists business_sessions (
@@ -241,7 +245,9 @@ create table if not exists orders (
   -- proof of delivery (delivery mode)
   delivered_at timestamptz,
   delivery_note text,
-  cod_collected numeric check (cod_collected is null or cod_collected >= 0)
+  cod_collected numeric check (cod_collected is null or cod_collected >= 0),
+  -- tempo invoices: delivery date + the account's terms (3 or 7 days), fixed when the order is placed
+  due_date date
 );
 create index if not exists orders_pay_by_idx on orders(pay_by) where payment_status = 'unpaid';
 
@@ -269,7 +275,7 @@ create index if not exists payments_order_idx on payments(order_id, created_at d
 create table if not exists wa_messages (
   id text primary key,
   order_id text references orders(id) on delete cascade, -- null for messages not tied to an order (back-in-stock alerts)
-  kind text not null check (kind in ('received','invoice','paid','delivering','reminder','cancelled','standing','delivered','claim','restock')),
+  kind text not null check (kind in ('received','invoice','paid','delivering','reminder','cancelled','standing','delivered','claim','restock','statement')),
   dedupe text not null default '',
   phone text not null,
   template text not null,
@@ -284,6 +290,9 @@ create table if not exists wa_messages (
   unique (order_id, kind, dedupe)
 );
 create index if not exists wa_messages_pending_idx on wa_messages(status, created_at) where status in ('queued','sending','failed');
+-- The unique key above treats NULL order ids as all different, so messages without an order (back-in-stock alerts,
+-- statements) need their own key or they could be queued twice.
+create unique index if not exists wa_messages_no_order_key on wa_messages(kind, dedupe) where order_id is null;
 
 create index if not exists orders_delivery_idx on orders(delivery_date, slot_id);
 create index if not exists orders_phone_idx on orders(phone);
@@ -464,6 +473,45 @@ create table if not exists purchases (
 );
 create index if not exists purchases_date_idx on purchases(delivery_date);
 
+-- ---------- restaurant receivables ----------
+-- Money received from a restaurant against its tempo invoices (one transfer can settle several orders).
+create table if not exists account_payments (
+  id text primary key default new_id('ap'),
+  account_id text not null references business_accounts(id) on delete cascade,
+  amount numeric not null check (amount > 0 and amount <= 1000000000),
+  paid_on date not null,
+  method text not null default 'transfer' check (method in ('transfer','cash','qris','giro','other')),
+  reference text not null default '',
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists account_payments_account_idx on account_payments(account_id, paid_on);
+
+-- Which payment settled which invoice, oldest invoice first (written only by allocate_account_credit()).
+create table if not exists payment_allocations (
+  id text primary key default new_id('pa'),
+  payment_id text not null references account_payments(id) on delete cascade,
+  order_id text not null references orders(id) on delete cascade,
+  amount numeric not null check (amount > 0),
+  created_at timestamptz not null default now()
+);
+create index if not exists payment_allocations_order_idx on payment_allocations(order_id);
+create index if not exists payment_allocations_payment_idx on payment_allocations(payment_id);
+
+-- Agreed price per restaurant and product size, for a period; replaces the wholesale price and account discount.
+create table if not exists contract_prices (
+  id text primary key default new_id('cp'),
+  account_id text not null references business_accounts(id) on delete cascade,
+  variant_id text not null references variants(id) on delete cascade,
+  price numeric not null check (price > 0),
+  starts_on date not null,
+  ends_on date check (ends_on is null or ends_on >= starts_on),
+  note text not null default '',
+  created_at timestamptz not null default now(),
+  unique (account_id, variant_id, starts_on)
+);
+create index if not exists contract_prices_account_idx on contract_prices(account_id);
+
 -- Supabase Auth users allowed into the back-office.
 create table if not exists admins (
   user_id uuid primary key,
@@ -518,7 +566,7 @@ create index if not exists customer_sessions_expires_idx on customer_sessions(ex
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -570,6 +618,8 @@ declare
   rawq numeric;
   v_ref text := nullif(trim(coalesce(p->>'client_ref', '')), '');
   v_maps text := nullif(trim(coalesce(p->>'maps_url', '')), '');
+  cprice numeric;
+  ex record;
 begin
   -- Idempotency: the same checkout submission never creates a second order.
   if v_ref is not null then
@@ -659,8 +709,15 @@ begin
       has_prep := true;
     end if;
 
+    -- A contract price valid on the delivery date replaces the wholesale price and the account discount.
+    cprice := null;
+    if seg = 'business' then
+      select c.price into cprice from contract_prices c
+       where c.account_id = acc.id and c.variant_id = var.id and c.starts_on <= d and (c.ends_on is null or c.ends_on >= d)
+       order by c.starts_on desc limit 1;
+    end if;
     price := case when seg = 'business'
-                  then round(var.price_business * (1 - coalesce(acc.discount_pct, 0) / 100))
+                  then coalesce(cprice, round(var.price_business * (1 - coalesce(acc.discount_pct, 0) / 100)))
                   else var.price_retail end
              + case when has_prep then prep.surcharge else 0 end;
 
@@ -708,6 +765,21 @@ begin
 
   v_total := greatest(0, v_subtotal - v_discount + v_fee);
 
+  -- Tempo: refused while an invoice is past due beyond the grace days, or when this order would pass the credit limit.
+  -- The account row is locked so two orders placed at once cannot both slip under the limit.
+  if pm = 'terms' then
+    perform 1 from business_accounts where id = acc.id for update;
+    select * into ex from account_exposure(acc.id, oid);
+    if ex.oldest_due is not null and ex.oldest_due < jnow::date - coalesce(s.terms_grace_days, 3) then
+      raise exception 'Pembayaran tempo belum dapat dipakai: tagihan % jatuh tempo % belum lunas. Silakan lunasi tagihan tersebut atau pilih metode pembayaran lain.',
+        ex.oldest_code, to_char(ex.oldest_due, 'DD/MM/YYYY');
+    end if;
+    if acc.credit_limit is not null and ex.outstanding - ex.credit + v_total > acc.credit_limit then
+      raise exception 'Pesanan ini melebihi batas kredit tempo akun Anda (sisa Rp%). Pilih metode pembayaran lain atau hubungi kami.',
+        replace(to_char(greatest(0, acc.credit_limit - (ex.outstanding - ex.credit)), 'FM999,999,999,990'), ',', '.');
+    end if;
+  end if;
+
   update orders
      set subtotal_est = v_subtotal, discount = v_discount, delivery_fee = v_fee, total_est = v_total,
          subtotal_final = case when has_catch then null else v_subtotal end,
@@ -718,8 +790,11 @@ begin
          promo_value = case when has_promo then promo.value end,
          -- households paying by transfer/QRIS a total known now: pay within the window, and before the delivery day starts
          pay_by = case when seg = 'retail' and pm in ('transfer', 'qris') and not has_catch and coalesce(s.payment_window_minutes, 0) > 0
-                       then least(now() + make_interval(mins => s.payment_window_minutes), (d::timestamp) at time zone 'Asia/Jakarta') end
+                       then least(now() + make_interval(mins => s.payment_window_minutes), (d::timestamp) at time zone 'Asia/Jakarta') end,
+         due_date = case when pm = 'terms' then d + case acc.payment_terms when 'days3' then 3 else 7 end end
    where id = oid;
+  -- credit the restaurant already has (an overpayment) settles a tempo order whose total is known
+  if pm = 'terms' and not has_catch then perform allocate_account_credit(acc.id); end if;
 
   return oid;
 end $$;
@@ -780,6 +855,8 @@ begin
    where id = p_order_id;
   -- a QR code issued for the previous amount must not be paid any more
   update payments set status = 'cancelled' where order_id = p_order_id and status = 'pending';
+  -- a tempo invoice now has its final amount: apply any credit, or release what a lighter weight no longer needs
+  if o.payment_method = 'terms' and o.account_id is not null then perform allocate_account_credit(o.account_id); end if;
 end $$;
 
 -- ---------- status changes ----------
@@ -789,7 +866,7 @@ create or replace function set_order_status(p_order_id text, p_status text, p_no
 returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  o orders%rowtype; it order_items%rowtype;
+  o orders%rowtype; it order_items%rowtype; v_alloc numeric;
   flow text[] := array['new','confirmed','packing','delivering','completed'];
 begin
   if p_status not in ('new','confirmed','packing','delivering','completed','cancelled') then raise exception 'Status tidak valid.'; end if;
@@ -807,6 +884,16 @@ begin
     if o.promo_code is not null then update promos set used_count = greatest(0, used_count - 1) where code = o.promo_code; end if;
     update orders set payment_status = case when o.payment_status in ('paid', 'awaiting_confirmation') then 'refund_due' else 'void' end where id = p_order_id;
     update payments set status = 'cancelled' where order_id = p_order_id and status = 'pending';
+    -- a tempo invoice settled from the restaurant's payments: the money goes back to its credit, nothing to refund
+    if o.payment_method = 'terms' then
+      select coalesce(sum(amount), 0) into v_alloc from payment_allocations where order_id = p_order_id;
+      if v_alloc > 0 then
+        delete from payment_allocations where order_id = p_order_id;
+        if v_alloc >= coalesce(o.total_final, o.total_est) or o.payment_status not in ('paid', 'awaiting_confirmation') then
+          update orders set payment_status = 'void' where id = p_order_id;
+        end if;
+      end if;
+    end if;
   elsif array_position(flow, p_status) < array_position(flow, o.status) then
     raise exception 'Status pesanan tidak dapat dimundurkan.';
   elsif p_status in ('delivering', 'completed') and o.has_catch_weight and o.total_final is null then
@@ -816,6 +903,7 @@ begin
      set status = p_status,
          history = history || jsonb_strip_nulls(jsonb_build_object('status', p_status, 'at', now(), 'note', p_note))
    where id = p_order_id;
+  if p_status = 'cancelled' and o.payment_method = 'terms' and o.account_id is not null then perform allocate_account_credit(o.account_id); end if;
 end $$;
 
 create or replace function set_payment_status(p_order_id text, p_status text)
@@ -831,6 +919,10 @@ begin
   end if;
   if p_status = 'paid' and o.has_catch_weight and o.total_final is null then
     raise exception 'Timbang pesanan terlebih dahulu sebelum menandai lunas, agar jumlah yang dibayar sesuai tagihan akhir.';
+  end if;
+  -- a tempo invoice marked unpaid again gives its share of the restaurant's payments back to the account's credit
+  if o.payment_method = 'terms' and o.payment_status = 'paid' and p_status in ('unpaid', 'awaiting_confirmation') then
+    delete from payment_allocations where order_id = p_order_id;
   end if;
   update orders
      set payment_status = p_status,
@@ -990,6 +1082,114 @@ begin
          coalesce(': ' || nullif(trim(p_note), ''), ''))
    where id = c.order_id;
   return c.order_id;
+end $$;
+
+-- ---------- restaurant receivables (functions) ----------
+-- What a restaurant owes on tempo: open invoices (orders not yet delivered count at their estimate), unapplied
+-- credit (payments not yet matched to an invoice), and the oldest invoice still open with its due date.
+create or replace function account_exposure(p_account_id text, p_exclude text default null)
+returns table (outstanding numeric, credit numeric, oldest_code text, oldest_due date)
+language sql stable security definer set search_path = public as $$
+  with inv as (
+    select o.code, o.due_date,
+           coalesce(o.total_final, o.total_est) - coalesce((select sum(a.amount) from payment_allocations a where a.order_id = o.id), 0) as remaining
+      from orders o
+     where o.account_id = p_account_id and o.payment_method = 'terms' and o.status <> 'cancelled'
+       and o.payment_status in ('unpaid', 'awaiting_confirmation') and o.id is distinct from p_exclude
+  ), oldest as (
+    select code, due_date from inv where remaining > 0 and due_date is not null order by due_date, code limit 1
+  )
+  select coalesce((select sum(greatest(remaining, 0)) from inv), 0),
+         coalesce((select sum(amount) from account_payments where account_id = p_account_id), 0)
+           - coalesce((select sum(a.amount) from payment_allocations a join account_payments ap on ap.id = a.payment_id where ap.account_id = p_account_id), 0),
+         (select code from oldest), (select due_date from oldest);
+$$;
+
+-- Match a restaurant's payments to its tempo invoices: oldest due invoice first, oldest payment first. Only invoices
+-- with a final amount are settled. Money matched to a cancelled order, or more than a re-weighed invoice needs, goes
+-- back to the account's credit. Safe to call any time; every change to payments or tempo invoices calls it.
+create or replace function allocate_account_credit(p_account_id text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  r record; x record; inv record; pay record;
+  excess numeric; need numeric; take numeric;
+begin
+  perform 1 from business_accounts where id = p_account_id for update;
+  delete from payment_allocations a using orders o
+   where a.order_id = o.id and o.account_id = p_account_id and o.status = 'cancelled';
+  for r in select o.id, coalesce(o.total_final, o.total_est) as amt, sum(a.amount) as al
+             from orders o join payment_allocations a on a.order_id = o.id
+            where o.account_id = p_account_id
+            group by o.id having sum(a.amount) > coalesce(o.total_final, o.total_est) loop
+    excess := r.al - r.amt;
+    for x in select * from payment_allocations where order_id = r.id order by created_at desc, id desc loop
+      exit when excess <= 0;
+      if x.amount <= excess then
+        delete from payment_allocations where id = x.id; excess := excess - x.amount;
+      else
+        update payment_allocations set amount = amount - excess where id = x.id; excess := 0;
+      end if;
+    end loop;
+  end loop;
+  for inv in select o.id, o.total_final as amt, coalesce((select sum(amount) from payment_allocations where order_id = o.id), 0) as al
+               from orders o
+              where o.account_id = p_account_id and o.payment_method = 'terms' and o.status <> 'cancelled'
+                and o.payment_status in ('unpaid', 'awaiting_confirmation') and o.total_final is not null
+              order by o.due_date nulls last, o.delivery_date, o.created_at, o.id loop
+    need := inv.amt - inv.al;
+    while need > 0 loop
+      select ap.id, ap.amount - coalesce((select sum(amount) from payment_allocations where payment_id = ap.id), 0) as rem into pay
+        from account_payments ap
+       where ap.account_id = p_account_id
+         and ap.amount > coalesce((select sum(amount) from payment_allocations where payment_id = ap.id), 0)
+       order by ap.paid_on, ap.created_at, ap.id limit 1;
+      exit when not found;
+      take := least(need, pay.rem);
+      insert into payment_allocations (payment_id, order_id, amount) values (pay.id, inv.id, take);
+      need := need - take;
+    end loop;
+    if need <= 0 then
+      update orders set payment_status = 'paid', pay_by = null,
+             history = history || jsonb_build_object('status', 'paid', 'at', now(), 'note', 'Dari pembayaran tempo')
+       where id = inv.id;
+    end if;
+  end loop;
+end $$;
+
+create or replace function record_account_payment(p_account_id text, p_amount numeric, p_paid_on date, p_method text, p_reference text, p_note text)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare v_id text := new_id('ap');
+begin
+  if not exists (select 1 from business_accounts where id = p_account_id) then raise exception 'Akun tidak ditemukan.'; end if;
+  if p_amount is null or p_amount <= 0 or p_amount > 1000000000 or p_amount <> round(p_amount) then raise exception 'Jumlah pembayaran tidak valid.'; end if;
+  if p_paid_on is null or p_paid_on > jakarta_now()::date or p_paid_on < jakarta_now()::date - 366 then raise exception 'Tanggal pembayaran tidak valid.'; end if;
+  if p_method is null or p_method not in ('transfer','cash','qris','giro','other') then raise exception 'Cara pembayaran tidak valid.'; end if;
+  insert into account_payments (id, account_id, amount, paid_on, method, reference, note)
+  values (v_id, p_account_id, p_amount, p_paid_on, p_method, left(trim(coalesce(p_reference, '')), 80), left(trim(coalesce(p_note, '')), 200));
+  perform allocate_account_credit(p_account_id);
+  return v_id;
+end $$;
+
+-- Remove a payment recorded by mistake: invoices it settled become unpaid again unless other payments still cover them.
+create or replace function delete_account_payment(p_id text)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare v_account text; r record;
+begin
+  select account_id into v_account from account_payments where id = p_id;
+  if v_account is null then raise exception 'Pembayaran tidak ditemukan.'; end if;
+  perform 1 from business_accounts where id = v_account for update;
+  for r in select distinct order_id from payment_allocations where payment_id = p_id loop
+    update orders
+       set payment_status = 'unpaid',
+           history = history || jsonb_build_object('status', 'unpaid', 'at', now(), 'note', 'Pembayaran tempo dihapus')
+     where id = r.order_id and payment_status = 'paid'
+       and coalesce(total_final, total_est) > coalesce((select sum(amount) from payment_allocations where order_id = r.order_id and payment_id <> p_id), 0);
+  end loop;
+  delete from account_payments where id = p_id;
+  perform allocate_account_credit(v_account);
 end $$;
 
 -- Sliding-window rate limit: true (and the hit is counted) while under p_max hits in the last p_window_seconds.
@@ -1227,7 +1427,7 @@ begin
     'place_order(jsonb, text)', 'weigh_order(text, jsonb)', 'set_order_status(text, text, text)', 'set_payment_status(text, text)',
     'customer_confirm_payment(text, text)', 'apply_account(jsonb)', 'approve_account(text, numeric, text, boolean, text)',
     'regenerate_access_code(text)', 'business_login(text, text)', 'daily_summary(date)', 'buying_list(date)', 'sales_report(date, date)',
-    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'mark_delivered(text, text, numeric)', 'create_claim(text, text, jsonb, text, text, jsonb, numeric)', 'resolve_claim(text, text, text, numeric)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
+    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'mark_delivered(text, text, numeric)', 'create_claim(text, text, jsonb, text, text, jsonb, numeric)', 'resolve_claim(text, text, text, numeric)', 'account_exposure(text, text)', 'allocate_account_credit(text)', 'record_account_payment(text, numeric, date, text, text, text)', 'delete_account_payment(text)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

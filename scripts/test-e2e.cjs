@@ -535,6 +535,102 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   check((await a.getByText("Produk tersedia lagi").count()) >= 1, "switching the product back on prepares the back-in-stock message");
   await vm.close();
 
+  // 8f) Restaurant receivables: ageing, overdue block, payments matched oldest first, credit limit, contract prices,
+  //     WhatsApp statement with a signed link, invoices
+  await a.goto(BASE + "/admin/piutang", { waitUntil: "networkidle" });
+  check((await a.locator("tr", { hasText: "RM Padang Sinar Minang" }).getByText("Tempo ditahan").count()) === 1, "receivables: a restaurant with an invoice past the grace days is flagged");
+  check((await a.getByText("15–30 hari").count()) >= 1 && (await a.getByText("Lewat jatuh tempo").count()) >= 1, "receivables: ageing buckets and overdue total shown");
+  await a.screenshot({ path: `${OUT}/60-admin-receivables-desktop.png`, fullPage: true });
+  const login = async (pg, phone, codeVal) => {
+    await pg.goto(BASE + "/akun", { waitUntil: "networkidle" });
+    await pg.locator("form", { has: pg.getByLabel("Kode akses") }).getByLabel("Nomor WhatsApp").fill(phone);
+    await pg.getByLabel("Kode akses").fill(codeVal);
+    await pg.getByRole("button", { name: "Masuk" }).click();
+    await pg.waitForURL(/\/belanja/, { timeout: 15000 });
+  };
+  const toPayment = async (pg) => {
+    await pg.goto(BASE + "/checkout", { waitUntil: "networkidle" });
+    await pg.waitForSelector("h2:has-text(\"Penerima\")");
+    await pg.getByRole("button", { name: "Lanjut" }).click();
+    await pg.getByRole("button", { name: "Lanjut" }).click();
+    await pg.waitForSelector("text=Tempo 3 hari");
+  };
+  const mc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const mp = await mc.newPage();
+  mp.on("pageerror", (e) => fails.push("pageerror(minang): " + e.message));
+  await login(mp, "081200000002", "mng456");
+  await mp.getByRole("button", { name: "Pesan lagi" }).click();
+  await mp.waitForURL(/\/keranjang/);
+  await mp.goto(BASE + "/akun", { waitUntil: "networkidle" });
+  check((await mp.getByText("Tagihan tempo").count()) >= 1 && (await mp.getByText(/jatuh tempo \d\d\/\d\d\/\d{4} belum lunas/).count()) >= 1, "restaurant sees its balance, due dates and why tempo is paused");
+  await mp.screenshot({ path: `${OUT}/61-business-terms-card-mobile.png`, fullPage: true });
+  await toPayment(mp);
+  check((await mp.getByText(/Pembayaran tempo belum dapat dipakai/).count()) === 1, "checkout explains that tempo is paused for an overdue invoice");
+  await mp.locator("label", { hasText: "Tempo 3 hari" }).click();
+  check(await mp.getByRole("button", { name: "Buat pesanan" }).isDisabled(), "a tempo order cannot be placed while an invoice is overdue");
+  await mp.screenshot({ path: `${OUT}/62-checkout-terms-paused-mobile.png`, fullPage: true });
+  // the owner records the transfer: oldest invoices are settled first and the block lifts
+  await a.goto(BASE + "/admin/piutang/ba_minang", { waitUntil: "networkidle" });
+  check((await a.getByText("Pesanan tempo baru ditahan.").count()) === 1, "admin sees why tempo is held for this restaurant");
+  await a.getByLabel("Referensi (opsional)").fill("Mandiri 23/11");
+  await a.getByRole("button", { name: "Simpan pembayaran" }).click();
+  await a.waitForSelector("text=Tidak ada tagihan terbuka.", { timeout: 10000 });
+  check((await a.getByText("Pesanan tempo baru ditahan.").count()) === 0 && (await a.getByText(/Untuk DP-\d{6}-MNG5/).count()) >= 1, "payment settles the overdue invoices (oldest first) and lifts the hold");
+  await a.screenshot({ path: `${OUT}/63-admin-receivables-account-desktop.png`, fullPage: true });
+  await toPayment(mp);
+  check((await mp.getByText(/Sisa batas kredit tempo/).count()) === 1, "checkout shows the tempo credit left");
+  await mp.locator("label", { hasText: "Tempo 3 hari" }).click();
+  await mp.getByRole("button", { name: "Buat pesanan" }).click();
+  await mp.waitForURL(/\/pesanan\/DP-/, { timeout: 15000 });
+  check(true, "after paying, the restaurant can order on tempo again");
+  // credit limit: a lower limit stops the next tempo order before it is placed
+  await a.goto(BASE + "/admin/piutang/ba_minang", { waitUntil: "networkidle" });
+  await a.getByLabel("Batas kredit (Rp)").fill("100000");
+  await a.getByRole("button", { name: "Simpan", exact: true }).click();
+  await a.waitForSelector("text=Tersimpan.", { timeout: 10000 });
+  await mp.goto(BASE + "/belanja", { waitUntil: "networkidle" });
+  await mp.getByRole("button", { name: "Pesan lagi" }).click();
+  await mp.waitForURL(/\/keranjang/);
+  await toPayment(mp);
+  await mp.locator("label", { hasText: "Tempo 3 hari" }).click();
+  check((await mp.getByText(/melebihi batas kredit tempo akun Anda/).count()) === 1 && await mp.getByRole("button", { name: "Buat pesanan" }).isDisabled(), "an order above the credit left is stopped at checkout");
+  await mc.close();
+  // contract price: agreed per restaurant and product, shown to the restaurant
+  await a.goto(BASE + "/admin/piutang/ba_bahari", { waitUntil: "networkidle" });
+  await a.getByLabel("Produk").selectOption("v_udang_40");
+  await a.getByLabel("Harga kontrak per satuan (Rp)").fill("99000");
+  await a.getByRole("button", { name: "Tambah harga kontrak" }).click();
+  await a.waitForSelector("text=Harga kontrak ditambahkan.", { timeout: 10000 });
+  check((await a.getByText("Rp99.000").count()) >= 1 && (await a.getByText("Kontrak Q4: kakap merah 1–2 kg").count()) === 1, "admin adds a contract price next to the existing one");
+  const bc = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const bp = await bc.newPage();
+  await login(bp, "081200000001", "bhr123");
+  await bp.goto(BASE + "/akun", { waitUntil: "networkidle" });
+  check((await bp.getByText("Harga kontrak Anda").count()) === 1 && (await bp.getByText(/Rp99\.000/).count()) >= 1, "restaurant sees its contract prices");
+  await bc.close();
+  // statement by WhatsApp with a signed link; invoice from the statement; a tampered link is refused
+  await a.goto(BASE + "/admin/piutang/ba_minang", { waitUntil: "networkidle" });
+  await a.getByRole("button", { name: /Kirim ringkasan tagihan/ }).click();
+  await a.waitForSelector("text=Buka WhatsApp untuk mengirim", { timeout: 15000 });
+  const stHref = decodeURIComponent(await a.getByRole("link", { name: "Buka WhatsApp untuk mengirim" }).getAttribute("href"));
+  const stUrl = (stHref.match(/https?:\/\/[^\s]+\/tagihan\/[A-Za-z0-9_.-]+/) || [])[0];
+  check(Boolean(stUrl) && /sisa tagihan Rp/.test(stHref), "statement summary prepared for WhatsApp with a signed link");
+  const sc = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const sp = await sc.newPage();
+  await sp.goto(stUrl.replace(/^https?:\/\/[^/]+/, BASE), { waitUntil: "networkidle" });
+  check((await sp.getByText("Rekening koran").count()) >= 1 && (await sp.getByText("Saldo akhir").count()) === 1 && (await sp.getByText(/Pembayaran · Transfer bank \(Mandiri 23\/11\)/).count()) === 1, "signed link opens the statement with the recorded payment");
+  const sideways = await sp.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+  check(!sideways, "statement fits a 390 px phone without sideways scrolling");
+  await sp.screenshot({ path: `${OUT}/64-statement-mobile.png`, fullPage: true });
+  await sp.getByRole("link", { name: /Pesanan DP-\d{6}-MNG6/ }).first().click();
+  await sp.waitForSelector("text=Faktur");
+  check((await sp.getByText("Lunas").count()) >= 1, "invoice opens from the statement and shows it is paid");
+  await sp.goto(stUrl.replace(/^https?:\/\/[^/]+/, BASE).slice(0, -1) + "x", { waitUntil: "networkidle" });
+  check((await sp.getByText("Tautan tidak berlaku").count()) === 1, "a tampered statement link is refused");
+  await sc.close();
+  await a.goto(BASE + "/admin/whatsapp", { waitUntil: "networkidle" });
+  check((await a.getByText("Ringkasan tagihan tempo (restoran)").count()) >= 1, "statement message is in the WhatsApp queue");
+
   // 9) Rate limit: a script guessing logins from one device is stopped (on top of the per-phone lockout)
   const rl = await browser.newContext();
   const r = await rl.newPage();

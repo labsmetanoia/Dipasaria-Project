@@ -7,7 +7,8 @@ import { getRepo } from "../data";
 import { newId } from "../ids";
 import { reportError } from "../monitor";
 import { getGateway } from "../payments/gateway";
-import { TEMPLATES, buildParams, render, restockParams } from "./templates";
+import { TEMPLATES, buildParams, render, restockParams, statementParams } from "./templates";
+import type { BusinessAccount } from "../types";
 import { SITE_URL } from "../config";
 import { nowJakarta } from "../format";
 import { cloudConfigured, sendTemplate } from "./cloud";
@@ -36,6 +37,24 @@ export async function notify(orderOrId: Order | string, kind: WaKind, opts: { de
     await reportError("action", e, { path: `notify/${kind}` });
     return null;
   }
+}
+
+/**
+ * A restaurant's tempo summary with a signed statement link. Sent when the owner asks (not an automatic event);
+ * the same balance is sent at most once a day. Null when it was already sent; throws on a database error.
+ */
+export async function notifyStatement(account: BusinessAccount, balance: number, overdue: number, url: string): Promise<WaMessage | null> {
+  const repo = await getRepo();
+  const settings = await repo.getSettings();
+  const t = TEMPLATES.statement;
+  const today = nowJakarta().date;
+  const params = statementParams(account.contact_name || account.business_name, account.business_name, today, balance, overdue, url, settings);
+  const msg = await repo.enqueueWa({
+    id: newId("wa"), order_id: null, kind: "statement", dedupe: `${account.id}:${today}:${Math.round(balance)}`, phone: account.phone, template: t.name, params,
+    body: render(t.body, params), status: cloudConfigured() ? "queued" : "manual",
+  });
+  if (msg && msg.status === "queued") return await deliver(msg);
+  return msg;
 }
 
 /** Send one queued or failed message through the API and record the result. */

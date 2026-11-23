@@ -36,6 +36,8 @@ export interface Settings {
   payment_window_minutes: number;
   /** Automatic WhatsApp messages that are switched on. */
   wa_events: WaKind[];
+  /** Days a tempo invoice may be past due before new tempo orders are refused. */
+  terms_grace_days: number;
 }
 
 export interface Category {
@@ -157,6 +159,10 @@ export interface BusinessAccount {
   notes: string;
   applied_at: string;
   approved_at: string | null;
+  /** Most the account may owe on tempo (open invoices, including undelivered orders); null = no limit. */
+  credit_limit: number | null;
+  /** Agreed prices (loaded with the account for pricing; current and future ones only). */
+  contract_prices?: ContractPrice[];
 }
 
 export interface OrderItem {
@@ -184,7 +190,8 @@ export interface OrderItem {
 }
 
 export interface StatusEvent {
-  status: OrderStatus | "paid" | "weighed";
+  /** "unpaid": a tempo invoice reopened after a payment was removed */
+  status: OrderStatus | "paid" | "weighed" | "unpaid";
   at: string;
   note?: string;
 }
@@ -229,6 +236,8 @@ export interface Order {
   delivered_at?: string | null;
   delivery_note?: string | null;
   cod_collected?: number | null;
+  /** Tempo invoices: delivery date + the account's terms, fixed when the order is placed. */
+  due_date?: string | null;
   customer_note: string;
   internal_note: string;
   created_at: string;
@@ -398,7 +407,7 @@ export interface Payment {
 /** What recording a verified gateway result did to the order. */
 export type GatewayOutcome = "paid" | "mismatch" | "late" | "duplicate" | "updated" | "noop";
 
-export type WaKind = "received" | "invoice" | "paid" | "delivering" | "reminder" | "cancelled" | "standing" | "delivered" | "claim" | "restock";
+export type WaKind = "received" | "invoice" | "paid" | "delivering" | "reminder" | "cancelled" | "standing" | "delivered" | "claim" | "restock" | "statement";
 
 /** One automatic WhatsApp message to a customer (outbox row). */
 export interface WaMessage {
@@ -446,6 +455,41 @@ export interface CustomerAddress {
 export type CustomerLoginResult = { status: "ok"; customerId: string } | { status: "wrong" | "expired" | "locked" };
 
 export type Substitution = "similar" | "contact" | "remove";
+
+/** An agreed price for one restaurant and product size over a period (replaces the wholesale price and discount). */
+export interface ContractPrice {
+  id: string;
+  account_id: string;
+  variant_id: string;
+  price: number;
+  starts_on: string; // YYYY-MM-DD
+  ends_on: string | null;
+  note: string;
+  created_at: string;
+}
+
+export type AccountPaymentMethod = "transfer" | "cash" | "qris" | "giro" | "other";
+
+/** Money received from a restaurant against its tempo invoices. */
+export interface AccountPayment {
+  id: string;
+  account_id: string;
+  amount: number;
+  paid_on: string; // YYYY-MM-DD
+  method: AccountPaymentMethod;
+  reference: string;
+  note: string;
+  created_at: string;
+}
+
+/** Part of a payment matched to one invoice (oldest invoice first). */
+export interface PaymentAllocation {
+  id: string;
+  payment_id: string;
+  order_id: string;
+  amount: number;
+  created_at: string;
+}
 
 export type ClaimReason = "not_fresh" | "wrong_item" | "short_weight" | "damaged" | "missing" | "other";
 

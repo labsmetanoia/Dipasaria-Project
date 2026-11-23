@@ -203,6 +203,11 @@ export async function updateSettingsAction(patch: Partial<Settings>) {
     if (!Number.isFinite(m) || m < 0 || m > 10080) return wrap({ ok: false as const, error: "Batas waktu pembayaran harus 0–10.080 menit (0 = tidak dibatalkan otomatis)." });
     patch = { ...patch, payment_window_minutes: m };
   }
+  if (patch.terms_grace_days !== undefined) {
+    const g = Math.round(Number(patch.terms_grace_days));
+    if (!Number.isFinite(g) || g < 0 || g > 60) return wrap({ ok: false as const, error: "Toleransi jatuh tempo harus 0–60 hari." });
+    patch = { ...patch, terms_grace_days: g };
+  }
   const r = await (await getRepo()).updateSettings(patch);
   revalidatePath("/", "layout");
   return wrap(r);

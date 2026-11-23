@@ -301,3 +301,83 @@ Screenshots of the new screens: `docs/screenshots/54-cart-recipe-complete-mobile
   - `eslint.config.mjs`
   - `scripts/test-e2e.cjs`, `scripts/test-midtrans.cjs`
   - `package.json` (lint script, ESLint and Playwright as dev dependencies)
+
+---
+
+## 10. Implemented after approval: restaurant receivables and contract prices (N7)
+
+**Purpose:** control the cash restaurants owe on tempo, and give key accounts agreed prices without manual discounts. This was the first recommendation in section 6.
+
+### What it does
+
+| Part | For the owner | For the restaurant |
+|---|---|---|
+| **Invoices with due dates** | Every tempo order gets a due date when placed (delivery date plus 3 or 7 days). A printable invoice (faktur) is linked from each order. | Opens each invoice from the statement link; prints or saves it as PDF. |
+| **Payments** | **Piutang → restaurant → Catat pembayaran**: amount, date, method, reference. The money settles the oldest-due invoices first, can cover several orders in one transfer, and keeps any overpayment as credit for the next invoice. A payment recorded by mistake can be deleted; the invoices it settled reopen. | Sees each payment on the statement. |
+| **Ageing** | **Piutang** lists every restaurant by days past due (not yet due, 1–7, 8–14, 15–30, over 30 days), plus orders not yet delivered and the credit limit. The dashboard shows a banner when anything is past due. | Sees its balance, due dates and credit left on **Akun**. |
+| **Credit control** | A credit limit per restaurant, and a grace period in **Pengaturan** (default 3 days). A tempo order is refused when an invoice is past due beyond the grace days, or when the order would take the balance over the limit. The database enforces this, with a lock so two orders at once cannot both slip under the limit. | Checkout shows the credit left, or why tempo is paused, before the order is submitted. Transfer, QRIS and COD stay available. |
+| **Contract prices** | A price per restaurant and product size, with start and optional end dates, shown next to the wholesale price and margin. It replaces the wholesale price and the account discount for deliveries in that period. | Sees "Harga kontrak Anda" on the product and its contract prices on **Akun**. |
+| **Statement** | **Rekening koran** for any period (opening balance, invoices, payments, closing balance), printable. **Kirim ringkasan tagihan via WhatsApp** sends the balance, the overdue amount and a signed link. | Opens the statement and invoices from the link without signing in. The link works for 45 days and shows only that restaurant. |
+
+Standing orders paid on tempo follow the same rule. When a restaurant is over its limit or overdue, the evening run records the reason under **Pesanan rutin** and does not place the order.
+
+### Customer and business benefits
+
+- **The owner knows who owes what every morning**, in one screen, instead of reconciling WhatsApp chats against the bank app.
+- **Late payers stop growing their balance automatically.** No awkward phone call is needed: checkout explains the reason and offers other payment methods.
+- **Restaurants get documents their accountants expect** (invoice and statement) and agreed prices they can rely on.
+- **How to measure:**
+  - overdue receivables as a share of the total (shown on Piutang);
+  - days sales outstanding (total receivables ÷ average daily tempo sales);
+  - share of tempo invoices paid by their due date.
+
+### How it works (for the developer)
+
+- **Tables:**
+  - `account_payments`;
+  - `payment_allocations` (which payment settled which invoice);
+  - `contract_prices`;
+  - new columns `business_accounts.credit_limit`, `orders.due_date` and `settings.terms_grace_days` (migration `011_receivables.sql`).
+- **SQL:**
+  - `allocate_account_credit` matches oldest invoice first, oldest payment first. It also releases money matched to cancelled orders, or more than a re-weighed invoice needs.
+  - `record_account_payment`, `delete_account_payment` and `account_exposure`.
+  - `place_order` looks up contract prices and runs the credit check.
+  - `weigh_order`, `set_order_status` (cancel) and `set_payment_status` keep allocations consistent.
+- **App:**
+  - `src/lib/receivables.ts`: ledger, ageing, credit check and statement as pure functions, shared by both adapters and every screen;
+  - `src/lib/statementLink.ts`: HMAC-signed links;
+  - `src/actions/receivables.ts`;
+  - pages `/admin/piutang`, `/admin/piutang/[id]`, `/admin/piutang/[id]/rekening`, `/admin/pesanan/[id]/faktur`, `/tagihan/[token]` and `/tagihan/[token]/[code]`.
+
+### Found and fixed while building it
+
+**B9 (Medium):** the WhatsApp outbox's unique key treated messages without an order (back-in-stock alerts, now statements) as all different, because PostgreSQL treats NULLs as distinct. The same alert could be queued twice in production; demo mode was not affected. Fixed with a partial unique index; migration 011 removes existing duplicates first.
+
+### Tests
+
+- **SQL suite, section 23:**
+  - contract price used and an expired one ignored;
+  - due date;
+  - the credit-limit refusal with the exact amount left;
+  - a partial payment;
+  - oldest invoice settled first;
+  - overpayment kept as credit and used at the next order;
+  - cancel returns the credit;
+  - deleting a payment reopens the invoice;
+  - overdue block and the grace days;
+  - weighing, marking unpaid and re-weighing;
+  - the new outbox key.
+- **Main browser suite: 98 of 98** (18 new checks):
+  - the overdue restaurant is flagged, and sees why on Akun and at checkout;
+  - recording the payment lifts the hold, and a tempo order then goes through;
+  - a lowered limit stops the next order at checkout;
+  - a contract price added by the owner is visible to the restaurant;
+  - the WhatsApp statement link opens on a phone without sideways scrolling, its invoice opens, and a tampered link is refused.
+- **Screenshots:** `docs/screenshots/60-admin-receivables-desktop.png` to `64-statement-mobile.png`.
+
+### Owner setup
+
+1. Run `supabase/migrations/011_receivables.sql`, then `supabase/schema.sql` again.
+2. Create the template `dipasaria_ringkasan_tagihan` from `docs/whatsapp-templates.md`. Until Meta approves it, the summary opens in WhatsApp with the text filled in, for you to send.
+3. For each tempo restaurant: open **Piutang**, set a credit limit (start with about two weeks of its usual orders), and add any agreed contract prices.
+4. From now on, record each transfer from a restaurant under **Piutang** rather than with "Tandai lunas" on each order. One entry settles several invoices.

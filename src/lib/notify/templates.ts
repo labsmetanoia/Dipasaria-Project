@@ -53,6 +53,11 @@ export const TEMPLATES: Record<WaKind, Template> = {
     label: "Produk tersedia lagi",
     body: "Kabar baik: {{1}} sudah tersedia lagi untuk pengiriman berikutnya.\n\nPesan di sini: {{2}}\n\nAnda menerima pesan ini karena meminta dikabari di situs Dipasaria.",
   },
+  statement: {
+    name: "dipasaria_ringkasan_tagihan",
+    label: "Ringkasan tagihan tempo (restoran)",
+    body: "Halo {{1}}, ringkasan tagihan tempo {{2}} per {{3}}: sisa tagihan {{4}}, termasuk {{5}} yang sudah lewat jatuh tempo.\n\nRincian tagihan dan rekening koran: {{6}}\n\nPembayaran ke {{7}}. Terima kasih.",
+  },
   standing: {
     name: "dipasaria_pesanan_rutin",
     label: "Pesanan rutin dibuat",
@@ -100,9 +105,15 @@ export function buildParams(kind: WaKind, o: Order, ctx: BuildContext): string[]
     delivered: [o.customer_name, o.code, link],
     claim: [o.customer_name, o.code, ctx.decision ?? "-"],
     restock: [], // not tied to an order: see restockParams
+    statement: [], // per account, not per order: see statementParams
     standing: [o.customer_name, when(o), o.code, ctx.missing?.length ? `Tidak tersedia malam ini: ${ctx.missing.join(" ")} Produk lainnya tetap dikirim.` : "Semua produk tersedia.", link],
   };
   return raw[kind].map(cleanParam);
+}
+
+/** Statement message for a restaurant: contact, business, date, balance, overdue part, statement link, bank details. */
+export function statementParams(contact: string, business: string, date: string, balance: number, overdue: number, url: string, s: Settings): string[] {
+  return [contact, business, formatDate(date, "long"), rupiah(balance), rupiah(overdue), url, `${s.bank_name} ${s.bank_account} a.n. ${s.bank_holder}`].map(cleanParam);
 }
 
 /** Back-in-stock alert parameters: product name and the product page. */

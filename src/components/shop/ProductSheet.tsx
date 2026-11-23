@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Scale, Snowflake, MapPin, ShieldCheck, Fish, BadgeCheck, ShoppingBag, Package } from "lucide-react";
 import type { BusinessAccount, Product } from "@/lib/types";
-import { lineTotal, segmentOf, unitPrice } from "@/lib/pricing";
+import { contractPrice, lineTotal, segmentOf, unitPrice } from "@/lib/pricing";
 import { rupiah } from "@/lib/format";
 import { pick } from "@/lib/i18n";
 import { fmt } from "@/lib/i18n/dict";
@@ -64,6 +64,7 @@ export function ProductSheet({ product, account }: { product: Product; account: 
         <p className="font-display text-[3rem] font-bold leading-none">{rupiah(price)}</p>
         <p className="pb-1 font-sans text-[13px] font-semibold text-mute">/{unit}{product.is_catch_weight ? ` · ± ${t.shop.weighed.toLowerCase()}` : ""}</p>
         {retail !== null && <p className="pb-1 font-sans text-[14px] text-mute line-through">{rupiah(retail)}</p>}
+        {segment === "business" && variant && contractPrice(variant, account) && <p className="mb-1 bg-coral-50 px-2 py-0.5 font-sans text-[11px] font-bold uppercase tracking-[0.12em] text-gold-ink">{locale === "en" ? "Your contract price" : "Harga kontrak Anda"}</p>}
       </div>
 
       {variants.length > 1 && (

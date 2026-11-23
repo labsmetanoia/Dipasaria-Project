@@ -5,6 +5,7 @@
 import type {
   BusinessAccount,
   CartLine,
+  ContractPrice,
   DeliveryArea,
   DeliverySlot,
   PrepOption,
@@ -15,7 +16,7 @@ import type {
   Settings,
   Variant,
 } from "./types";
-import { addDays, parseTime, qtyUnit } from "./format";
+import { addDays, nowJakarta, parseTime, qtyUnit } from "./format";
 
 export interface QuoteContext {
   settings: Settings;
@@ -33,8 +34,26 @@ export function segmentOf(account: BusinessAccount | null): Segment {
   return account && account.status === "approved" ? "business" : "retail";
 }
 
-export function unitPrice(variant: Variant, segment: Segment, account: BusinessAccount | null): number {
+/**
+ * The agreed price for this account and product size on a delivery date (latest start wins), or null.
+ * Without a date, tomorrow's price is used (the usual delivery day). Mirrored in SQL place_order.
+ */
+export function contractPrice(variant: Pick<Variant, "id">, account: BusinessAccount | null, date?: string): ContractPrice | null {
+  const list = account?.contract_prices;
+  if (!list?.length) return null;
+  const d = date ?? addDays(nowJakarta().date, 1);
+  let best: ContractPrice | null = null;
+  for (const c of list) {
+    if (c.variant_id !== variant.id || c.starts_on > d || (c.ends_on && c.ends_on < d)) continue;
+    if (!best || c.starts_on > best.starts_on) best = c;
+  }
+  return best;
+}
+
+export function unitPrice(variant: Variant, segment: Segment, account: BusinessAccount | null, date?: string): number {
   if (segment === "business") {
+    const agreed = contractPrice(variant, account, date);
+    if (agreed) return agreed.price;
     const base = variant.price_business;
     const disc = Math.round((account?.discount_pct ?? 0) * 100); // basis points, integer
     // Integer arithmetic so the result matches PostgreSQL's exact numeric rounding (no 13624.4999… drift).
@@ -105,7 +124,7 @@ export function promoDiscount(promo: Promo | null, subtotal: number, fee: number
 
 export function quote(
   ctx: QuoteContext,
-  input: { lines: CartLine[]; area_id?: string | null; promo_code?: string | null },
+  input: { lines: CartLine[]; area_id?: string | null; promo_code?: string | null; delivery_date?: string | null },
 ): Quote {
   const segment = segmentOf(ctx.account);
   const errors: string[] = [];
@@ -157,7 +176,7 @@ export function quote(
       prep = product.prep_options.find((p) => p.id === l.prep_option_id) ?? null;
       if (!prep) errors.push(`${product.name}: cara penyiapan tidak tersedia.`);
     }
-    const price = unitPrice(variant, segment, ctx.account) + (prep?.surcharge ?? 0);
+    const price = unitPrice(variant, segment, ctx.account, input.delivery_date ?? undefined) + (prep?.surcharge ?? 0);
     if (product.is_catch_weight) hasCatch = true;
     lines.push({ key: lineKey(l), product, variant, prep, qty: q, unit_price: price, line_total: lineTotal(price, q) });
   }

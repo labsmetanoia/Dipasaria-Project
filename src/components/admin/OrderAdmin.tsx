@@ -68,7 +68,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms, payments = 
           </div>
         </div>
         <ol className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-mute">
-          {order.history.map((h, i) => <li key={i}><b className="text-ink/70">{h.status === "paid" ? "Lunas" : h.status === "weighed" ? "Ditimbang" : STATUS_LABEL[h.status]}</b> {formatDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</li>)}
+          {order.history.map((h, i) => <li key={i}><b className="text-ink/70">{h.status === "paid" ? "Lunas" : h.status === "weighed" ? "Ditimbang" : h.status === "unpaid" ? "Belum lunas lagi" : STATUS_LABEL[h.status]}</b> {formatDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</li>)}
         </ol>
       </div>
 
@@ -131,6 +131,8 @@ export function OrderAdmin({ order: initial, settings, accountTerms, payments = 
           <div className="card p-4">
             <h2 className="text-ocean-900">Pembayaran</h2>
             <p className="mt-1 text-sm">{PAYMENT_LABEL[order.payment_method]} · <PaymentBadge status={order.payment_status} /></p>
+            {order.payment_method === "terms" && order.due_date && <p className="mt-1 text-xs text-mute">Jatuh tempo {formatDate(order.due_date, "long")}{order.account_id ? <> · <Link href={`/admin/piutang/${order.account_id}`} className="font-semibold text-ocean-900">Piutang restoran</Link></> : null}</p>}
+            <p className="mt-1 text-xs"><Link href={`/admin/pesanan/${order.id}/faktur`} className="font-semibold text-ocean-900">Faktur (cetak / PDF)</Link></p>
             <div className="mt-3 flex flex-wrap gap-2">
               {order.payment_status !== "paid" && paymentChangeError(order, "paid") === null && <button disabled={pending} onClick={() => run(() => setPaymentStatusAction(order.id, "paid"))} className="btn-primary"><Check className="h-4 w-4" /> Tandai lunas</button>}
               {order.payment_status !== "paid" && order.status !== "cancelled" && paymentChangeError(order, "paid") && <p className="text-xs text-mute">{paymentChangeError(order, "paid")}</p>}

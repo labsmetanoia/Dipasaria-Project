@@ -20,7 +20,7 @@ create or replace function _date() returns text language sql as $$
 $$;
 
 do $$
-declare oid text; o orders%rowtype; n int; stock_before numeric; stock_after numeric; tok text; v_code text; summ jsonb; cid text;
+declare oid text; o orders%rowtype; n int; stock_before numeric; stock_after numeric; tok text; v_code text; summ jsonb; cid text; oid2 text; oid3 text; pid text; pid2 text; ex record;
 begin
   -- 1. Retail order: prices from the price list, prep surcharge, catch weight, delivery fee, first-order promo
   select stock_qty into stock_before from variants where id = 'v_udang_beku';
@@ -390,6 +390,71 @@ begin
   -- outbox rows without an order (back-in-stock alerts) and the buying log
   insert into wa_messages (id, kind, dedupe, phone, template, body) values ('wa_r1', 'restock', 'p_salmon:6281277770050', '6281277770050', 'dipasaria_stok_tersedia', 'x');
   perform _expect_error($q$insert into purchases (delivery_date, product_id, qty, unit, total_cost) values (current_date, 'p_salmon', 0, 'kg', 1)$q$, 'purchases_qty_check');
+
+  -- 23. Restaurant receivables: contract prices, due dates, payments matched oldest first, credit limit, overdue block
+  perform _expect_error($q$insert into wa_messages (id, kind, dedupe, phone, template, body) values ('wa_r2', 'restock', 'p_salmon:6281277770050', '6281277770050', 'dipasaria_stok_tersedia', 'x')$q$, 'wa_messages_no_order_key');
+  update variants set stock_qty = null where id in ('v_salmon', 'v_kakap_l');
+  insert into business_accounts (id, business_name, contact_name, phone, address, area_id, payment_terms, status, credit_limit)
+    values ('ba_ar', 'Uji Piutang', 'Pak Uji', '6281299990001', 'Jl. Uji 60', 'a_selatan', 'days3', 'approved', 1500000);
+  insert into contract_prices (account_id, variant_id, price, starts_on) values ('ba_ar', 'v_salmon', 99000, jakarta_now()::date - 1);
+  insert into contract_prices (account_id, variant_id, price, starts_on, ends_on) values ('ba_ar', 'v_salmon', 50000, jakarta_now()::date - 30, jakarta_now()::date - 2);
+  oid := place_order(jsonb_build_object('customer_name', 'Uji Piutang', 'phone', '6281299990001', 'address', 'Jl. Uji 60', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'terms', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 10))), 'ba_ar');
+  if (select unit_price from order_items where order_id = oid) <> 99000 then raise exception 'contract price not applied'; end if;
+  if (select total_final from orders where id = oid) <> 990000 then raise exception 'contract order total %', (select total_final from orders where id = oid); end if;
+  if (select due_date from orders where id = oid) <> _date()::date + 3 then raise exception 'due date should be delivery + 3 days'; end if;
+  update orders set created_at = created_at - interval '1 hour' where id = oid; -- orders in one test transaction share now()
+  -- limit 1.500.000: a second order of 990.000 would owe 1.980.000
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'Uji Piutang', 'phone', '6281299990001', 'address', 'Jl. Uji 60', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'terms', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 10))), 'ba_ar')$q$, 'sisa Rp510.000');
+  perform _expect_error($q$select record_account_payment('ba_ar', 0, jakarta_now()::date, 'transfer', '', '')$q$, 'Jumlah pembayaran');
+  perform _expect_error($q$select record_account_payment('ba_ar', 1000, jakarta_now()::date + 1, 'transfer', '', '')$q$, 'Tanggal pembayaran');
+  pid := record_account_payment('ba_ar', 500000, jakarta_now()::date, 'transfer', 'BCA 1', '');
+  if (select payment_status from orders where id = oid) <> 'unpaid' then raise exception 'partial payment must not settle'; end if;
+  select * into ex from account_exposure('ba_ar');
+  if ex.outstanding <> 490000 or ex.credit <> 0 then raise exception 'exposure after partial payment: % / %', ex.outstanding, ex.credit; end if;
+  oid2 := place_order(jsonb_build_object('customer_name', 'Uji Piutang', 'phone', '6281299990001', 'address', 'Jl. Uji 60', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'terms', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 10))), 'ba_ar');
+  -- 1.200.000 settles the older invoice (490.000 left) and 710.000 of the newer one
+  perform record_account_payment('ba_ar', 1200000, jakarta_now()::date, 'transfer', 'BCA 2', '');
+  if (select payment_status from orders where id = oid) <> 'paid' or (select payment_status from orders where id = oid2) <> 'unpaid' then raise exception 'oldest invoice first'; end if;
+  if (select sum(amount) from payment_allocations where order_id = oid2) <> 710000 then raise exception 'allocation to second invoice'; end if;
+  -- overpayment stays as credit and settles the next order the moment it is placed
+  pid2 := record_account_payment('ba_ar', 400000, jakarta_now()::date, 'cash', '', 'tunai');
+  select * into ex from account_exposure('ba_ar');
+  if (select payment_status from orders where id = oid2) <> 'paid' or ex.credit <> 120000 or ex.outstanding <> 0 then raise exception 'overpayment credit: % / %', ex.outstanding, ex.credit; end if;
+  oid3 := place_order(jsonb_build_object('customer_name', 'Uji Piutang', 'phone', '6281299990001', 'address', 'Jl. Uji 60', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'terms', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 10))), 'ba_ar');
+  if (select sum(amount) from payment_allocations where order_id = oid3) <> 120000 then raise exception 'credit applied at order time'; end if;
+  -- cancelling gives the credit back; nothing to refund
+  perform set_order_status(oid3, 'cancelled', 'uji');
+  select * into ex from account_exposure('ba_ar');
+  if (select payment_status from orders where id = oid3) <> 'void' or ex.credit <> 120000 then raise exception 'cancel releases credit: %', ex.credit; end if;
+  -- deleting the cash payment re-opens the newer invoice for what is no longer covered
+  perform delete_account_payment(pid2);
+  select * into ex from account_exposure('ba_ar');
+  if (select payment_status from orders where id = oid2) <> 'unpaid' or ex.outstanding <> 280000 or ex.credit <> 0 then raise exception 'delete payment: % / %', ex.outstanding, ex.credit; end if;
+  -- overdue beyond the grace days blocks tempo
+  update orders set due_date = jakarta_now()::date - 10 where id = oid2;
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'Uji Piutang', 'phone', '6281299990001', 'address', 'Jl. Uji 60', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'terms', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 10))), 'ba_ar')$q$, 'jatuh tempo');
+  update orders set due_date = jakarta_now()::date - 2 where id = oid2; -- within 3 grace days: allowed
+  select * into ex from account_exposure('ba_ar');
+  if ex.oldest_code is distinct from (select code from orders where id = oid2) then raise exception 'oldest open invoice'; end if;
+  -- a weighed invoice is settled from credit; marking it unpaid releases the money, a lighter re-weigh needs less
+  perform record_account_payment('ba_ar', 2280000, jakarta_now()::date, 'transfer', 'BCA 3', '');
+  if (select payment_status from orders where id = oid2) <> 'paid' then raise exception 'second invoice settled'; end if;
+  update business_accounts set credit_limit = null where id = 'ba_ar';
+  oid3 := place_order(jsonb_build_object('customer_name', 'Uji Piutang', 'phone', '6281299990001', 'address', 'Jl. Uji 60', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'terms', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 10))), 'ba_ar');
+  if exists (select 1 from payment_allocations where order_id = oid3) then raise exception 'unweighed invoice must not be settled'; end if;
+  perform weigh_order(oid3, (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 10)) from order_items where order_id = oid3));
+  if (select payment_status from orders where id = oid3) <> 'paid' then raise exception 'weighed invoice settled from credit'; end if;
+  perform set_payment_status(oid3, 'unpaid');
+  if exists (select 1 from payment_allocations where order_id = oid3) then raise exception 'unpaid releases allocation'; end if;
+  perform weigh_order(oid3, (select jsonb_agg(jsonb_build_object('item_id', id, 'qty_final', 9)) from order_items where order_id = oid3));
+  select * into ex from account_exposure('ba_ar');
+  if (select payment_status from orders where id = oid3) <> 'paid' or ex.credit <> 2000000 - (select total_final from orders where id = oid3) then raise exception 're-weigh settles the lower amount: %', ex.credit; end if;
 
   raise notice 'all assertions passed';
 end $$;

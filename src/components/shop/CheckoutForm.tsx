@@ -18,9 +18,11 @@ import { Turnstile, useTurnstileOn } from "@/components/Turnstile";
 
 /** A signed-in household customer: verified phone and saved addresses. */
 export interface Household { phone: string; name: string; addresses: CustomerAddress[] }
-interface Props { products: Product[]; settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[]; slotUsage: Record<string, number>; account: BusinessAccount | null; household?: Household | null }
+/** A restaurant's tempo position at checkout: what it owes now, its limit, and an overdue invoice that blocks tempo. */
+export interface TermsInfo { balance: number; limit: number | null; overdue: string | null }
+interface Props { products: Product[]; settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[]; slotUsage: Record<string, number>; account: BusinessAccount | null; household?: Household | null; termsInfo?: TermsInfo | null }
 
-export function CheckoutForm({ products, settings, areas, slots, slotUsage, account, household = null }: Props) {
+export function CheckoutForm({ products, settings, areas, slots, slotUsage, account, household = null, termsInfo = null }: Props) {
  const { t, locale } = useT();
  const router = useRouter();
  const { lines, customer, saveCustomer, clear, rememberOrder } = useCart();
@@ -60,7 +62,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  if (account) {
  setName(account.business_name); setPhone(account.phone); setAddress(account.address); setAreaId(account.area_id ?? "");
  setSlotId(account.preferred_slot_id && segSlots.some((s) => s.id === account.preferred_slot_id) ? account.preferred_slot_id : segSlots[0]?.id ?? "");
- setPayment(account.payment_terms !== "prepaid" ? "terms" : account.allow_cod ? "cod" : "qris");
+ setPayment(account.payment_terms !== "prepaid" && !termsInfo?.overdue ? "terms" : account.allow_cod ? "cod" : "qris");
     } else {
  setSlotId(segSlots[0]?.id ?? "");
  if (household) {
@@ -91,7 +93,12 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  if (!clientRef.current) clientRef.current = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
  const submitting = useRef(false);
 
- const q = useMemo(() => quote({ settings, products, areas, promos: promo ? [promo] : [], account, now }, { lines, area_id: areaId, promo_code: promo?.code }), [settings, products, areas, promo, account, now, lines, areaId]);
+ const q = useMemo(() => quote({ settings, products, areas, promos: promo ? [promo] : [], account, now }, { lines, area_id: areaId, promo_code: promo?.code, delivery_date: date }), [settings, products, areas, promo, account, now, lines, areaId, date]);
+  // Same rule as the database: tempo is refused for an overdue invoice, or when this order would pass the credit limit.
+  const termsRoom = termsInfo && termsInfo.limit !== null ? Math.max(0, termsInfo.limit - termsInfo.balance) : null;
+  const termsProblem = !termsInfo ? null : termsInfo.overdue ?? (termsRoom !== null && q.total > termsRoom
+    ? (locale === "en" ? `This order is above your remaining tempo credit (${rupiah(termsRoom)}). Choose another payment method or contact us.` : `Pesanan ini melebihi batas kredit tempo akun Anda (sisa ${rupiah(termsRoom)}). Pilih metode pembayaran lain atau hubungi kami.`)
+    : null);
  const payOptions: PaymentMethod[] = ["qris", "transfer"];
  if (segment === "business" && account?.allow_cod) payOptions.push("cod");
  if (segment === "business" && account && account.payment_terms !== "prepaid") payOptions.push("terms");
@@ -106,7 +113,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  const step1ok = Boolean(name.trim() && isValidPhone(phone) && address.trim() && areaId);
  const step2ok = Boolean(date && slotId);
  const needHuman = turnstileOn && !account && !household;
- const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && step1ok && step2ok && !pending && (!needHuman || Boolean(tsToken));
+ const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && step1ok && step2ok && !pending && (!needHuman || Boolean(tsToken)) && !(payment === "terms" && termsProblem);
 
  const submit = () => {
  if (submitting.current) return; // synchronous guard: the disabled state only applies after a re-render
@@ -218,6 +225,9 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {payOptions.map((pm) => <label key={pm} className={`flex cursor-pointer items-center gap-2 border px-3.5 py-3 text-sm ${payment === pm ? "border-ocean-950 bg-ocean-950/5" : "border-line"}`}><input type="radio" name="pay" checked={payment === pm} onChange={() => setPayment(pm)} className="accent-ocean-950" />{pm === "terms" && account ? `${t.paymentMethod.terms} · ${t.terms[account.payment_terms]}` : t.paymentMethod[pm]}</label>)}
               </div>
+              {payOptions.includes("terms") && termsInfo && (termsProblem
+                ? <p className="mt-3 border-l-4 border-coral-500 bg-coral-50 px-3 py-2 text-xs" role={payment === "terms" ? "alert" : undefined}>{termsProblem}</p>
+                : termsRoom !== null && <p className="mt-3 text-xs text-mute">{locale === "en" ? "Tempo credit left" : "Sisa batas kredit tempo"}: <b className="text-ink">{rupiah(termsRoom)}</b></p>)}
               <p className="mt-3 text-xs leading-relaxed text-mute">{q.has_catch_weight ? t.checkout.payNoteCatch : t.checkout.payNote}</p>
               <div className="mt-5">
                 <p className="label"><Tag className="mr-1 inline h-3.5 w-3.5" />{t.checkout.promo}</p>

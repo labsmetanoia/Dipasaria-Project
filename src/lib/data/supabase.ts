@@ -3,6 +3,9 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  AccountPayment,
+  ContractPrice,
+  PaymentAllocation,
   AppError,
   GatewayOutcome,
   Payment,
@@ -26,7 +29,7 @@ import type {
   Variant,
 } from "../types";
 import type { Repo, Result, SalesRow } from "./repo";
-import { normalizePhone } from "../format";
+import { addDays, normalizePhone, nowJakarta } from "../format";
 import { newId } from "../ids";
 
 let client: SupabaseClient | null = null;
@@ -171,6 +174,7 @@ function mapOrder(r: Row): Order {
     delivered_at: (r.delivered_at as string | null) ?? null,
     delivery_note: (r.delivery_note as string | null) ?? null,
     cod_collected: numOrNull(r.cod_collected),
+    due_date: r.due_date ? String(r.due_date).slice(0, 10) : null,
     promo_code: (r.promo_code as string | null) ?? null,
     customer_note: (r.customer_note as string) ?? "",
     internal_note: (r.internal_note as string) ?? "",
@@ -198,6 +202,7 @@ function mapAccount(r: Row): BusinessAccount {
     notes: (r.notes as string) ?? "",
     applied_at: r.applied_at as string,
     approved_at: (r.approved_at as string | null) ?? null,
+    credit_limit: numOrNull(r.credit_limit),
   };
 }
 
@@ -227,10 +232,26 @@ async function fetchOrder(id: string): Promise<Order | null> {
   return data ? mapOrder(data as Row) : null;
 }
 
+function mapContract(r: Row): ContractPrice {
+  return {
+    id: String(r.id), account_id: String(r.account_id), variant_id: String(r.variant_id), price: num(r.price),
+    starts_on: String(r.starts_on).slice(0, 10), ends_on: r.ends_on ? String(r.ends_on).slice(0, 10) : null, note: String(r.note ?? ""), created_at: String(r.created_at),
+  };
+}
+
+/** Contract prices still in force or starting later (for pricing), for one account or all. */
+async function currentContracts(accountId?: string): Promise<ContractPrice[]> {
+  let q = sb().from("contract_prices").select("*").or(`ends_on.is.null,ends_on.gte.${nowJakarta().date}`);
+  if (accountId) q = q.eq("account_id", accountId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as Row[]).map(mapContract);
+}
+
 async function fetchAccount(id: string): Promise<BusinessAccount | null> {
   const { data, error } = await sb().from("business_accounts").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
-  return data ? mapAccount(data as Row) : null;
+  return data ? { ...mapAccount(data as Row), contract_prices: await currentContracts(id) } : null;
 }
 
 export const supabaseRepo: Repo = {
@@ -249,6 +270,7 @@ export const supabaseRepo: Repo = {
       catch_weight_buffer_pct: num(r.catch_weight_buffer_pct),
       max_days_ahead: num(r.max_days_ahead),
       payment_window_minutes: num(r.payment_window_minutes),
+      terms_grace_days: r.terms_grace_days === undefined || r.terms_grace_days === null ? 3 : num(r.terms_grace_days),
     };
   },
   async getCategories() {
@@ -434,7 +456,8 @@ export const supabaseRepo: Repo = {
   async listAccounts() {
     const { data, error } = await sb().from("business_accounts").select("*").order("applied_at", { ascending: false });
     if (error) throw error;
-    return (data as Row[]).map(mapAccount).sort((a, b) => (a.status === "pending" ? -1 : 1) - (b.status === "pending" ? -1 : 1));
+    const contracts = await currentContracts();
+    return (data as Row[]).map((r) => { const a = mapAccount(r); return { ...a, contract_prices: contracts.filter((c) => c.account_id === a.id) }; }).sort((a, b) => (a.status === "pending" ? -1 : 1) - (b.status === "pending" ? -1 : 1));
   },
   async getAccount(id) { return fetchAccount(id); },
   async approveAccount(id, patch) {
@@ -443,8 +466,8 @@ export const supabaseRepo: Repo = {
     return ok((await fetchAccount(id))!);
   },
   async updateAccount(id, patch) {
-    const { id: _id, ...rest } = patch;
-    void _id;
+    const { id: _id, contract_prices: _cp, ...rest } = patch;
+    void _id; void _cp;
     const { error } = await sb().from("business_accounts").update(rest).eq("id", id);
     if (error) return fail(msg(error));
     return ok((await fetchAccount(id))!);
@@ -843,6 +866,55 @@ export const supabaseRepo: Repo = {
     const { data, error } = await q;
     if (error) throw error;
     return (data as Row[]).map(mapPurchase);
+  },
+
+  async listReceivables(filter) {
+    // Two years of tempo history is plenty for statements and stays small (a few hundred rows per restaurant).
+    const since = addDays(nowJakarta().date, -730);
+    let oq = sb().from("orders").select("*").eq("payment_method", "terms").neq("status", "cancelled").not("account_id", "is", null).gte("delivery_date", since).limit(5000);
+    let pq = sb().from("account_payments").select("*").gte("paid_on", since).limit(5000);
+    let aq = sb().from("payment_allocations").select("*, account_payments!inner(account_id, paid_on)").gte("account_payments.paid_on", since).limit(10000);
+    if (filter?.accountId) {
+      oq = oq.eq("account_id", filter.accountId);
+      pq = pq.eq("account_id", filter.accountId);
+      aq = aq.eq("account_payments.account_id", filter.accountId);
+    }
+    const [o, p, a] = await Promise.all([oq, pq, aq]);
+    if (o.error) throw o.error;
+    if (p.error) throw p.error;
+    if (a.error) throw a.error;
+    return {
+      orders: (o.data as Row[]).map(mapOrder),
+      payments: (p.data as Row[]).map((r) => ({
+        id: String(r.id), account_id: String(r.account_id), amount: num(r.amount), paid_on: String(r.paid_on).slice(0, 10), method: r.method as AccountPayment["method"],
+        reference: String(r.reference ?? ""), note: String(r.note ?? ""), created_at: String(r.created_at),
+      })),
+      allocations: (a.data as Row[]).map((r): PaymentAllocation => ({ id: String(r.id), payment_id: String(r.payment_id), order_id: String(r.order_id), amount: num(r.amount), created_at: String(r.created_at) })),
+    };
+  },
+  async recordAccountPayment(accountId, p) {
+    const { data, error } = await sb().rpc("record_account_payment", { p_account_id: accountId, p_amount: p.amount, p_paid_on: p.paid_on, p_method: p.method, p_reference: p.reference, p_note: p.note });
+    return error ? fail(msg(error)) : ok(String(data));
+  },
+  async deleteAccountPayment(id) {
+    const { error } = await sb().rpc("delete_account_payment", { p_id: id });
+    return error ? fail(msg(error)) : ok(undefined);
+  },
+  async listContractPrices(accountId) {
+    let q = sb().from("contract_prices").select("*").order("variant_id").order("starts_on", { ascending: false });
+    if (accountId) q = q.eq("account_id", accountId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map(mapContract);
+  },
+  async addContractPrice(c) {
+    const { data, error } = await sb().from("contract_prices").insert({ ...c, id: newId("cp") }).select("*").single();
+    if (error) return fail((error as { code?: string }).code === "23505" ? "Sudah ada harga kontrak untuk produk ini yang mulai pada tanggal itu." : msg(error));
+    return ok(mapContract(data as Row));
+  },
+  async deleteContractPrice(id) {
+    const { error } = await sb().from("contract_prices").delete().eq("id", id);
+    if (error) throw error;
   },
   async listOrdersAutoCancelled(hours) {
     const now = new Date();

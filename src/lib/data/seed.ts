@@ -37,6 +37,7 @@ export const seedSettings: Settings = {
   hero_image_url: null,
   payment_window_minutes: 120,
   wa_events: ["received", "invoice", "paid", "delivering", "reminder", "cancelled", "standing", "delivered", "claim", "restock"],
+  terms_grace_days: 3,
   about_image_url: null,
 };
 
@@ -663,19 +664,19 @@ export const seedAccounts: BusinessAccount[] = [
     address: "Jl. Boulevard Raya Blok QA 1 No. 12, Kelapa Gading", area_id: "a_utara", business_type: "Restoran seafood",
     discount_pct: 0, payment_terms: "weekly", allow_cod: true, status: "approved", access_code: "BHR123",
     preferred_slot_id: "s_dapur", notes: "Pesan 5 hari/minggu. Minta kakap 1–2 kg selalu disiangi.",
-    applied_at: "2026-10-20T09:00:00Z", approved_at: "2026-10-21T10:00:00Z",
+    applied_at: "2026-10-20T09:00:00Z", approved_at: "2026-10-21T10:00:00Z", credit_limit: 15000000,
   },
   {
     id: "ba_minang", business_name: "RM Padang Sinar Minang", contact_name: "Uni Ratna", phone: "6281200000002",
     address: "Jl. Danau Sunter Utara No. 45, Sunter", area_id: "a_utara", business_type: "Restoran Padang / Sunda / Manado",
     discount_pct: 2, payment_terms: "days3", allow_cod: true, status: "approved", access_code: "MNG456",
     preferred_slot_id: "s_dapur", notes: "Kembung dan tongkol harian; mulai ambil ayam potong 8.",
-    applied_at: "2026-10-22T09:00:00Z", approved_at: "2026-10-23T10:00:00Z",
+    applied_at: "2026-10-22T09:00:00Z", approved_at: "2026-10-23T10:00:00Z", credit_limit: 5000000,
   },
   {
     id: "ba_kemang", business_name: "Kopi & Dapur Kemang", contact_name: "Mbak Sita", phone: "6281200000003",
     address: "Jl. Kemang Raya No. 8, Jakarta Selatan", area_id: "a_selatan", business_type: "Kafe / dapur daring",
     discount_pct: 0, payment_terms: "prepaid", allow_cod: false, status: "pending", access_code: null,
-    preferred_slot_id: null, notes: "", applied_at: "2026-10-30T14:30:00Z", approved_at: null,
+    preferred_slot_id: null, notes: "", applied_at: "2026-10-30T14:30:00Z", approved_at: null, credit_limit: null,
   },
 ];
