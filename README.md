@@ -8,7 +8,7 @@ Corporate website, installable mobile storefront (PWA) and founder back-office f
 | Corporate pages | `/tentang`, `/restoran`, `/rumah-tangga`, `/panduan`, `/kontak`, `/privasi` | Prospects, partners, search engines |
 | Back-office | `/admin` | The founder, from a phone at 02:30 or a laptop in the afternoon |
 
-Audit report, fix list and feature roadmap (November 2026): `docs/audit-report.md`. Next recommendations: `docs/roadmap-next.md`. Second audit with its fixes and seven value features (23 November 2026): `docs/audit-round-2.md`. Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
+Audit report, fix list and feature roadmap (November 2026): `docs/audit-report.md`. Next recommendations: `docs/roadmap-next.md`. Second audit with its fixes and seven value features (23 November 2026): `docs/audit-round-2.md`. Strategic assessment and priorities for what to build next (24 November 2026): `docs/strategic-assessment.md`. Screenshots of every screen are in `docs/screenshots/`. Architecture and data model: `docs/architecture.md`. Photo slots and shot list: `docs/photo-brief.md`.
 
 ## Run it in two minutes (demo mode, no database)
 
