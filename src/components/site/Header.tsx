@@ -109,7 +109,10 @@ export function Header({ categories, cutoff, accountName }: { categories: Catego
 function CutoffStrip({ cutoff, accountName }: { cutoff: string; accountName: string | null }) {
  const { t, locale } = useT();
  const [now, setNow] = useState(() => nowJakarta());
- useEffect(() => { const id = setInterval(() => setNow(nowJakarta()), 30_000); return () => clearInterval(id); }, []);
+ // The countdown is rendered on the server and again in the browser a moment later; when the minute ticks over in
+ // between, the two texts differ. That is expected here (suppressHydrationWarning below), and the effect brings the
+ // text up to date right after loading.
+ useEffect(() => { setNow(nowJakarta()); const id = setInterval(() => setNow(nowJakarta()), 30_000); return () => clearInterval(id); }, []);
  const remaining = parseTime(cutoff) - now.minutesOfDay;
  const before = remaining > 0;
  const h = Math.floor(remaining / 60), m = remaining % 60;
@@ -118,7 +121,7 @@ function CutoffStrip({ cutoff, accountName }: { cutoff: string; accountName: str
  return (
     <div className="bg-coral-500 text-ocean-950">
       <div className="container-x flex items-center justify-between gap-3 py-1.5 font-sans text-[11.5px] font-bold uppercase tracking-[0.12em]">
-        <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" />{before ? fmt(t.shop.cutoffBefore, { time, date: nextDate }) : fmt(t.shop.cutoffAfter, { cutoff: jam(cutoff), date: nextDate })}</span>
+        <span className="flex items-center gap-2"><Clock className="h-3.5 w-3.5" /><span suppressHydrationWarning>{before ? fmt(t.shop.cutoffBefore, { time, date: nextDate }) : fmt(t.shop.cutoffAfter, { cutoff: jam(cutoff), date: nextDate })}</span></span>
         {!accountName && <Link href="/restoran#daftar" className="hidden shrink-0 border border-ocean-950 px-2.5 py-0.5 hover:bg-ocean-950 hover:text-coral-500 sm:inline-block">{t.nav.businessAccount} →</Link>}
       </div>
     </div>

@@ -343,7 +343,17 @@ export interface StandingOrderLine {
 
 export interface StandingOrder {
   id: string;
-  account_id: string;
+  /** the restaurant that owns it; null for a household's weekly box */
+  account_id: string | null;
+  /** household weekly box: the customer, the saved address it goes to, and its rhythm */
+  customer_id: string | null;
+  address_id: string | null;
+  /** 1 = every week, 2 = every second week counted from anchor_date */
+  every_weeks: number;
+  /** first delivery date (fixes which weeks a two-weekly box falls on) */
+  anchor_date: string | null;
+  /** why it was paused automatically ("unpaid", "address"); null when paused by hand or active */
+  paused_reason: string | null;
   name: string;
   /** ISO weekdays: 1 = Monday … 7 = Sunday */
   weekdays: number[];
@@ -371,6 +381,8 @@ export interface StandingOrderRun {
 }
 
 export type StandingOrderInput = Pick<StandingOrder, "name" | "weekdays" | "slot_id" | "payment_method" | "lines" | "note"> & { id?: string };
+/** A household's weekly box: one delivery day, a saved address, every week or every second week. */
+export type BoxInput = StandingOrderInput & { address_id: string; every_weeks: number };
 
 /** A grouped application error (server or browser) for the back-office system page. */
 export interface AppError {

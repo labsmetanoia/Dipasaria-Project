@@ -79,7 +79,7 @@ function buildStore(): Store {
   // Demo standing order: the seafood restaurant's Monday / Wednesday / Friday kitchen order.
   const now = new Date().toISOString();
   store.standing.push({
-    id: "so_bahari", account_id: "ba_bahari", name: "Stok ikan Sen–Rab–Jum", weekdays: [1, 3, 5], slot_id: "s_dapur", payment_method: "terms",
+    id: "so_bahari", account_id: "ba_bahari", customer_id: null, address_id: null, every_weeks: 1, anchor_date: null, paused_reason: null, name: "Stok ikan Sen–Rab–Jum", weekdays: [1, 3, 5], slot_id: "s_dapur", payment_method: "terms",
     lines: [{ variant_id: "v_kakap_l", qty: 5, prep_option_id: "pp_kakap_siangi" }, { variant_id: "v_udang_40", qty: 3, prep_option_id: null }, { variant_id: "v_telur_tray", qty: 2, prep_option_id: null }],
     status: "active", skip_dates: [], note: null, created_at: now, updated_at: now,
   });
@@ -857,7 +857,7 @@ export const memoryRepo: Repo = {
   },
 
   async listStandingOrders(filter) {
-    const list = getStore().standing.filter((s) => !filter?.accountId || s.account_id === filter.accountId);
+    const list = getStore().standing.filter((s) => (!filter?.accountId || s.account_id === filter.accountId) && (!filter?.customerId || s.customer_id === filter.customerId));
     return clone(list).sort((a, b) => a.created_at.localeCompare(b.created_at));
   },
   async saveStandingOrder(accountId, input) {
@@ -872,14 +872,29 @@ export const memoryRepo: Repo = {
       Object.assign(ex, { name, weekdays, slot_id: input.slot_id, payment_method: input.payment_method, lines, note: input.note ?? null, updated_at: now });
       return ok(clone(ex));
     }
-    const so: StandingOrder = { id: newId("so"), account_id: accountId, name, weekdays, slot_id: input.slot_id, payment_method: input.payment_method, lines, status: "active", skip_dates: [], note: input.note ?? null, created_at: now, updated_at: now };
+    const so: StandingOrder = { id: newId("so"), account_id: accountId, customer_id: null, address_id: null, every_weeks: 1, anchor_date: null, paused_reason: null, name, weekdays, slot_id: input.slot_id, payment_method: input.payment_method, lines, status: "active", skip_dates: [], note: input.note ?? null, created_at: now, updated_at: now };
     store.standing.push(so);
     return ok(clone(so));
   },
-  async setStandingOrderStatus(id, status) {
+  async saveBox(customerId, input) {
+    const store = getStore();
+    const now = new Date().toISOString();
+    const lines = input.lines.filter((l) => l.qty > 0).map((l) => ({ variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id ?? null }));
+    const fields = { name: input.name.trim() || "Kotak mingguan", weekdays: [...new Set(input.weekdays)].sort(), slot_id: input.slot_id, payment_method: input.payment_method, lines, note: input.note ?? null, address_id: input.address_id, every_weeks: input.every_weeks, anchor_date: input.anchor_date, updated_at: now };
+    if (input.id) {
+      const ex = store.standing.find((s) => s.id === input.id && s.customer_id === customerId);
+      if (!ex) return fail("Kotak mingguan tidak ditemukan.");
+      Object.assign(ex, fields);
+      return ok(clone(ex));
+    }
+    const so: StandingOrder = { id: newId("so"), account_id: null, customer_id: customerId, paused_reason: null, status: "active", skip_dates: [], created_at: now, ...fields };
+    store.standing.push(so);
+    return ok(clone(so));
+  },
+  async setStandingOrderStatus(id, status, reason) {
     const so = getStore().standing.find((s) => s.id === id);
     if (!so) return fail("Pesanan rutin tidak ditemukan.");
-    so.status = status; so.updated_at = new Date().toISOString();
+    so.status = status; so.paused_reason = status === "paused" ? reason ?? null : null; so.updated_at = new Date().toISOString();
     return ok(clone(so));
   },
   async setStandingSkip(id, date, skip) {
@@ -1062,6 +1077,10 @@ export const memoryRepo: Repo = {
     const cu = customers.find((x) => x.id === s.customer_id);
     return cu ? clone(cu) : null;
   },
+  async getCustomer(id) {
+    const c = customers.find((x) => x.id === id);
+    return c ? clone(c) : null;
+  },
   async endCustomerSession(tokenHash) {
     csessions.delete(tokenHash);
   },
@@ -1076,6 +1095,10 @@ export const memoryRepo: Repo = {
     const i = customers.findIndex((x) => x.id === id);
     if (i >= 0) customers.splice(i, 1);
     for (let j = addresses.length - 1; j >= 0; j--) if (addresses[j].customer_id === id) addresses.splice(j, 1);
+    const store = getStore(); // weekly boxes go with the account (as the database cascade does)
+    const gone = new Set(store.standing.filter((s) => s.customer_id === id).map((s) => s.id));
+    store.standing = store.standing.filter((s) => !gone.has(s.id));
+    store.standingRuns = store.standingRuns.filter((r) => !gone.has(r.standing_order_id));
     for (const [k, s] of csessions) if (s.customer_id === id) csessions.delete(k);
   },
   async listCustomers(limit) {

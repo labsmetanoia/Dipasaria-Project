@@ -80,6 +80,10 @@ export async function saveAddressAction(a: Pick<CustomerAddress, "label" | "reci
 export async function deleteAddressAction(id: string): Promise<R<null>> {
   const c = await getCurrentCustomer();
   if (!c) return { ok: false, error: "Silakan masuk kembali." };
+  // a weekly box delivers to a saved address: change the box first, so it never loses its destination silently
+  if ((await (await getRepo()).listStandingOrders({ customerId: c.id })).some((s) => s.address_id === String(id))) {
+    return { ok: false, error: "Alamat ini dipakai kotak mingguan Anda. Ubah alamat kotak itu atau hapus kotaknya terlebih dahulu." };
+  }
   await (await getRepo()).deleteAddress(c.id, String(id));
   revalidatePath("/akun");
   return { ok: true, data: null };

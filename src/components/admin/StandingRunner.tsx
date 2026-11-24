@@ -17,7 +17,7 @@ export function StandingRunner({ defaultDate }: { defaultDate: string }) {
   return (
     <div className="card p-5">
       <p className="font-semibold text-ocean-900">Proses pesanan rutin</p>
-      <p className="mt-1 text-sm text-mute">Berjalan otomatis setiap hari pukul 19.45 WIB untuk pengiriman esok hari. Gunakan tombol ini untuk memproses lebih awal atau mengulang yang gagal; pesanan yang sudah dibuat tidak akan digandakan.</p>
+      <p className="mt-1 text-sm text-mute">Berjalan otomatis setiap hari pukul 19.45 WIB untuk pengiriman esok hari. Gunakan tombol ini untuk memproses lebih awal atau mengulang yang gagal; pesanan yang sudah dibuat tidak akan digandakan. Kotak mingguan rumah tangga ikut diproses untuk tanggal ini dan satu hari sesudahnya.</p>
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="block"><span className="label">Tanggal pengiriman</span><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /></label>
         <button type="button" disabled={pending} onClick={() => start(async () => { setErr(null); const r = await runStandingOrdersAction(date); if (r.ok) setOut(r.data); else setErr(r.error); })} className="btn-primary">
@@ -29,8 +29,8 @@ export function StandingRunner({ defaultDate }: { defaultDate: string }) {
         <ul className="mt-4 divide-y divide-line border-y border-line text-sm" aria-live="polite">
           {out.length === 0 && <li className="py-2 text-mute">Tidak ada pesanan rutin untuk tanggal ini.</li>}
           {out.map((o) => (
-            <li key={o.standing_order_id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span className="font-medium">{o.account_name}</span>
+            <li key={`${o.standing_order_id}:${o.date ?? ""}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <span className="font-medium">{o.account_name}{o.date && o.date !== date ? <span className="ml-2 text-xs font-normal text-mute">untuk {formatDate(o.date, "short")}</span> : null}</span>
               <span className="flex items-center gap-2">
                 {o.order_code && <Link href={`/admin/pesanan?q=${o.order_code}`} className="font-semibold text-gold-ink">{o.order_code}</Link>}
                 <span className={`px-2 py-0.5 text-[11px] font-semibold ${TONE[o.status]}`}>{LABEL[o.status]}</span>

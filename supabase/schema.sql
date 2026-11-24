@@ -328,7 +328,8 @@ create index if not exists order_items_order_idx on order_items(order_id);
 -- orders through place_order; standing_order_runs records each attempt and its unique key makes the run idempotent.
 create table if not exists standing_orders (
   id text primary key,
-  account_id text not null references business_accounts(id) on delete cascade,
+  -- the restaurant that owns it; null for a household's weekly box (customer_id is set instead, see below)
+  account_id text references business_accounts(id) on delete cascade,
   name text not null default 'Pesanan rutin',
   weekdays int[] not null check (array_length(weekdays, 1) between 1 and 7 and weekdays <@ array[1,2,3,4,5,6,7]),
   slot_id text not null references delivery_slots(id),
@@ -432,6 +433,24 @@ create table if not exists login_codes (
 
 -- Freshness-guarantee claims: reported by the customer from the order page within the window after delivery,
 -- decided by the owner. Photos are small JPEGs (compressed in the browser) stored as data URLs.
+-- Household weekly boxes: a standing order owned by a household customer instead of a restaurant. Added here (after
+-- the customer tables exist) and idempotently, so re-running this file upgrades an existing project.
+alter table standing_orders alter column account_id drop not null;
+alter table standing_orders add column if not exists customer_id text references customers(id) on delete cascade;
+alter table standing_orders add column if not exists address_id text references customer_addresses(id) on delete set null;
+alter table standing_orders add column if not exists every_weeks int not null default 1;
+alter table standing_orders add column if not exists anchor_date date;
+alter table standing_orders add column if not exists paused_reason text;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'standing_orders_owner_check') then
+    alter table standing_orders add constraint standing_orders_owner_check check ((account_id is null) <> (customer_id is null));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'standing_orders_every_weeks_check') then
+    alter table standing_orders add constraint standing_orders_every_weeks_check check (every_weeks in (1, 2));
+  end if;
+end $$;
+create index if not exists standing_orders_customer_idx on standing_orders(customer_id);
+
 create table if not exists claims (
   id text primary key default new_id('cl'),
   order_id text not null references orders(id) on delete cascade,

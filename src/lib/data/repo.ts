@@ -29,6 +29,7 @@ import type {
   Settings,
   StandingOrder,
   StandingOrderInput,
+  BoxInput,
   StandingOrderRun,
   Variant,
 } from "../types";
@@ -113,9 +114,12 @@ export interface Repo {
   upsertSlot(s: DeliverySlot): Promise<Result<DeliverySlot>>;
 
   // Standing orders (restaurant recurring orders). Validation lives in src/lib/standing.ts.
-  listStandingOrders(filter?: { accountId?: string }): Promise<StandingOrder[]>;
+  listStandingOrders(filter?: { accountId?: string; customerId?: string }): Promise<StandingOrder[]>;
   saveStandingOrder(accountId: string, input: StandingOrderInput): Promise<Result<StandingOrder>>;
-  setStandingOrderStatus(id: string, status: StandingOrder["status"]): Promise<Result<StandingOrder>>;
+  /** A household's weekly box (validated by validateBox). `anchor_date` is its first delivery date. */
+  saveBox(customerId: string, input: BoxInput & { anchor_date: string }): Promise<Result<StandingOrder>>;
+  /** `reason` records why it was paused automatically; any change by hand clears it. */
+  setStandingOrderStatus(id: string, status: StandingOrder["status"], reason?: string | null): Promise<Result<StandingOrder>>;
   setStandingSkip(id: string, date: string, skip: boolean): Promise<Result<StandingOrder>>;
   deleteStandingOrder(id: string): Promise<Result<void>>;
   listStandingRuns(filter?: { date?: string; standingOrderId?: string; limit?: number }): Promise<StandingOrderRun[]>;
@@ -169,6 +173,7 @@ export interface Repo {
   customerRequestCode(phone: string, codeHash: string): Promise<Result<string>>;
   customerLogin(phone: string, codeHash: string, tokenHash: string): Promise<CustomerLoginResult>;
   getCustomerBySession(tokenHash: string): Promise<Customer | null>;
+  getCustomer(id: string): Promise<Customer | null>;
   endCustomerSession(tokenHash: string): Promise<void>;
   updateCustomer(id: string, patch: Partial<Pick<Customer, "name" | "marketing_opt_in">>): Promise<Customer | null>;
   /** Removes the profile, addresses and sessions; orders stay (they are the shop's records). */

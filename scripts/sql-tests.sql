@@ -456,5 +456,18 @@ begin
   select * into ex from account_exposure('ba_ar');
   if (select payment_status from orders where id = oid3) <> 'paid' or ex.credit <> 2000000 - (select total_final from orders where id = oid3) then raise exception 're-weigh settles the lower amount: %', ex.credit; end if;
 
+  -- 24. Household weekly boxes: a standing order belongs to a restaurant or to a household, never both or neither
+  insert into customers (id, phone, name) values ('cu_box', '6281377770090', 'Ibu Kotak');
+  insert into customer_addresses (id, customer_id, address, area_id) values ('ca_box', 'cu_box', 'Jl. Uji Kotak 1', 'a_selatan');
+  insert into standing_orders (id, customer_id, address_id, every_weeks, anchor_date, weekdays, slot_id, payment_method, lines)
+    values ('so_box', 'cu_box', 'ca_box', 2, current_date, array[4], 's_pagi', 'qris', '[{"variant_id":"v_box_keluarga","qty":1}]'::jsonb);
+  perform _expect_error($q$insert into standing_orders (id, weekdays, slot_id, payment_method, lines) values ('so_none', array[1], 's_pagi', 'qris', '[{"variant_id":"v_salmon","qty":1}]'::jsonb)$q$, 'standing_orders_owner_check');
+  perform _expect_error($q$insert into standing_orders (id, account_id, customer_id, weekdays, slot_id, payment_method, lines) values ('so_both', 'ba_bahari', 'cu_box', array[1], 's_pagi', 'qris', '[{"variant_id":"v_salmon","qty":1}]'::jsonb)$q$, 'standing_orders_owner_check');
+  perform _expect_error($q$update standing_orders set every_weeks = 3 where id = 'so_box'$q$, 'standing_orders_every_weeks_check');
+  delete from customer_addresses where id = 'ca_box';
+  if (select address_id from standing_orders where id = 'so_box') is not null then raise exception 'deleting the address must clear it on the box'; end if;
+  delete from customers where id = 'cu_box';
+  if exists (select 1 from standing_orders where id = 'so_box') then raise exception 'deleting the customer must delete their boxes'; end if;
+
   raise notice 'all assertions passed';
 end $$;

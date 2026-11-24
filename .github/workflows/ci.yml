@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npx tsc --noEmit
+      - name: Rules test (schedules, deadlines, weekly box, receivables ledger)
+        run: npm run test:rules
       - run: npm run build
 
   database:

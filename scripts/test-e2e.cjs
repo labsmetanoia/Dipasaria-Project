@@ -631,6 +631,81 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   await a.goto(BASE + "/admin/whatsapp", { waitUntil: "networkidle" });
   check((await a.getByText("Ringkasan tagihan tempo (restoran)").count()) >= 1, "statement message is in the WhatsApp queue");
 
+  // 8g) Household weekly box: subscribe from a value box, the evening run creates the order with a payment deadline,
+  //     the customer skips this week from the order page; pause and resume; the address in use cannot be deleted
+  const km = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const k = await km.newPage();
+  k.on("pageerror", (e) => fails.push("pageerror(box): " + e.message));
+  await k.goto(BASE + "/belanja/produk/kotak-freezer-keluarga", { waitUntil: "networkidle" });
+  await k.getByRole("link", { name: "Langganan kotak ini tiap minggu" }).click();
+  await k.waitForSelector("text=Masuk dengan WhatsApp untuk memulai kotak mingguan Anda.");
+  check(true, "a value box offers a weekly subscription and asks the customer to sign in first");
+  const kForm = k.locator("form", { has: k.getByRole("button", { name: "Kirim kode" }) });
+  await kForm.getByLabel("Nomor WhatsApp").fill("0813 7777 0077");
+  await kForm.getByRole("button", { name: "Kirim kode" }).click();
+  await k.waitForSelector("text=Mode demo");
+  await k.getByLabel("Kode 6 angka").fill((await k.locator("b.font-mono").innerText()).trim());
+  await k.locator("form", { has: k.getByLabel("Kode 6 angka") }).getByRole("button", { name: "Masuk", exact: true }).click();
+  await k.waitForSelector("#langganan", { timeout: 15000 });
+  const panel = k.locator("#langganan");
+  check((await panel.getByText(/Simpan dulu alamat pengiriman/).count()) === 1, "a box needs a saved delivery address first");
+  await k.getByRole("button", { name: "Tambah" }).click();
+  await k.getByLabel("Nama alamat").fill("Rumah");
+  await k.getByLabel("Penerima").fill("Ibu Sari Kotak");
+  await k.getByLabel("Wilayah").selectOption({ index: 3 });
+  await k.getByLabel("Alamat lengkap").fill("Jl. Kemang Timur No. 9, Jakarta Selatan");
+  await k.getByRole("button", { name: "Simpan alamat" }).click();
+  await panel.getByText(/Kotak Freezer Keluarga · 1 kotak/).first().waitFor({ timeout: 10000 });
+  check((await panel.getByText(/Kotak Freezer Keluarga · 1 kotak/).count()) >= 1 && (await panel.getByText(/Pengiriman pertama/).count()) === 1, "the form opens with the chosen box, its price and the first delivery date");
+  await panel.getByRole("button", { name: "Dua minggu sekali" }).click();
+  await panel.getByRole("button", { name: "Mulai kotak mingguan" }).click();
+  await panel.getByText("Aktif", { exact: true }).waitFor({ timeout: 10000 });
+  check((await panel.getByText(/, dua minggu sekali/).count()) === 1, "a two-weekly box is saved and active");
+  await panel.getByRole("button", { name: "Ubah" }).click();
+  await panel.getByRole("button", { name: "Setiap minggu" }).click();
+  await panel.getByRole("button", { name: "Simpan perubahan" }).click();
+  await panel.getByText(/Setiap (Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu) ·/).waitFor({ timeout: 10000 });
+  check((await panel.getByText(/Per kotak: /).count()) >= 1 && (await panel.getByText(/ketuk untuk melewati/).count()) === 1, "changed to weekly; price per box and the next deliveries are shown");
+  await k.screenshot({ path: `${OUT}/65-weekly-box-mobile.png`, fullPage: true });
+  check(!(await k.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)), "the account page with a box fits a 390 px phone");
+  // the evening run (here: "process now") turns the box into an order with a payment deadline
+  await a.goto(BASE + "/admin/rutin", { waitUntil: "networkidle" });
+  check((await a.getByText("Kotak mingguan · Kotak Freezer Keluarga").count()) === 1 && (await a.getByText("Kotak mingguan rumah tangga", { exact: true }).count()) === 1, "admin sees the household box next to restaurant standing orders");
+  await a.getByRole("button", { name: /Proses untuk/ }).click();
+  await a.waitForSelector("text=Pesanan dibuat", { timeout: 20000 });
+  const boxCode = (await a.locator("li", { hasText: "(rumah tangga)" }).getByRole("link").first().innerText()).trim();
+  const boxLine = a.locator("ul[aria-live] li", { hasText: "(rumah tangga)" });
+  check(/^DP-\d{6}-[A-Z2-9]{4}$/.test(boxCode) && (await boxLine.count()) === 1 && (await boxLine.getByText("Pesanan dibuat").count()) === 1, "the run creates one order for the box: " + boxCode);
+  await a.getByRole("button", { name: /Proses untuk/ }).click();
+  await boxLine.getByText("Sudah diproses").waitFor({ timeout: 20000 });
+  check((await a.getByText("Pesanan dibuat").count()) === 0, "a second run does not create a second box order");
+  await a.reload({ waitUntil: "networkidle" });
+  await a.screenshot({ path: `${OUT}/66-admin-weekly-box-desktop.png`, fullPage: true });
+  await a.goto(BASE + "/admin/whatsapp", { waitUntil: "networkidle" });
+  check((await a.getByText(/Mohon bayar sebelum .+ WIB, atau lewati minggu ini/).count()) >= 1, "the WhatsApp message gives the total, the payment deadline and the option to skip");
+  await k.goto(BASE + "/akun", { waitUntil: "networkidle" });
+  await k.locator("#langganan").getByRole("link", { name: new RegExp(boxCode) }).click();
+  await k.waitForURL(/\/pesanan\/DP-/, { timeout: 15000 });
+  await k.getByRole("button", { name: "Lewati minggu ini" }).waitFor({ timeout: 10000 });
+  check((await k.getByText("atur langganan").count()) === 1 && (await k.getByText(/Bayar sebelum|Batas pembayaran|sebelum/).count()) >= 1, "the order page marks it as a weekly box, with the deadline and a skip button");
+  await k.screenshot({ path: `${OUT}/67-weekly-box-order-mobile.png`, fullPage: true });
+  k.once("dialog", (dlg) => dlg.accept());
+  await k.getByRole("button", { name: "Lewati minggu ini" }).click();
+  await k.waitForSelector("text=Kotak minggu ini Anda lewati", { timeout: 10000 });
+  check((await k.getByRole("button", { name: "Lewati minggu ini" }).count()) === 0, "the customer skips this week: the order is cancelled, nothing to pay");
+  await k.goto(BASE + "/akun", { waitUntil: "networkidle" });
+  check((await k.locator("#langganan").getByText("Aktif", { exact: true }).count()) === 1, "the box itself stays active for the following weeks");
+  k.once("dialog", (dlg) => dlg.accept());
+  await k.getByRole("button", { name: "Hapus", exact: true }).click();
+  await k.waitForSelector("text=Alamat ini dipakai kotak mingguan Anda", { timeout: 10000 });
+  check(true, "an address used by a box cannot be deleted by accident");
+  await k.locator("#langganan").getByRole("button", { name: "Jeda" }).click();
+  await k.locator("#langganan").getByText("Dijeda", { exact: true }).waitFor({ timeout: 10000 });
+  await k.locator("#langganan").getByRole("button", { name: "Lanjutkan" }).click();
+  await k.locator("#langganan").getByText("Aktif", { exact: true }).waitFor({ timeout: 10000 });
+  check(true, "pause and resume in one tap each");
+  await km.close();
+
   // 9) Rate limit: a script guessing logins from one device is stopped (on top of the per-phone lockout)
   const rl = await browser.newContext();
   const r = await rl.newPage();
@@ -648,6 +723,7 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   await rl.close();
 
   await browser.close();
+  if (fails.length) console.log("\nFailed:\n- " + fails.join("\n- ")); // includes page errors, which are not printed as they happen
   console.log(fails.length ? `\n${fails.length} FAILURES` : "\nALL E2E CHECKS PASSED");
   process.exit(fails.length ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

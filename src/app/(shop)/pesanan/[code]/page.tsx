@@ -5,6 +5,9 @@ import { OrderTracking } from "@/components/shop/OrderTracking";
 import { OrderLookup } from "@/components/shop/OrderLookup";
 import { qrisAutoEnabled } from "@/lib/payments/service";
 import { CLAIM_WINDOW_HOURS } from "@/lib/config";
+import { boxSkippable } from "@/lib/standing";
+import { availableDates } from "@/lib/pricing";
+import { nowJakarta } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -19,5 +22,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   // the guarantee window runs from the moment of delivery (recorded in delivery mode)
   const until = order.delivered_at ? new Date(Date.parse(order.delivered_at) + CLAIM_WINDOW_HOURS * 3600_000) : null;
   const claimUntil = until && until.getTime() > Date.now() ? until.toISOString() : null;
-  return <div className="container-x max-w-3xl py-8 md:py-12"><OrderTracking order={order} settings={settings} isNew={baru === "1"} qrisAuto={qrisAutoEnabled()} claims={claims} claimUntil={claimUntil} /></div>;
+  // an order created from a household's weekly box can be skipped by the customer until the cut-off for its delivery day
+  const box = order.segment === "retail" && order.client_ref?.startsWith("so:") ? { skippable: boxSkippable(order, availableDates(settings, nowJakarta())) } : null;
+  return <div className="container-x max-w-3xl py-8 md:py-12"><OrderTracking order={order} settings={settings} isNew={baru === "1"} qrisAuto={qrisAutoEnabled()} claims={claims} claimUntil={claimUntil} box={box} /></div>;
 }

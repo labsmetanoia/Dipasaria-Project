@@ -57,6 +57,14 @@ export default async function RumahTanggaPage() {
         <Band>
           <SectionHead eyebrow={c.boxesEyebrow} title={c.boxesTitle} action={{ href: "/belanja/kategori/paket-hemat", label: c.boxesEyebrow }} />
           <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">{boxes.map((p) => <ProductCard key={p.id} p={p} segment="retail" locale={locale} />)}</div>
+          <div className="mt-8 border-l-4 border-coral-500 bg-sand-100 p-5 sm:p-6">
+            <p className="eyebrow">{locale === "en" ? "Weekly box" : "Kotak mingguan"}</p>
+            <h3 className="mt-1 text-[1.6rem]">{locale === "en" ? "The same box every week, without ordering again." : "Kotak yang sama tiap minggu, tanpa memesan ulang."}</h3>
+            <p className="mt-2 max-w-2xl font-sans text-[14px] leading-relaxed text-mute">{locale === "en"
+              ? "Pick a box or your own items, a delivery day, and weekly or every second week. We prepare the order and send the payment link on WhatsApp two evenings before. Skip a week or stop any time; no contract, no subscription fee."
+              : "Pilih paket atau isi sendiri, tentukan hari pengiriman, tiap minggu atau dua minggu sekali. Dua malam sebelumnya kami buatkan pesanannya dan mengirim tautan pembayaran lewat WhatsApp. Lewati satu minggu atau berhenti kapan saja; tanpa kontrak, tanpa biaya langganan."}</p>
+            <Link href="/akun?langganan=1#langganan" className="btn-primary mt-4">{locale === "en" ? "Start a weekly box" : "Mulai kotak mingguan"} <ArrowRight className="h-4 w-4" /></Link>
+          </div>
           <Link href="/belanja" className="btn-accent mt-8">{c.cta} <ArrowRight className="h-4 w-4" /></Link>
         </Band>
       )}

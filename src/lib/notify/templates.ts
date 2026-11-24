@@ -60,7 +60,7 @@ export const TEMPLATES: Record<WaKind, Template> = {
   },
   standing: {
     name: "dipasaria_pesanan_rutin",
-    label: "Pesanan rutin dibuat",
+    label: "Pesanan rutin / kotak mingguan dibuat",
     body: "Halo {{1}}, pesanan rutin untuk pengiriman {{2}} sudah dibuat dengan nomor {{3}}. {{4}}\n\nRincian: {{5}}\n\nTerima kasih.",
   },
 };
@@ -90,6 +90,19 @@ function payInstruction(o: Order, s: Settings, gatewayQris: boolean): string {
 const when = (o: Order) => `${formatDate(o.delivery_date, "long")}, ${o.slot_label}`;
 const amount = (o: Order) => rupiah(o.total_final ?? o.total_est);
 
+/**
+ * Fourth variable of the standing-order message: what was left out, and for a household's weekly box also the
+ * amount and the payment deadline (restaurants are billed on their account's terms).
+ */
+function standingNote(o: Order, missing?: string[]): string {
+  const stock = missing?.length ? `Tidak tersedia malam ini: ${missing.join(" ")} Produk lainnya tetap dikirim.` : "Semua produk tersedia.";
+  if (o.segment !== "retail") return stock;
+  const pay = o.total_final === null
+    ? `Perkiraan total ${rupiah(o.total_est)}; tagihan akhir kami kirim setelah ditimbang.`
+    : o.pay_by ? `Total ${amount(o)}. Mohon bayar sebelum ${formatDateTime(o.pay_by)} WIB, atau lewati minggu ini lewat tautan di bawah.` : `Total ${amount(o)}.`;
+  return `${stock} ${pay}`;
+}
+
 export interface BuildContext { settings: Settings; gatewayQris: boolean; reason?: string; missing?: string[]; decision?: string }
 
 /** Template parameters for an order event, in {{1}}, {{2}}… order. */
@@ -106,7 +119,7 @@ export function buildParams(kind: WaKind, o: Order, ctx: BuildContext): string[]
     claim: [o.customer_name, o.code, ctx.decision ?? "-"],
     restock: [], // not tied to an order: see restockParams
     statement: [], // per account, not per order: see statementParams
-    standing: [o.customer_name, when(o), o.code, ctx.missing?.length ? `Tidak tersedia malam ini: ${ctx.missing.join(" ")} Produk lainnya tetap dikirim.` : "Semua produk tersedia.", link],
+    standing: [o.customer_name, when(o), o.code, standingNote(o, ctx.missing), link],
   };
   return raw[kind].map(cleanParam);
 }

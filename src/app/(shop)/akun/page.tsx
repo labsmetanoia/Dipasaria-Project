@@ -21,6 +21,7 @@ import type { BusinessAccount, Order, Product } from "@/lib/types";
 import { buildLedger, termsBlock, type Ledger } from "@/lib/receivables";
 import { statementToken } from "@/lib/statementLink";
 import { contractPrice } from "@/lib/pricing";
+import { BoxPanel, type BoxPreset } from "@/components/shop/BoxPanel";
 import type { Locale } from "@/lib/i18n";
 
 export const metadata = { title: "Akun" };
@@ -83,7 +84,7 @@ function TermsCard({ account, ledger, blocked, products, locale }: { account: Bu
   );
 }
 
-export default async function AccountPage({ searchParams }: { searchParams: Promise<{ next?: string; dihapus?: string }> }) {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ next?: string; dihapus?: string; langganan?: string }> }) {
   const repo = await getRepo();
   const [account, { t, locale }, sp] = await Promise.all([getCurrentAccount(), getT(), searchParams]);
   const settings = await repo.getSettings();
@@ -95,13 +96,20 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <div className="container-x max-w-lg space-y-5 py-10 md:py-16">
           <h1 className="text-[2.6rem] sm:text-[3.4rem]">{en ? "Your account" : "Akun Anda"}</h1>
           {sp.dihapus === "1" && <p className="bg-success-50 px-4 py-3 text-sm text-success-600">{en ? "Your account has been deleted." : "Akun Anda sudah dihapus."}</p>}
-          <CustomerLogin next={sp.next} available={otpChannel() !== null} />
+          {sp.langganan && <p className="bg-sand-100 px-4 py-3 text-sm">{en ? "Sign in with WhatsApp to start your weekly box." : "Masuk dengan WhatsApp untuk memulai kotak mingguan Anda."}</p>}
+          <CustomerLogin next={sp.next ?? (sp.langganan && /^[a-z0-9_]{1,40}$/.test(sp.langganan) ? `/akun?langganan=${sp.langganan}#langganan` : undefined)} available={otpChannel() !== null} />
           <div className="pt-2"><p className="eyebrow">{en ? "Restaurants & caterers" : "Restoran & katering"}</p><p className="mt-1 font-sans text-sm text-mute">{t.account.sub}</p></div>
           <BusinessLogin demoHint={repo.mode === "memory"} />
         </div>
       );
     }
-    const [orders, addresses, areas] = await Promise.all([repo.getOrdersByPhone(customer.phone, 20), repo.listAddresses(customer.id), repo.getAreas()]);
+    const [orders, addresses, areas, boxes, products, slots] = await Promise.all([repo.getOrdersByPhone(customer.phone, 20), repo.listAddresses(customer.id), repo.getAreas(), repo.listStandingOrders({ customerId: customer.id }), repo.getProducts(), repo.getSlots()]);
+    const boxRuns = (await Promise.all(boxes.map((b) => repo.listStandingRuns({ standingOrderId: b.id, limit: 4 })))).flat();
+    // What a box can start from: the ready-made value boxes, then the customer's latest orders (the cart is added in the browser).
+    const presets: BoxPreset[] = [
+      ...products.filter((p) => p.category_id === "c_paket" && p.is_active).flatMap((p) => { const v = p.variants.find((x) => x.is_active && !x.business_only); return v ? [{ key: `box:${v.id}`, label: en && p.name_en ? p.name_en : p.name, lines: [{ variant_id: v.id, qty: v.min_qty, prep_option_id: null }] }] : []; }),
+      ...orders.filter((o) => o.status !== "cancelled").slice(0, 2).map((o) => ({ key: `order:${o.code}`, label: `${en ? "My order of" : "Pesanan saya"} ${formatDate(o.delivery_date, "short", locale)}`, lines: o.items.map((i) => ({ variant_id: i.variant_id, qty: i.qty_ordered, prep_option_id: i.prep_option_id })) })),
+    ];
     return (
       <div className="container-x max-w-4xl space-y-6 py-8 md:py-12">
         <div className="flex flex-wrap items-start justify-between gap-3 bg-ocean-950 p-6 text-white">
@@ -109,6 +117,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           <form action={customerLogoutAction}><button className="btn text-sm text-white/80 ring-1 ring-white/20 hover:bg-white/10"><LogOut className="h-4 w-4" /> {t.account.logout}</button></form>
         </div>
         {orders[0] && <div className="card flex flex-wrap items-center justify-between gap-3 p-5"><div><p className="font-bold text-ocean-950">{fmt(t.account.reorderLike, { date: formatDate(orders[0].delivery_date, "short", locale) })}</p><p className="text-xs text-mute">{orders[0].items.map((i) => `${i.product_name} ${i.qty_ordered} ${i.unit}`).join(" · ")}</p></div><ReorderButton order={orders[0]} /></div>}
+        <BoxPanel initial={boxes} runs={boxRuns} products={products} slots={slots.filter((s) => s.is_active && s.segment !== "business")} addresses={addresses} areas={areas}
+          settings={{ min_order_retail: settings.min_order_retail, min_order_business: settings.min_order_business, free_delivery_retail: settings.free_delivery_retail, free_delivery_business: settings.free_delivery_business, cutoff_time: settings.cutoff_time }}
+          firstDate={availableDates(settings, nowJakarta())[0]} presets={presets} preselect={sp.langganan ?? null} phone={customer.phone} />
         <div className="grid gap-4 md:grid-cols-2">
           <AddressBook addresses={addresses} areas={areas} />
           <ProfileCard name={customer.name} marketing={customer.marketing_opt_in} />

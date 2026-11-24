@@ -381,3 +381,86 @@ Standing orders paid on tempo follow the same rule. When a restaurant is over it
 2. Create the template `dipasaria_ringkasan_tagihan` from `docs/whatsapp-templates.md`. Until Meta approves it, the summary opens in WhatsApp with the text filled in, for you to send.
 3. For each tempo restaurant: open **Piutang**, set a credit limit (start with about two weeks of its usual orders), and add any agreed contract prices.
 4. From now on, record each transfer from a restaurant under **Piutang** rather than with "Tandai lunas" on each order. One entry settles several invoices.
+
+---
+
+## 11. Implemented after approval: household weekly box (N9)
+
+**Purpose:** turn regular households into predictable weekly revenue, and give the owner steadier volume to buy for at dawn.
+
+### What it does
+
+| Step | What happens |
+|---|---|
+| **Subscribe** | A signed-in household opens **Akun → Kotak mingguan**, or taps **Langganan kotak ini tiap minggu** on any value box. It picks what goes in (a value box, a past order, the current cart, or any products), one delivery day, every week or every second week, a delivery slot, a saved address, and QRIS or transfer. The form shows the price per box, the delivery fee and the first delivery date. |
+| **Two evenings before delivery (19.45)** | The evening run creates a normal order from the box, at that day's prices and stock. An item that is sold out is left out and named; the rest still goes. |
+| **WhatsApp** | The customer gets the order with its total, the payment deadline and the link. The deadline is the order cut-off on the evening before delivery, so there is about a day to pay rather than two hours. The usual reminder goes out 30 minutes before the deadline. |
+| **Not this week?** | Before the order exists: tap a date under "Pengiriman berikutnya" to skip it. After it exists: **Lewati minggu ini** on the order page cancels it while it is unpaid and before the cut-off. Either way the box stays active for the following weeks. |
+| **Pause or stop** | One tap each, any time. No contract and no subscription fee. |
+| **Unpaid twice in a row** | The box pauses itself, so it stops holding stock and a delivery slot every week. The customer sees why on the account page and can resume in one tap; the owner sees it under **Pesanan rutin** with a prepared WhatsApp message. A week the customer skipped does not count. |
+
+Boxes with items sold by weight work like any such order: the estimate is shown, and the final invoice follows the dawn weighing.
+
+### Customer and business benefits
+
+- **Customer:** the weekly shop happens without re-ordering, there is time to pay, and skipping a week takes one tap. Subscribing to a value box also keeps the box's lower price.
+- **Business:** recurring revenue that is visible in advance. **Pesanan rutin** shows active household boxes, their value per week, and how many will be created tonight, next to the restaurants' standing orders.
+- **How to measure:**
+  - active boxes and recurring value per week (shown on **Pesanan rutin**);
+  - of the latest box orders, how many were paid, skipped by the customer, or cancelled unpaid (shown on the same card);
+  - boxes paused for non-payment (also on that card).
+
+### How it works (for the developer)
+
+- **One engine for both.** A household box is a standing order owned by a customer instead of a restaurant. The table gains `customer_id`, `address_id`, `every_weeks`, `anchor_date` and `paused_reason`, with a constraint that exactly one owner is set (migration `012_weekly_box.sql`; `schema.sql` applies the same statements idempotently). Deleting a customer account deletes its boxes.
+- **Rules in `src/lib/standing.ts`:**
+  - `onSchedule` (weekly or every second week from the first delivery);
+  - `validateBox` (one day, own address with an area, household products only, minimum order, QRIS or transfer);
+  - `boxPayBy` (the deadline);
+  - `boxSkippable`;
+  - the two-unpaid rule.
+- **The run.** For restaurants it prepares the run's date, as before. For households it prepares that date and the next one. The earlier date catches a box subscribed after the previous evening's run, or a missed run. Each box and date is claimed once, so the overlap never creates a second order.
+- **Screens and actions:**
+  - `src/components/shop/BoxPanel.tsx` and `src/actions/box.ts`;
+  - the skip button in `OrderTracking`;
+  - the household rows on `/admin/rutin`.
+- **WhatsApp.** The approved `dipasaria_pesanan_rutin` template is reused, so there is nothing new to submit to Meta.
+- **Protection.** At most three boxes per account. An address used by a box cannot be deleted until the box is changed.
+
+### Tests
+
+- **New rules test (`npm run test:rules`, 35 checks, also in CI).** It runs the engine directly on the demo data layer, which lets it cover several weeks in a second:
+  - the two-weekly schedule;
+  - the payment deadline in three situations;
+  - who may skip and when;
+  - box validation;
+  - the order goes to the saved address at household prices;
+  - no duplicate on a second run;
+  - the two-day lead;
+  - pause after two unpaid boxes, resume, and a skipped week not counting;
+  - a removed address;
+  - account deletion.
+  It also checks the receivables ledger arithmetic from section 10.
+- **SQL suite, section 24:** the one-owner constraint, the rhythm constraint, address removal and account deletion.
+- **Main browser suite: 113 of 113** (15 new checks):
+  - subscribe from a value box through sign-in and a first address;
+  - change the rhythm;
+  - the run creates the order;
+  - the WhatsApp message carries total, deadline and skip;
+  - the customer skips from the order page;
+  - the address guard;
+  - pause and resume.
+- **Found by these runs and fixed (U3, Low):** the countdown strip in the header ("Pesan dalam … menit lagi") was computed once on the server and again in the browser. Whenever the minute ticked over in between, React reported a hydration error and re-rendered the page. It only happened before the cut-off, which is why earlier evening test runs never met it. The strip now tolerates the difference and refreshes right after loading.
+- **Screenshots:** `docs/screenshots/65-weekly-box-mobile.png` to `67-weekly-box-order-mobile.png`.
+
+### Owner setup
+
+1. Run `supabase/migrations/012_weekly_box.sql`, then `supabase/schema.sql` again.
+2. Nothing to create at Meta. Keep "Pesanan rutin dibuat" switched on in **Pengaturan → WhatsApp**.
+3. The scheduled job (`/api/cron/standing-orders`, daily at 19.45 WIB) already exists; it now prepares household boxes too.
+4. To promote it: the value-box pages and the "Rumah tangga" page now carry the offer. A first-box promo code (existing **Promo** screen) is the cheapest way to test demand.
+
+### Not included, on purpose
+
+- **Automatic charging** (card or e-wallet debit). Customers pay each box by QRIS or transfer. Auto-debit needs a recurring-payment product from the gateway and a refund flow; revisit when unpaid boxes become a measurable problem.
+- **A subscriber discount.** The value boxes already carry the price advantage, and margin is thin. If you want one later, a promo code restricted to box orders is the smallest change.

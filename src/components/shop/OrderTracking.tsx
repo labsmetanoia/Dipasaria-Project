@@ -6,6 +6,8 @@ import { formatDate, formatDateTime, rupiah, waLink, qtyUnit } from "@/lib/forma
 import { fmt } from "@/lib/i18n/dict";
 import { useT } from "@/lib/i18n/client";
 import { confirmPaymentAction } from "@/actions/shop";
+import { skipBoxOrderAction } from "@/actions/box";
+import Link from "next/link";
 import { msgCustomerAsk, msgCustomerPaid } from "@/lib/wa";
 import { PaymentBadge } from "@/components/ui";
 import { ReorderButton } from "./ReorderPanel";
@@ -18,7 +20,7 @@ const STEPS: Order["status"][] = ["new", "confirmed", "packing", "delivering", "
 
 export type ClaimSummary = { id: string; status: "open" | "replace" | "refund" | "declined"; resolution_note: string; refund_amount: number | null; created_at: string };
 
-export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claims = [], claimUntil = null }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean; claims?: ClaimSummary[]; claimUntil?: string | null }) {
+export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claims = [], claimUntil = null, box = null }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean; claims?: ClaimSummary[]; claimUntil?: string | null; /** this order came from a weekly box; skippable while unpaid and before the cut-off */ box?: { skippable: boolean } | null }) {
  const { t, locale } = useT();
  const [order, setOrder] = useState(initial);
  const [pending, start] = useTransition();
@@ -31,6 +33,9 @@ export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claim
  const [qrisDone, setQrisDone] = useState<"paid" | "checking" | null>(null);
  // QRIS orders with a gateway: a dynamic QR for the exact amount, confirmed automatically (no "I have paid" step)
  const gatewayQris = Boolean(qrisAuto) && order.payment_method === "qris" && (order.payment_status === "unpaid" || qrisDone !== null);
+ const en = locale === "en";
+ const skippedByCustomer = order.history.some((h) => h.status === "cancelled" && h.note?.startsWith("Dilewati pelanggan"));
+ const skipWeek = () => { if (confirm(en ? "Skip this week's box? Next time's box stays as planned." : "Lewati kotak minggu ini? Kotak berikutnya tetap berjalan.")) start(async () => { const r = await skipBoxOrderAction(order.code, order.phone); if (r.ok) setOrder(r.data); else setMsg(r.error); }); };
  const markPaid = () => start(async () => { const r = await confirmPaymentAction(order.code, order.phone); if (r.ok) { setOrder(r.data); setMsg(t.tracking.paidThanks); } else setMsg(r.error); });
  const unit = (u: Order["items"][number]["unit"]) => t.unit[u];
 
@@ -42,7 +47,13 @@ export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claim
           <div><p className="eyebrow">{t.tracking.orderNo}</p><p className="text-2xl font-bold text-ocean-950">{order.code}</p><p className="mt-1 text-sm text-mute">{formatDate(order.delivery_date, "long", locale)} · {order.slot_label}</p></div>
           <div className="text-right"><PaymentBadge status={order.payment_status} /><p className="mt-1 text-xs text-mute">{t.paymentMethod[order.payment_method]}</p></div>
         </div>
-        {order.status === "cancelled" ? <p className="mt-5 bg-sand-100 px-4 py-3 text-sm">{order.history.some((h) => h.status === "cancelled" && h.note?.startsWith("Dibatalkan otomatis")) ? t.tracking.expired : t.tracking.cancelled}</p> : (
+        {box && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 bg-sand-100 px-4 py-3 text-sm">
+            <p><b>{en ? "Weekly box" : "Kotak mingguan"}</b> · <Link href="/akun#langganan" className="font-semibold text-gold-ink underline-offset-2 hover:underline">{en ? "manage subscription" : "atur langganan"}</Link></p>
+            {box.skippable && order.status !== "cancelled" && order.payment_status === "unpaid" && <button type="button" disabled={pending} onClick={skipWeek} className="btn-outline px-3 py-2 text-[11.5px]">{pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} {en ? "Skip this week" : "Lewati minggu ini"}</button>}
+          </div>
+        )}
+        {order.status === "cancelled" && skippedByCustomer ? <p className="mt-5 bg-sand-100 px-4 py-3 text-sm">{en ? "You skipped this week's box. Nothing to pay; your next box stays as planned." : "Kotak minggu ini Anda lewati. Tidak ada yang perlu dibayar; kotak berikutnya tetap berjalan."}</p> : order.status === "cancelled" ? <p className="mt-5 bg-sand-100 px-4 py-3 text-sm">{order.history.some((h) => h.status === "cancelled" && h.note?.startsWith("Dibatalkan otomatis")) ? t.tracking.expired : t.tracking.cancelled}</p> : (
           <ol className="mt-6 grid grid-cols-5 gap-1">
             {STEPS.map((s, i) => {
  const done = i <= idx;

@@ -175,6 +175,7 @@ function mapOrder(r: Row): Order {
     delivery_note: (r.delivery_note as string | null) ?? null,
     cod_collected: numOrNull(r.cod_collected),
     due_date: r.due_date ? String(r.due_date).slice(0, 10) : null,
+    client_ref: (r.client_ref as string | null) ?? null,
     promo_code: (r.promo_code as string | null) ?? null,
     customer_note: (r.customer_note as string) ?? "",
     internal_note: (r.internal_note as string) ?? "",
@@ -549,9 +550,30 @@ export const supabaseRepo: Repo = {
   async listStandingOrders(filter) {
     let q = sb().from("standing_orders").select("*").order("created_at");
     if (filter?.accountId) q = q.eq("account_id", filter.accountId);
+    if (filter?.customerId) q = q.eq("customer_id", filter.customerId);
     const { data, error } = await q;
     if (error) throw error;
     return (data as Row[]).map(mapStanding);
+  },
+  async saveBox(customerId, input) {
+    const row = {
+      customer_id: customerId,
+      name: input.name.trim() || "Kotak mingguan",
+      weekdays: [...new Set(input.weekdays)].sort(),
+      slot_id: input.slot_id,
+      payment_method: input.payment_method,
+      lines: input.lines.filter((l) => l.qty > 0).map((l) => ({ variant_id: l.variant_id, qty: l.qty, prep_option_id: l.prep_option_id ?? null })),
+      note: input.note ?? null,
+      address_id: input.address_id,
+      every_weeks: input.every_weeks,
+      anchor_date: input.anchor_date,
+      updated_at: new Date().toISOString(),
+    };
+    const res = input.id
+      ? await sb().from("standing_orders").update(row).eq("id", input.id).eq("customer_id", customerId).select("*").single()
+      : await sb().from("standing_orders").insert({ ...row, id: newId("so") }).select("*").single();
+    if (res.error) return fail(msg(res.error));
+    return ok(mapStanding(res.data as Row));
   },
   async saveStandingOrder(accountId, input) {
     const row = {
@@ -570,8 +592,8 @@ export const supabaseRepo: Repo = {
     if (res.error) return fail(msg(res.error));
     return ok(mapStanding(res.data as Row));
   },
-  async setStandingOrderStatus(id, status) {
-    const { data, error } = await sb().from("standing_orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id).select("*").single();
+  async setStandingOrderStatus(id, status, reason) {
+    const { data, error } = await sb().from("standing_orders").update({ status, paused_reason: status === "paused" ? reason ?? null : null, updated_at: new Date().toISOString() }).eq("id", id).select("*").single();
     if (error) return fail(msg(error));
     return ok(mapStanding(data as Row));
   },
@@ -751,6 +773,11 @@ export const supabaseRepo: Repo = {
     if (!data || Date.parse(String((data as Row).expires_at)) < Date.now()) return null;
     const c = (data as Row).customers as Row | null;
     return c ? mapCustomer(c) : null;
+  },
+  async getCustomer(id) {
+    const { data, error } = await sb().from("customers").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ? mapCustomer(data as Row) : null;
   },
   async endCustomerSession(tokenHash) {
     await sb().from("customer_sessions").delete().eq("token_hash", tokenHash);
@@ -950,7 +977,9 @@ function mapPayment(r: Row): Payment {
 
 function mapStanding(r: Row): StandingOrder {
   return {
-    id: String(r.id), account_id: String(r.account_id), name: String(r.name), weekdays: (r.weekdays as number[]).map(Number),
+    id: String(r.id), account_id: (r.account_id as string | null) ?? null, customer_id: (r.customer_id as string | null) ?? null, address_id: (r.address_id as string | null) ?? null,
+    every_weeks: Number(r.every_weeks ?? 1), anchor_date: r.anchor_date ? String(r.anchor_date).slice(0, 10) : null, paused_reason: (r.paused_reason as string | null) ?? null,
+    name: String(r.name), weekdays: (r.weekdays as number[]).map(Number),
     slot_id: String(r.slot_id), payment_method: r.payment_method as StandingOrder["payment_method"],
     lines: (r.lines as StandingOrder["lines"]).map((l) => ({ variant_id: l.variant_id, qty: Number(l.qty), prep_option_id: l.prep_option_id ?? null })),
     status: r.status as StandingOrder["status"], skip_dates: ((r.skip_dates as string[] | null) ?? []).map((d) => String(d).slice(0, 10)),

@@ -46,6 +46,7 @@ export function AddressBook({ addresses, areas }: { addresses: CustomerAddress[]
     <div className="card p-5">
       <div className="flex items-center justify-between gap-2"><h2 className="font-bold text-ocean-950">{en ? "Delivery addresses" : "Alamat pengiriman"}</h2>{!draft && addresses.length < 10 && <button onClick={() => setDraft({ ...empty, label: addresses.length ? "" : en ? "Home" : "Rumah" })} className="btn-secondary px-3 py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> {en ? "Add" : "Tambah"}</button>}</div>
       {addresses.length === 0 && !draft && <p className="mt-2 text-sm text-mute">{en ? "No saved address yet. Addresses you use at checkout can be saved here." : "Belum ada alamat tersimpan. Alamat yang Anda pakai saat checkout bisa disimpan di sini."}</p>}
+      {err && !draft && <p className="mt-2 text-xs text-gold-ink" role="alert">{err}</p>}
       <ul className="mt-3 divide-y divide-line">
         {addresses.map((a) => (
           <li key={a.id} className="flex items-start justify-between gap-3 py-3 text-sm">
@@ -53,7 +54,7 @@ export function AddressBook({ addresses, areas }: { addresses: CustomerAddress[]
             <div className="flex flex-none gap-1">
               {!a.is_default && <button aria-label={en ? "Make default" : "Jadikan utama"} title={en ? "Make default" : "Jadikan utama"} disabled={pending} onClick={() => start(async () => { await saveAddressAction({ ...a, is_default: true }); router.refresh(); })} className="p-1.5 text-mute hover:text-ink"><Star className="h-4 w-4" /></button>}
               <button aria-label={en ? "Edit" : "Ubah"} onClick={() => setDraft({ id: a.id, label: a.label, recipient: a.recipient, address: a.address, area_id: a.area_id ?? "", maps_url: a.maps_url ?? "", is_default: a.is_default })} className="p-1.5 text-mute hover:text-ink"><Pencil className="h-4 w-4" /></button>
-              <button aria-label={en ? "Delete" : "Hapus"} disabled={pending} onClick={() => { if (confirm(en ? "Delete this address?" : "Hapus alamat ini?")) start(async () => { await deleteAddressAction(a.id); router.refresh(); }); }} className="p-1.5 text-mute hover:text-gold-ink"><Trash2 className="h-4 w-4" /></button>
+              <button aria-label={en ? "Delete" : "Hapus"} disabled={pending} onClick={() => { if (confirm(en ? "Delete this address?" : "Hapus alamat ini?")) start(async () => { setErr(null); const r = await deleteAddressAction(a.id); if (!r.ok) setErr(r.error); router.refresh(); }); }} className="p-1.5 text-mute hover:text-gold-ink"><Trash2 className="h-4 w-4" /></button>
             </div>
           </li>
         ))}

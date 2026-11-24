@@ -23,7 +23,7 @@ The app fills the variables from the order (`src/lib/notify/templates.ts`). If y
 | `dipasaria_pesanan_sampai` | Delivery mode records the order as received; includes the 2-hour guarantee link | 3 |
 | `dipasaria_keputusan_garansi` | You decide a freshness-guarantee report (replace, refund or decline) | 3 |
 | `dipasaria_stok_tersedia` | A sold-out product is switched back on, for customers who tapped "Kabari saya" | 2 |
-| `dipasaria_pesanan_rutin` | A restaurant's standing order is placed (with any items left out) | 5 |
+| `dipasaria_pesanan_rutin` | A restaurant's standing order, or a household's weekly box, is placed (with any items left out; for a box also the total and the payment deadline) | 5 |
 | `dipasaria_ringkasan_tagihan` | You send a restaurant its tempo summary from Back-office → Piutang (on request, not automatic) | 7 |
 
 ## Pesanan diterima: `dipasaria_pesanan_diterima`
@@ -213,6 +213,8 @@ Samples:
 - `{{3}}`: DP-261116-BHR1
 - `{{4}}`: Tidak tersedia malam ini: Telur Ayam Negeri habis hari ini. Produk lainnya tetap dikirim.
 - `{{5}}`: https://dipasaria.id/pesanan/DP-261116-BHR1?hp=6281200000001
+
+The same template announces a household's weekly box. No new approval is needed: only variable `{{4}}` differs, for example `Semua produk tersedia. Total Rp244.000. Mohon bayar sebelum 25 Nov, 20.00 WIB, atau lewati minggu ini lewat tautan di bawah.`
 
 ## Ringkasan tagihan tempo: `dipasaria_ringkasan_tagihan`
 

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Scale, Snowflake, MapPin, ShieldCheck, Fish, BadgeCheck, ShoppingBag, Package } from "lucide-react";
+import { Check, Scale, Snowflake, MapPin, ShieldCheck, Fish, BadgeCheck, ShoppingBag, Package, Repeat } from "lucide-react";
+import Link from "next/link";
 import type { BusinessAccount, Product } from "@/lib/types";
 import { contractPrice, lineTotal, segmentOf, unitPrice } from "@/lib/pricing";
 import { rupiah } from "@/lib/format";
@@ -97,6 +98,11 @@ export function ProductSheet({ product, account }: { product: Product; account: 
       <button ref={ctaRef} type="button" disabled={off || outOfStock} onClick={doAdd} className="btn-accent w-full py-4 text-[13.5px]">
         {added ? <><Check className="h-4 w-4" /> {t.shop.added}</> : off ? t.shop.soldOut : outOfStock ? t.shop.outOfStock : <><ShoppingBag className="h-4 w-4" /> {t.shop.addToCart}</>}
       </button>
+      {product.category_id === "c_paket" && segment === "retail" && (
+        <Link href={`/akun?langganan=${variant.id}#langganan`} className="-mt-2 flex items-center justify-center gap-2 border border-ocean-950 px-4 py-3 font-sans text-[12px] font-bold uppercase tracking-[0.14em] hover:bg-ocean-950 hover:text-coral-500">
+          <Repeat className="h-4 w-4" /> {locale === "en" ? "Get this box every week" : "Langganan kotak ini tiap minggu"}
+        </Link>
+      )}
       {(off || outOfStock) && <StockAlert productId={product.id} />}
       {variant.stock_qty !== null && variant.stock_qty <= 5 && variant.stock_qty > 0 && <p className="-mt-3 font-sans text-xs text-gold-ink">{fmt(t.shop.leftInStock, { n: variant.stock_qty, unit })}</p>}
 
