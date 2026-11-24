@@ -809,6 +809,80 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   await a.goto(BASE + "/admin/whatsapp", { waitUntil: "networkidle" });
   check((await a.getByText(/Halo Rina sekeluarga, pesanan Dipasaria/).count()) >= 1, "WhatsApp greets the gift's sender, not the recipient");
 
+  // 8j) Seasonal pre-order: the owner opens a campaign and links a product; a household orders it for a campaign day
+  // beyond the usual days ahead and pays in advance; the buying plan counts it; once closed, nothing can be added
+  const jd = (n) => new Date(Date.now() + 7 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);
+  await a.goto(BASE + "/admin/musim", { waitUntil: "networkidle" });
+  await a.locator("details", { hasText: "+ Pre-order baru" }).evaluate((d) => { d.open = true; });
+  const ced = a.locator('[data-campaign-editor="new"]');
+  await ced.locator('input[name="name"]').fill("Imlek Uji");
+  await ced.locator('input[name="slug"]').fill("imlek-uji");
+  await ced.locator('input[name="opens_on"]').fill(jd(-1));
+  await ced.locator('input[name="order_by"]').fill(jd(12));
+  await ced.locator('input[name="deliver_from"]').fill(jd(10));
+  await ced.locator('input[name="deliver_to"]').fill(jd(11));
+  await ced.getByRole("button", { name: "Buat pre-order" }).click();
+  await ced.getByText("Batas pemesanan harus sebelum hari pengiriman pertama").waitFor({ timeout: 10000 });
+  check(true, "a campaign must close before its deliveries start");
+  await ced.locator('input[name="order_by"]').fill(jd(3));
+  await ced.getByRole("button", { name: "Buat pre-order" }).click();
+  await a.waitForSelector('[data-campaign="imlek-uji"]', { timeout: 10000 });
+  await a.goto(BASE + "/admin/produk/p_ty_udang", { waitUntil: "networkidle" });
+  await a.getByRole("combobox", { name: /^Pre-order musiman/ }).selectOption({ label: "Imlek Uji" });
+  await a.getByLabel(/Ditimbang \(harga per kg/).check();
+  await a.getByRole("button", { name: "Simpan perubahan" }).click();
+  await a.getByText("Produk pre-order harus berharga tetap").waitFor({ timeout: 10000 });
+  check(true, "a pre-order product cannot be sold by weight");
+  await a.getByLabel(/Ditimbang \(harga per kg/).uncheck();
+  await a.getByRole("button", { name: "Simpan perubahan" }).click();
+  await a.waitForTimeout(1500);
+  const pc = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, extraHTTPHeaders: { "x-real-ip": "10.20.30.41" } });
+  const po = await pc.newPage();
+  po.on("pageerror", (e) => fails.push("pageerror(preorder): " + e.message));
+  await po.goto(BASE + "/belanja", { waitUntil: "networkidle" });
+  check((await po.locator('[data-season-banner][href="/belanja/musim/imlek-uji"]').count()) === 1, "the shop home announces the open pre-order");
+  await po.goto(BASE + "/belanja/kategori/paket-hemat", { waitUntil: "networkidle" });
+  check((await po.locator('a[href="/belanja/produk/udang-windu-jumbo-tahun-baru"]').count()) === 0 && (await po.locator('a[href="/belanja/produk/kotak-pilihan-pedagang"]').count()) >= 1, "pre-order products stay off the everyday shelves");
+  await po.goto(BASE + "/belanja/musim/imlek-uji", { waitUntil: "networkidle" });
+  check((await po.getByRole("heading", { level: 1, name: "Imlek Uji" }).count()) === 1 && (await po.getByText(/^Pre-order · kirim/).count()) >= 1 && (await po.locator('a[href="/belanja/produk/udang-windu-jumbo-tahun-baru"]').count()) >= 1, "the campaign page lists its products with their delivery days");
+  await po.screenshot({ path: `${OUT}/73-preorder-page-mobile.png`, fullPage: true });
+  await po.goto(BASE + "/belanja/produk/udang-windu-jumbo-tahun-baru", { waitUntil: "networkidle" });
+  check((await po.locator("[data-preorder-panel]").count()) === 1, "the product page explains the pre-order: order by, delivery days, paid in advance");
+  await po.getByRole("button", { name: "Tambah ke keranjang" }).click();
+  await po.goto(BASE + "/checkout", { waitUntil: "networkidle" });
+  await po.waitForSelector("h2:has-text(\"Penerima\")");
+  await po.getByLabel("Nama penerima").fill("Ibu Imlek");
+  await po.getByLabel("Nomor WhatsApp").fill("0813 7777 0101");
+  await po.getByLabel("Wilayah").selectOption({ index: 1 });
+  await po.getByLabel("Alamat lengkap").fill("Jl. Pluit Karang Indah No. 8, Jakarta Utara");
+  await po.getByRole("button", { name: "Lanjut" }).click();
+  await po.waitForSelector("[data-preorder]");
+  const chips = po.locator("section", { has: po.locator("[data-preorder]") }).locator("button.chip");
+  check((await chips.count()) === 2, "checkout offers only the campaign's delivery days");
+  await chips.nth(1).click();
+  await po.locator('input[name="slot"]:not([disabled])').first().check();
+  await po.waitForTimeout(400); // let the chosen day finish its colour change
+  await po.screenshot({ path: `${OUT}/74-checkout-preorder-mobile.png`, fullPage: true });
+  await po.getByRole("button", { name: "Lanjut" }).click();
+  check((await po.getByText("Bayar di tempat (COD)").count()) === 0, "a pre-order offers no cash on delivery");
+  await po.getByRole("button", { name: "Buat pesanan" }).click();
+  await po.waitForURL(/\/pesanan\/DP-/, { timeout: 15000 });
+  check(po.url().includes("DP-" + jd(11).slice(2).replace(/-/g, "")), "the pre-order is booked for the chosen campaign day");
+  await a.goto(BASE + "/admin/musim", { waitUntil: "networkidle" });
+  const camp = a.locator('[data-campaign="imlek-uji"]');
+  check((await camp.locator("[data-campaign-orders]").innerText()) === "1" && (await camp.locator("[data-plan]").getByText("Udang Windu Jumbo untuk Bakar").count()) === 1 && (await camp.locator("[data-plan]").getByText(/belum dibayar/).count()) >= 1, "the buying plan counts the pre-order, unpaid until it is paid");
+  await camp.scrollIntoViewIfNeeded();
+  await a.screenshot({ path: `${OUT}/75-admin-preorder-desktop.png` });
+  // closing it: the page says so and nothing more can be added
+  await camp.locator("details", { hasText: "Ubah pre-order" }).evaluate((d) => { d.open = true; });
+  await camp.locator('input[name="opens_on"]').fill(jd(-3));
+  await camp.locator('input[name="order_by"]').fill(jd(-1));
+  await camp.getByRole("button", { name: "Simpan pre-order" }).click();
+  await camp.getByText("Tersimpan.").waitFor({ timeout: 10000 });
+  await po.goto(BASE + "/belanja/produk/udang-windu-jumbo-tahun-baru", { waitUntil: "networkidle" });
+  check((await po.getByRole("button", { name: "Pre-order ditutup" }).first().isDisabled()) && (await po.getByText("Kabari saya").count()) === 0, "a closed pre-order cannot be added to the cart");
+  await pc.close();
+
   // 9) Rate limit: a script guessing logins from one device is stopped (on top of the per-phone lockout)
   const rl = await browser.newContext();
   const r = await rl.newPage();

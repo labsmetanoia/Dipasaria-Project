@@ -4,6 +4,7 @@
 
 import type {
   BusinessAccount,
+  Campaign,
   Category,
   DeliveryArea,
   DeliverySlot,
@@ -396,6 +397,28 @@ const productSeeds: ProductSeed[] = [
       v("Besar, ±3 kg untuk 4–6 orang", "box", 379000, 379000, 305000, { id: "v_box_pilihan_l", stock_qty: 10, label_en: "Large, ±3 kg for 4–6 people" }),
     ],
   },
+  // Seasonal pre-order (campaign cm_tahun_baru): sold only on its campaign page, fixed prices, limited stock
+  {
+    id: "p_ty_bakar", slug: "paket-bakar-malam-tahun-baru", category_id: "c_paket", name: "Paket Bakar Malam Tahun Baru", name_en: "New Year's Eve Grill Box",
+    scientific_name: null, aliases: ["tahun baru", "malam tahun baru", "bakar-bakar", "paket bakar", "new year"],
+    description: "Untuk bakar-bakar malam tahun baru: ikan utuh (kakap merah atau baronang) yang sudah disiangi dan dibelah, udang windu besar, dan cumi, lengkap dengan sambal dan bumbu oles. Kami membelinya di lelang subuh sesuai jumlah pesanan, menjelang tanggal kirim.",
+    description_en: "For a New Year's Eve grill: whole fish (red snapper or rabbitfish) cleaned and butterflied, large tiger prawns and squid, with sambal and a basting paste. We buy it at the dawn auction to the number of orders, just before delivery.",
+    origin: "Lelang Muara Baru, dibeli sesuai pesanan", origin_en: "Muara Baru auction, bought to order", storage_class: "chilled", storage_note: CHILLED, is_catch_weight: false,
+    available_today: true, is_featured: false, icon: "box", campaign_id: "cm_tahun_baru",
+    variants: [
+      v("Untuk 4–6 orang, ±2,5 kg", "box", 549000, 549000, 430000, { id: "v_ty_bakar_s", stock_qty: 40, label_en: "For 4–6 people, ±2.5 kg" }),
+      v("Untuk 8–10 orang, ±5 kg", "box", 989000, 989000, 780000, { id: "v_ty_bakar_l", stock_qty: 20, label_en: "For 8–10 people, ±5 kg" }),
+    ],
+  },
+  {
+    id: "p_ty_udang", slug: "udang-windu-jumbo-tahun-baru", category_id: "c_paket", name: "Udang Windu Jumbo untuk Bakar", name_en: "Jumbo Tiger Prawns for the Grill",
+    scientific_name: "Penaeus monodon", aliases: ["udang jumbo", "udang bakar", "tahun baru", "tiger prawn"],
+    description: "Udang windu ukuran jumbo, 10–15 ekor per kg, dengan kepala dan kulit, siap dibakar atau dibuat udang saus mentega. Harga tetap per kemasan 1 kg.",
+    description_en: "Jumbo tiger prawns, 10–15 per kg, head and shell on, ready for the grill or butter-garlic prawns. Fixed price per 1 kg pack.",
+    origin: "Tambak Jawa Timur, melalui agen tetap", origin_en: "East Java farms via regular agents", storage_class: "chilled", storage_note: CHILLED, is_catch_weight: false,
+    available_today: true, is_featured: false, icon: "shrimp", campaign_id: "cm_tahun_baru",
+    variants: [v("1 kg, 10–15 ekor", "pack", 285000, 285000, 225000, { id: "v_ty_udang", stock_qty: 30, label_en: "1 kg, 10–15 prawns" })],
+  },
 ];
 
 // ---- Catalogue expansion (round 8): merged into each category after its existing products ----
@@ -622,7 +645,7 @@ const PHOTO_SLUGS = new Set([
   "cumi-segar", "otak-otak", "kakap-putih", "tenggiri-utuh", "ikan-kuwe", "selar", "udang-windu", "kepiting-bakau", "kerang-hijau",
   "sotong", "cumi-ring-beku", "fillet-kakap-beku", "ayam-utuh-beku", "paha-fillet-ayam", "siomay", "kentang-goreng-beku",
   "telur-ayam-kampung", "telur-bebek", "telur-puyuh", "saus-tiram", "minyak-wijen", "garam-laut", "jeruk-nipis", "paket-ikan-bakar",
-  "kotak-pilihan-pedagang",
+  "kotak-pilihan-pedagang", "paket-bakar-malam-tahun-baru", "udang-windu-jumbo-tahun-baru",
 ]);
 
 export const seedProducts: Product[] = orderedSeeds.map((p, pi) => ({
@@ -650,6 +673,17 @@ export const seedProducts: Product[] = orderedSeeds.map((p, pi) => ({
     sort: i + 1,
   })),
 }));
+
+/** Example seasonal pre-order. In supabase/seed.sql it starts switched off: set the dates and prices, then switch it on. */
+export const seedCampaigns: Campaign[] = [
+  {
+    id: "cm_tahun_baru", slug: "malam-tahun-baru", name: "Malam Tahun Baru", name_en: "New Year's Eve",
+    intro: "Pesan paket bakar dan udang jumbo untuk malam pergantian tahun. Kami membelinya di lelang subuh sesuai jumlah pesanan dan mengantarnya dingin pada 30 atau 31 Desember. Jumlahnya terbatas dan dibayar di muka.",
+    intro_en: "Order a grill box and jumbo prawns for New Year's Eve. We buy them at the dawn auction to the number of orders and deliver them cold on 30 or 31 December. Quantities are limited and paid in advance.",
+    image_url: "/images/products/paket-bakar-malam-tahun-baru.jpg",
+    opens_on: "2026-11-24", order_by: "2026-12-28", deliver_from: "2026-12-30", deliver_to: "2026-12-31", is_active: true, created_at: "2026-11-24T00:00:00.000Z",
+  },
+];
 
 export const seedAreas: DeliveryArea[] = [
   { id: "a_utara", name: "Jakarta Utara (Kelapa Gading, Sunter, Pluit, PIK)", fee: 15000, is_active: true, sort: 1 },

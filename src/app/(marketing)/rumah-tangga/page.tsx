@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { everyday } from "@/lib/campaigns";
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -42,7 +43,7 @@ export default async function RumahTanggaPage() {
   const repo = await getRepo();
   const { locale } = await getT();
   const c = copy[locale];
-  const [settings, products] = await Promise.all([repo.getSettings(), repo.getProducts()]);
+  const [settings, products] = await Promise.all([repo.getSettings(), repo.getProducts().then(everyday)]);
   const boxes = products.filter((p) => p.category_id === "c_paket");
   return (
     <>

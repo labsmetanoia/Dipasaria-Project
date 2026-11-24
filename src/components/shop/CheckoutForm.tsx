@@ -4,7 +4,7 @@ import { track } from "@/components/Track";
 import { useRouter } from "next/navigation";
 import { Loader2, Tag, ShieldCheck, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import type { Substitution } from "@/lib/types";
-import type { BusinessAccount, CustomerAddress, DeliveryArea, DeliverySlot, PaymentMethod, Product, Promo, Settings } from "@/lib/types";
+import type { BusinessAccount, Campaign, CustomerAddress, DeliveryArea, DeliverySlot, PaymentMethod, Product, Promo, Settings } from "@/lib/types";
 import Link from "next/link";
 import { availableDates, quote, segmentOf, slotsForSegment } from "@/lib/pricing";
 import { isValidPhone, nowJakarta, relativeDayLabel, rupiah, jam, jamRange, qtyUnit } from "@/lib/format";
@@ -16,23 +16,27 @@ import { placeOrderAction, quoteCart } from "@/actions/shop";
 import { Field } from "@/components/ui";
 import { MinOrderBar } from "./CartView";
 import { Turnstile, useTurnstileOn } from "@/components/Turnstile";
+import { campaignDates, campaignState, cartCampaign, dayRange, preorderDateError, preorderPaymentError } from "@/lib/campaigns";
 
 /** A signed-in household customer: verified phone and saved addresses. */
 export interface Household { phone: string; name: string; addresses: CustomerAddress[] }
 /** A restaurant's tempo position at checkout: what it owes now, its limit, and an overdue invoice that blocks tempo. */
 export interface TermsInfo { balance: number; limit: number | null; overdue: string | null }
-interface Props { products: Product[]; settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[]; slotUsage: Record<string, number>; account: BusinessAccount | null; household?: Household | null; termsInfo?: TermsInfo | null }
+interface Props { products: Product[]; settings: Settings; areas: DeliveryArea[]; slots: DeliverySlot[]; slotUsage: Record<string, number>; campaigns?: Campaign[]; account: BusinessAccount | null; household?: Household | null; termsInfo?: TermsInfo | null }
 
-export function CheckoutForm({ products, settings, areas, slots, slotUsage, account, household = null, termsInfo = null }: Props) {
+export function CheckoutForm({ products, settings, areas, slots, slotUsage, campaigns = [], account, household = null, termsInfo = null }: Props) {
  const { t, locale } = useT();
  const en = locale === "en";
  const router = useRouter();
- const { lines, customer, saveCustomer, clear, rememberOrder } = useCart();
  const [mounted, setMounted] = useState(false);
  const [step, setStep] = useState(0);
  const segment = segmentOf(account);
  const now = useMemo(() => nowJakarta(), []);
- const dates = useMemo(() => availableDates(settings, now), [settings, now]);
+ const { lines, customer, saveCustomer, clear, rememberOrder } = useCart();
+ // a cart with a seasonal pre-order product is delivered on the campaign's days instead of the usual days ahead
+ const pre = useMemo(() => cartCampaign(lines, products, campaigns), [lines, products, campaigns]);
+ const preCampaign = pre.campaign;
+ const dates = useMemo(() => (preCampaign ? campaignDates(preCampaign, settings, now) : availableDates(settings, now)), [preCampaign, settings, now]);
  const segSlots = useMemo(() => slotsForSegment(slots, segment), [slots, segment]);
 
  const [name, setName] = useState("");
@@ -45,11 +49,14 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  const [saveNew, setSaveNew] = useState(true);
  const [newLabel, setNewLabel] = useState("");
  const [date, setDate] = useState(dates[0]);
+ // the saved cart arrives after the first render: move to a valid day once the pre-order is known
+ useEffect(() => { if (!dates.includes(date)) setDate(dates[0]); }, [dates, date]);
  const turnstileOn = useTurnstileOn();
  const [tsToken, setTsToken] = useState<string | null>(null);
  const [tsReset, setTsReset] = useState(0);
  const [slotId, setSlotId] = useState("");
  const [payment, setPayment] = useState<PaymentMethod>("qris");
+ useEffect(() => { if (preCampaign && payment === "cod") setPayment("qris"); }, [preCampaign, payment]);
  const [note, setNote] = useState("");
  const [subst, setSubst] = useState<Substitution>("contact");
  // gift: sent to someone else, paid by the buyer; the name and address fields become the recipient's
@@ -107,7 +114,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
     ? (locale === "en" ? `This order is above your remaining tempo credit (${rupiah(termsRoom)}). Choose another payment method or contact us.` : `Pesanan ini melebihi batas kredit tempo akun Anda (sisa ${rupiah(termsRoom)}). Pilih metode pembayaran lain atau hubungi kami.`)
     : null);
  const payOptions: PaymentMethod[] = ["qris", "transfer"];
- if (segment === "business" && account?.allow_cod) payOptions.push("cod");
+ if (segment === "business" && account?.allow_cod && !preCampaign) payOptions.push("cod"); // a pre-order is paid in advance
  if (segment === "business" && account && account.payment_terms !== "prepaid") payOptions.push("terms");
 
  const checkPromo = () => {
@@ -117,10 +124,14 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  if (r.promo) { setPromo(r.promo); setPromoMsg(null); } else { setPromo(null); setPromoMsg(r.promo_error ?? "Kode promo tidak ditemukan."); }
     });
   };
+ // same rules as the database: one campaign per order, only while it is open, and a total known now unless on tempo
+ const preProblem = pre.error
+   ?? (preCampaign && campaignState(preCampaign, now, settings.cutoff_time) !== "open" || preCampaign && !preCampaign.is_active ? preorderDateError(preCampaign, settings, now, dates[0] ?? "") : null)
+   ?? (preCampaign ? preorderPaymentError(payment === "cod" ? "qris" : payment, q.has_catch_weight) : null);
  const step1ok = Boolean(name.trim() && isValidPhone(phone) && address.trim() && areaId && (!gift || isValidPhone(giftPhone)));
  const step2ok = Boolean(date && slotId);
  const needHuman = turnstileOn && !account && !household;
- const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && step1ok && step2ok && !pending && (!needHuman || Boolean(tsToken)) && !(payment === "terms" && termsProblem);
+ const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && !preProblem && step1ok && step2ok && !pending && (!needHuman || Boolean(tsToken)) && !(payment === "terms" && termsProblem);
 
  const submit = () => {
  if (submitting.current) return; // synchronous guard: the disabled state only applies after a re-render
@@ -215,7 +226,12 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
           <>
             <section className="card p-5">
               <h2 className="text-lg text-ocean-950">{t.checkout.schedule}</h2>
-              <p className="mt-1 text-xs text-mute">{fmt(t.checkout.cutoffNote, { time: jam(settings.cutoff_time) })}</p>
+              {preCampaign && preCampaign.is_active ? (
+                <p className="mt-2 border-l-4 border-coral-500 bg-coral-50 px-3 py-2 text-xs leading-relaxed" data-preorder>
+                  <b>{en ? `Pre-order: ${preCampaign.name_en || preCampaign.name}` : `Pre-order ${preCampaign.name}`}</b>{" · "}
+                  {en ? `delivered ${dayRange(preCampaign.deliver_from, preCampaign.deliver_to, "en")}, paid in advance. We buy it at the auction to the number of orders.` : `dikirim ${dayRange(preCampaign.deliver_from, preCampaign.deliver_to)}, dibayar di muka. Kami membelinya di lelang sesuai jumlah pesanan.`}
+                </p>
+              ) : <p className="mt-1 text-xs text-mute">{fmt(t.checkout.cutoffNote, { time: jam(settings.cutoff_time) })}</p>}
               <div className="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 scrollbar-none">
                 {dates.map((d) => <button key={d} type="button" onClick={() => setDate(d)} className={`chip flex-none ${date === d ? "chip-on" : ""}`}>{relativeDayLabel(d, now.date, locale)}</button>)}
               </div>
@@ -295,7 +311,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
             <div className="flex justify-between"><dt className="text-mute">{t.cart.shipping}</dt><dd>{areaId ? (q.delivery_fee ? rupiah(q.delivery_fee) : <span className="font-bold text-success-600">{t.common.free}</span>) : "—"}</dd></div>
             <div className="flex justify-between border-t border-line pt-2 text-base"><dt className="font-bold">{t.shop.total} {q.has_catch_weight && <span className="text-xs font-normal text-mute">({t.common.estimated})</span>}</dt><dd className="text-xl font-bold text-ocean-950">{rupiah(q.total)}</dd></div>
           </dl>
-          {q.errors.length > 0 && <div className="mt-3 bg-coral-50 px-3 py-2 text-xs text-gold-ink">{q.errors.map((e) => <p key={e}>{e}</p>)}</div>}
+          {(q.errors.length > 0 || preProblem) && <div className="mt-3 bg-coral-50 px-3 py-2 text-xs text-gold-ink">{[...q.errors, ...(preProblem ? [preProblem] : [])].map((e) => <p key={e}>{e}</p>)}</div>}
           {error && <div className="mt-3 bg-coral-50 px-3 py-2 text-sm text-gold-ink">{error}</div>}
           {step === 2 ? (
             <>

@@ -2,6 +2,7 @@
 // Household weekly boxes ("Kotak mingguan"): a signed-in household subscribes to a box of its own items, delivered
 // every week or every second week. The evening job (src/lib/standing.ts) turns each box into a normal order.
 import { revalidatePath } from "next/cache";
+import { everyday } from "@/lib/campaigns";
 import { getRepo } from "@/lib/data";
 import { getCurrentCustomer } from "@/lib/customer";
 import { allow, clientIp, TOO_MANY } from "@/lib/guard";
@@ -26,7 +27,7 @@ export async function saveBoxAction(input: BoxInput): Promise<R<StandingOrder>> 
   const existing = input?.id ? mine.find((s) => s.id === input.id) : null;
   if (input?.id && !existing) return { ok: false, error: NOT_FOUND };
   if (!existing && mine.length >= MAX_BOXES) return { ok: false, error: `Maksimal ${MAX_BOXES} kotak mingguan per akun.` };
-  const [addresses, products, slots, areas, settings] = await Promise.all([repo.listAddresses(customer.id), repo.getProducts(), repo.getSlots(), repo.getAreas(), repo.getSettings()]);
+  const [addresses, products, slots, areas, settings] = await Promise.all([repo.listAddresses(customer.id), repo.getProducts().then(everyday), repo.getSlots(), repo.getAreas(), repo.getSettings()]);
   // keep only what is validated: one real weekday, positive quantities, short texts
   const clean: BoxInput = {
     id: existing?.id,

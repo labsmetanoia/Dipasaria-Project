@@ -7,13 +7,13 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   await requireAdmin();
   const { id } = await params;
   const repo = await getRepo();
-  const [products, categories] = await Promise.all([repo.getProducts({ includeInactive: true, includeCost: true }), repo.getCategories()]);
+  const [products, categories, campaigns] = await Promise.all([repo.getProducts({ includeInactive: true, includeCost: true }), repo.getCategories(), repo.getCampaigns({ includeInactive: true })]);
   const product = products.find((p) => p.id === id);
   if (!product) notFound();
   return (
     <div className="space-y-4">
       <div><p className="eyebrow">Katalog</p><h1 className="text-2xl text-ocean-900">{product.name}</h1></div>
-      <ProductForm product={product} categories={categories} />
+      <ProductForm product={product} categories={categories} campaigns={campaigns} />
     </div>
   );
 }

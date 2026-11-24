@@ -1,4 +1,5 @@
 import type {
+  Campaign,
   Rating,
   ProductRating,
   OrderFact,
@@ -45,6 +46,8 @@ export interface OrderFilter {
   date?: string;
   status?: OrderStatus | "open";
   segment?: "retail" | "business";
+  /** orders placed under this seasonal pre-order, any delivery date */
+  campaignId?: string;
   q?: string;
   limit?: number;
 }
@@ -70,6 +73,8 @@ export interface Repo {
   getAreas(opts?: { includeInactive?: boolean }): Promise<DeliveryArea[]>;
   getSlots(opts?: { includeInactive?: boolean }): Promise<DeliverySlot[]>;
   getPromoByCode(code: string): Promise<Promo | null>;
+  /** Seasonal pre-orders, newest delivery first; switched-off ones only with includeInactive (back-office). */
+  getCampaigns(opts?: { includeInactive?: boolean }): Promise<Campaign[]>;
   /** Booked orders per date|slot for capacity display. */
   getSlotUsage(dates: string[]): Promise<Record<string, number>>;
 
@@ -109,6 +114,9 @@ export interface Repo {
   setProductAvailability(productId: string, available: boolean): Promise<Result<void>>;
   upsertPrepOption(p: Product["prep_options"][number]): Promise<Result<void>>;
   deletePrepOption(id: string): Promise<Result<void>>;
+
+  /** Create (no id) or update a seasonal pre-order; validated by campaignError. */
+  saveCampaign(c: Omit<Campaign, "id" | "created_at"> & { id?: string }): Promise<Result<Campaign>>;
 
   listPromos(): Promise<Promo[]>;
   upsertPromo(p: Promo): Promise<Result<Promo>>;

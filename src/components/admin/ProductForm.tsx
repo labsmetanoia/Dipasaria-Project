@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, Trash2 } from "lucide-react";
-import type { Category, PrepOption, Product, Variant } from "@/lib/types";
+import type { Campaign, Category, PrepOption, Product, Variant } from "@/lib/types";
 import { createVariantAction, deletePrepOptionAction, upsertPrepOptionAction, upsertProductAction, updateVariantAction } from "@/actions/admin";
 import { Field } from "@/components/ui";
 import { slugify } from "@/lib/format";
@@ -10,7 +10,7 @@ import { UNIT_LABEL } from "@/lib/config";
 
 const ICONS = ["fish", "shrimp", "squid", "fillet", "chicken", "egg", "bottle", "box", "snow"];
 
-export function ProductForm({ product, categories }: { product: Product | null; categories: Category[] }) {
+export function ProductForm({ product, categories, campaigns = [] }: { product: Product | null; categories: Category[]; campaigns?: Campaign[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -43,6 +43,7 @@ export function ProductForm({ product, categories }: { product: Product | null; 
           <Field label="Kategori"><select className="input" value={p.category_id} onChange={(e) => set("category_id", e.target.value)}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
           <Field label="Slug URL"><input className="input" value={p.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugify(p.name) || "otomatis"} /></Field>
           <Field label="Penyimpanan"><select className="input" value={p.storage_class} onChange={(e) => set("storage_class", e.target.value as Product["storage_class"])}><option value="chilled">Segar 0–4 °C</option><option value="frozen">Beku −18 °C</option><option value="ambient">Suhu ruang</option></select></Field>
+          <Field label="Pre-order musiman" hint="Produk pre-order hanya dijual di halaman pre-order-nya, untuk tanggal kirimnya, dan harus berharga tetap."><select className="input" value={p.campaign_id ?? ""} onChange={(e) => set("campaign_id", e.target.value || null)}><option value="">Bukan pre-order (katalog harian)</option>{campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}{c.is_active ? "" : " (nonaktif)"}</option>)}</select></Field>
           <Field label="Ikon"><select className="input" value={p.icon} onChange={(e) => set("icon", e.target.value)}>{ICONS.map((i) => <option key={i}>{i}</option>)}</select></Field>
         </div>
         <Field label="Deskripsi (ID)"><textarea className="input" rows={3} value={p.description} onChange={(e) => set("description", e.target.value)} /></Field>

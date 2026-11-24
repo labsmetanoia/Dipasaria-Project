@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { everyday } from "@/lib/campaigns";
 import { getRepo } from "@/lib/data";
 import { getCurrentAccount, setBusinessSession, clearBusinessSession } from "@/lib/auth";
 import type { AccountApplication, CartLine, Order, PlaceOrderInput, Promo, Quote } from "@/lib/types";
@@ -157,7 +158,8 @@ export async function saveStandingOrderAction(input: StandingOrderInput): Promis
   if (!account) return { ok: false, error: "Masuk dengan akun bisnis untuk membuat pesanan rutin." };
   const repo = await getRepo();
   if (input.id && !(await ownStanding(input.id, account.id))) return { ok: false, error: "Pesanan rutin tidak ditemukan." };
-  const [products, slots] = await Promise.all([repo.getProducts(), repo.getSlots()]);
+  // pre-order products are bought for one occasion, never on a weekly rhythm
+  const [products, slots] = await Promise.all([repo.getProducts().then(everyday), repo.getSlots()]);
   const [settings, areas] = await Promise.all([repo.getSettings(), repo.getAreas()]);
   const err = validateStanding(input, account, products, slots, { settings, areas, now: nowJakarta() });
   if (err) return { ok: false, error: err };

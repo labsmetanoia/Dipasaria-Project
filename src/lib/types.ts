@@ -108,8 +108,30 @@ export interface Product {
   weekly_contents?: string;
   weekly_contents_en?: string | null;
   weekly_contents_at?: string | null;
+  /** seasonal pre-order this product belongs to (sold only on its campaign page, for its delivery days) */
+  campaign_id?: string | null;
   variants: Variant[];
   prep_options: PrepOption[];
+}
+
+/**
+ * A seasonal pre-order (New Year's Eve, Chinese New Year, Lebaran): its own page and products, ordering from opens_on
+ * until the shop cut-off on order_by, delivery on a day from deliver_from to deliver_to, paid in advance.
+ */
+export interface Campaign {
+  id: string;
+  slug: string;
+  name: string;
+  name_en: string | null;
+  intro: string;
+  intro_en: string | null;
+  image_url: string | null;
+  opens_on: string;
+  order_by: string;
+  deliver_from: string;
+  deliver_to: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface DeliveryArea {
@@ -247,6 +269,8 @@ export interface Order {
   gift_message?: string | null;
   gift_from?: string | null;
   recipient_phone?: string | null;
+  /** seasonal pre-order the order was placed under */
+  campaign_id?: string | null;
   customer_note: string;
   internal_note: string;
   created_at: string;

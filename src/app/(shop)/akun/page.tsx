@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { everyday } from "@/lib/campaigns";
 import { LogOut, Store, MessageCircle } from "lucide-react";
 import { getRepo } from "@/lib/data";
 import { getCurrentAccount } from "@/lib/auth";
@@ -104,7 +105,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </div>
       );
     }
-    const [orders, addresses, areas, boxes, products, slots] = await Promise.all([repo.getOrdersByPhone(customer.phone, 20), repo.listAddresses(customer.id), repo.getAreas(), repo.listStandingOrders({ customerId: customer.id }), repo.getProducts(), repo.getSlots()]);
+    const [orders, addresses, areas, boxes, products, slots] = await Promise.all([repo.getOrdersByPhone(customer.phone, 20), repo.listAddresses(customer.id), repo.getAreas(), repo.listStandingOrders({ customerId: customer.id }), repo.getProducts().then(everyday), repo.getSlots()]);
     const boxRuns = (await Promise.all(boxes.map((b) => repo.listStandingRuns({ standingOrderId: b.id, limit: 4 })))).flat();
     // What a box can start from: the ready-made value boxes, then the customer's latest orders (the cart is added in the browser).
     const presets: BoxPreset[] = [
@@ -137,7 +138,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       </div>
     );
   }
-  const [orders, slots, standing, products, receivables] = await Promise.all([repo.getOrdersForAccount(account.id, 10), repo.getSlots(), repo.listStandingOrders({ accountId: account.id }), repo.getProducts(), repo.listReceivables({ accountId: account.id })]);
+  const [orders, slots, standing, products, receivables] = await Promise.all([repo.getOrdersForAccount(account.id, 10), repo.getSlots(), repo.listStandingOrders({ accountId: account.id }), repo.getProducts().then(everyday), repo.listReceivables({ accountId: account.id })]);
   const ledger = buildLedger(account, receivables.orders, receivables.payments, receivables.allocations);
   const blocked = account.payment_terms === "prepaid" ? null : termsBlock(ledger, account, settings, 0);
   const runs = (await Promise.all(standing.map((s) => repo.listStandingRuns({ standingOrderId: s.id, limit: 3 })))).flat();

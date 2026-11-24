@@ -77,7 +77,7 @@ export function productDescription(p: Product, cutoff: string): string {
  * Product data for Google: one offer per size sold to households, with price, currency and availability.
  * Items sold by weight carry the price per kilogram. Null for products sold only to restaurants.
  */
-export function productLd(p: Product, category: Category | undefined, rating?: { average: number; count: number } | null) {
+export function productLd(p: Product, category: Category | undefined, rating?: { average: number; count: number } | null, preorderOpen = false) {
   // Restaurant-only products publish no household price; without an offer Google rejects the item, so none is sent.
   if (!retailVariants(p).length) return null;
   const url = abs(`/belanja/produk/${p.slug}`);
@@ -89,7 +89,8 @@ export function productLd(p: Product, category: Category | undefined, rating?: {
     price: v.price_retail,
     priceCurrency: "IDR",
     ...(p.is_catch_weight ? { priceSpecification: { "@type": "UnitPriceSpecification", price: v.price_retail, priceCurrency: "IDR", referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "KGM" } } } : {}),
-    availability: `https://schema.org/${inStock(p, v) ? "InStock" : "OutOfStock"}`,
+    // a seasonal pre-order is sold now and delivered on its campaign days; closed or sold out reads as out of stock
+    availability: `https://schema.org/${!inStock(p, v) || (p.campaign_id && !preorderOpen) ? "OutOfStock" : p.campaign_id ? "PreOrder" : "InStock"}`,
     itemCondition: "https://schema.org/NewCondition",
     seller: { "@type": "Organization", name: BRAND.name },
   }));

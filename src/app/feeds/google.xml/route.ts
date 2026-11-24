@@ -2,6 +2,7 @@
 // into Merchant Center → Products → Feeds ("scheduled fetch"). One item per size sold to households, with the
 // same price and availability the product page shows. Prices of items sold by weight are per kilogram.
 import { getRepo } from "@/lib/data";
+import { everyday } from "@/lib/campaigns";
 import { BRAND, SITE_URL } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ const abs = (p: string) => (/^https?:\/\//.test(p) ? p : `${SITE_URL}${p}`);
 
 export async function GET() {
   const repo = await getRepo();
-  const [products, categories] = await Promise.all([repo.getProducts(), repo.getCategories()]);
+  const [products, categories] = await Promise.all([repo.getProducts().then(everyday), repo.getCategories()]);
   const items: string[] = [];
   for (const p of products) {
     if (!p.is_active || !p.image_url) continue; // Google requires a photo

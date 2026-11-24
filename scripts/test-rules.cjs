@@ -177,6 +177,53 @@ const check = (cond, name) => { if (cond) { oks++; console.log("ok: " + name); }
   const pick2 = (await repo.getProducts()).find((p) => p.id === pick.id);
   check(pick2.weekly_contents === "Kakap merah 1 ekor, udang windu 500 g" && pick2.weekly_contents_en === "Red snapper, tiger prawns 500 g" && Boolean(pick2.weekly_contents_at), "this week's contents are stored with the time they were set");
 
+
+  // ---------- seasonal pre-orders ----------
+  const C = await jiti.import("../src/lib/campaigns.ts");
+  const nowJ = nowJakarta();
+  const cTest = { opens_on: "2026-12-01", order_by: "2026-12-27", deliver_from: "2026-12-30", deliver_to: "2026-12-31" };
+  check(C.campaignState(cTest, { date: "2026-11-30", minutesOfDay: 600 }, "20:00") === "upcoming" && C.campaignState(cTest, { date: "2026-12-27", minutesOfDay: 1199 }, "20:00") === "open"
+    && C.campaignState(cTest, { date: "2026-12-27", minutesOfDay: 1200 }, "20:00") === "closed" && C.campaignState(cTest, { date: "2027-01-01", minutesOfDay: 0 }, "20:00") === "over", "a pre-order opens on its day, closes at the cut-off on its last order day, and is over after its last delivery");
+  check(C.dayRange("2026-12-30", "2026-12-31") === "30–31 Des" && C.dayRange("2026-12-31", "2027-01-02").includes("–") && C.dayRange("2027-02-06", "2027-02-06") === "6 Feb", "delivery days read as a short range");
+  check(JSON.stringify(C.campaignDates({ ...cTest, is_active: true }, { cutoff_time: "20:00" }, { date: "2026-12-20", minutesOfDay: 600 })) === JSON.stringify(["2026-12-30", "2026-12-31"]), "a pre-order's delivery days lie beyond the usual six days ahead");
+  check(/sebelum hari pengiriman pertama/.test(C.campaignError({ slug: "x-1", name: "Uji", ...cTest, order_by: "2026-12-30" }) || "") && /14 hari/.test(C.campaignError({ slug: "x-1", name: "Uji", ...cTest, deliver_to: "2027-01-20" }) || "") && C.campaignError({ slug: "x-1", name: "Uji", ...cTest }) === null, "a campaign closes before its deliveries start and delivers within two weeks");
+  const camp = await repo.saveCampaign({ slug: "uji-musim", name: "Uji Musim", name_en: null, intro: "", intro_en: null, image_url: null, is_active: true,
+    opens_on: addDays(nowJ.date, -1), order_by: addDays(nowJ.date, 3), deliver_from: addDays(nowJ.date, 10), deliver_to: addDays(nowJ.date, 12) });
+  check(camp.ok && (await repo.saveCampaign({ ...camp.data, id: undefined })).error === "Alamat halaman ini sudah dipakai pre-order lain.", "each campaign has its own page address");
+  const allP = await repo.getProducts({ includeInactive: true, includeCost: true });
+  const udang = allP.find((p) => p.id === "p_ty_udang"), bakar = allP.find((p) => p.id === "p_ty_bakar");
+  const strip = ({ variants, prep_options, ...rest }) => rest;
+  await repo.upsertProduct({ ...strip(udang), campaign_id: camp.data.id });
+  await repo.upsertProduct({ ...strip(bakar), campaign_id: camp.data.id });
+  check((await repo.upsertProduct({ ...strip(udang), campaign_id: camp.data.id, is_catch_weight: true })).ok === false, "a pre-order product cannot be sold by weight");
+  check(!C.everyday(await repo.getProducts()).some((p) => p.campaign_id), "pre-order products stay off the everyday shelves");
+  const preDay = addDays(nowJ.date, 11);
+  const preInput = { customer_name: "Ibu Musim", phone: "081377770095", address: "Jl. Uji Musim 5", area_id: "a_selatan", delivery_date: preDay, slot_id: "s_sore", payment_method: "qris", lines: [{ product_id: "p_ty_udang", variant_id: "v_ty_udang", qty: 2, prep_option_id: null }] };
+  const stockBefore = udang.variants[0].stock_qty;
+  const pre1 = await repo.placeOrder(preInput, null);
+  check(pre1.ok && pre1.data.campaign_id === camp.data.id && pre1.data.delivery_date === preDay && pre1.data.pay_by && pre1.data.total_final !== null, "a pre-order is placed for a campaign day, with a known total and a payment deadline");
+  check((await repo.getProducts()).find((p) => p.id === "p_ty_udang").variants[0].stock_qty === stockBefore - 2, "a pre-order takes from the limited quantity");
+  check(/dikirim tanggal/.test((await repo.placeOrder({ ...preInput, delivery_date: availableDates(await repo.getSettings(), nowJ)[0] }, null)).error || ""), "a pre-order cannot be delivered outside its campaign days");
+  await repo.updateSettings({ max_days_ahead: 6 }); // the box section above widened it
+  const everydayFar = (await repo.placeOrder({ ...preInput, lines: [{ product_id: "p_kakap", variant_id: "v_kakap_l", qty: 3, prep_option_id: null }] }, null)).error || "";
+  check(/Tanggal pengiriman tidak tersedia/.test(everydayFar), "an everyday order cannot use a campaign's far-off day" + (/Tanggal/.test(everydayFar) ? "" : ` (${everydayFar})`));
+  check(/tidak dapat digabung/.test((await repo.placeOrder({ ...preInput, lines: [...preInput.lines, { product_id: "p_kakap", variant_id: "v_kakap_l", qty: 2, prep_option_id: null }] }, null)).error || ""), "a paid-in-advance pre-order cannot include weighed fish");
+  check(/\(COD\) tidak tersedia/.test((await repo.placeOrder({ ...preInput, slot_id: "s_dapur", payment_method: "cod", lines: [{ product_id: "p_ty_bakar", variant_id: "v_ty_bakar_s", qty: 2, prep_option_id: null }] }, bahariAcc)).error || ""), "a pre-order is never cash on delivery");
+  const preTerms = await repo.placeOrder({ ...preInput, customer_name: "Seafood Bahari Gading", slot_id: "s_dapur", payment_method: "terms", lines: [{ product_id: "p_ty_bakar", variant_id: "v_ty_bakar_s", qty: 2, prep_option_id: null }, { product_id: "p_kakap", variant_id: "v_kakap_l", qty: 3, prep_option_id: null }] }, bahariAcc);
+  check(preTerms.ok && preTerms.data.campaign_id === camp.data.id, "a restaurant on tempo may add weighed fish to its pre-order");
+  const camp2 = await repo.saveCampaign({ ...camp.data, id: undefined, slug: "uji-musim-2", name: "Uji Musim Dua" });
+  await repo.upsertProduct({ ...strip(bakar), campaign_id: camp2.data.id });
+  check(/satu pre-order musiman/.test((await repo.placeOrder({ ...preInput, lines: [...preInput.lines, { product_id: "p_ty_bakar", variant_id: "v_ty_bakar_s", qty: 1, prep_option_id: null }] }, null)).error || ""), "one order holds one campaign");
+  await repo.saveCampaign({ ...camp2.data, is_active: false });
+  check(/belum dibuka/.test((await repo.placeOrder({ ...preInput, lines: [{ product_id: "p_ty_bakar", variant_id: "v_ty_bakar_s", qty: 1, prep_option_id: null }] }, null)).error || ""), "a switched-off campaign takes no orders");
+  await repo.saveCampaign({ ...camp2.data, is_active: true, opens_on: addDays(nowJ.date, -5), order_by: addDays(nowJ.date, -1) });
+  check(/sudah ditutup/.test((await repo.placeOrder({ ...preInput, lines: [{ product_id: "p_ty_bakar", variant_id: "v_ty_bakar_s", qty: 1, prep_option_id: null }] }, null)).error || ""), "a closed campaign takes no orders");
+  await repo.setPaymentStatus(pre1.data.id, "paid");
+  await repo.placeOrder({ ...preInput, phone: "081377770096", delivery_date: addDays(nowJ.date, 12), lines: [{ product_id: "p_ty_udang", variant_id: "v_ty_udang", qty: 1, prep_option_id: null }] }, null);
+  const sum = C.campaignSummary(await repo.listOrders({ campaignId: camp.data.id }), new Set(["p_ty_udang", "p_ty_bakar"]));
+  const row = sum.plan.find((r) => r.variant_id === "v_ty_udang");
+  check(sum.orders === 3 && row.byDate[preDay].paid === 2 && row.byDate[addDays(nowJ.date, 12)].unpaid === 1 && sum.plan.find((r) => r.variant_id === "v_ty_bakar_s").paid === 2, "the buying plan splits paid (and tempo) quantities from unpaid ones, per delivery day");
+
   // ---------- morning brief ----------
   const B = await jiti.import("../src/lib/brief.ts");
   const briefDate = giftDate;
@@ -184,6 +231,7 @@ const check = (cond, name) => { if (cond) { oks++; console.log("ok: " + name); }
   check(brief.text.startsWith("Ringkasan pagi · ") && /Pengiriman: \d+ pesanan/.test(brief.text) && /Belanja subuh \(\d+ baris, \d+ segar\):/.test(brief.text), "the brief opens with the day's deliveries and the buying list");
   check(/hadiah \(tanpa nota harga\)/.test(brief.text), "the brief counts gifts, so nobody packs a price note");
   check(/Piutang lewat jatuh tempo Rp/.test(brief.text) && /RM Padang Sinar Minang/.test(brief.text) && brief.attention >= 1, "the brief lists overdue receivables under 'needs attention'");
+  check(/Pre-order Uji Musim: 3 pesanan \(2 lunas\/tempo\)/.test(brief.text), "the brief reports open pre-orders: orders, paid and when they close");
   check(brief.text.length <= 3500 && brief.text.split("\n").filter((l) => l.startsWith("• ")).length <= 20, "the brief stays short enough for one chat message");
   const quiet = await B.buildBrief(repo, "2030-01-01");
   check(/Tidak ada pengiriman hari ini\./.test(quiet.text) && !/Belanja subuh/.test(quiet.text), "a day without deliveries says so and lists no buying");

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { everyday } from "@/lib/campaigns";
 import { getRepo } from "@/lib/data";
 import { getCurrentAccount } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
@@ -14,7 +15,7 @@ import { JsonLd } from "@/components/JsonLd";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const repo = await getRepo();
-  const [categories, products] = await Promise.all([repo.getCategories(), repo.getProducts()]);
+  const [categories, products] = await Promise.all([repo.getCategories(), repo.getProducts().then(everyday)]);
   const cat = categories.find((c) => c.slug === slug);
   if (!cat) return { title: "Kategori tidak ditemukan", robots: NOINDEX };
   const list = products.filter((p) => p.category_id === cat.id);
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const repo = await getRepo();
-  const [categories, products, account, { locale }] = await Promise.all([repo.getCategories(), repo.getProducts(), getCurrentAccount(), getT()]);
+  const [categories, products, account, { locale }] = await Promise.all([repo.getCategories(), repo.getProducts().then(everyday), getCurrentAccount(), getT()]);
   const cat = categories.find((c) => c.slug === slug);
   if (!cat) notFound();
   const list = products.filter((p) => p.category_id === cat.id);

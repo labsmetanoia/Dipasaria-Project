@@ -90,3 +90,5 @@ Photographer names come from Pexels search listings; where none was listed, chec
 | `public/images/products/garam-laut.jpg` | [4475228](https://www.pexels.com/photo/4475228/) | Maria Petersson | exact |
 | `public/images/products/jeruk-nipis.jpg` | [6431962](https://www.pexels.com/photo/6431962/) | Skylar Kang | exact |
 | `public/images/products/paket-ikan-bakar.jpg` | [19239119](https://www.pexels.com/photo/19239119/) | see Pexels page | close: grilled whole fish platter |
+| `public/images/products/paket-bakar-malam-tahun-baru.jpg` | [19239119](https://www.pexels.com/photo/19239119/) | see Pexels page | copy of paket-ikan-bakar.jpg for the New Year's Eve pre-order; replace with your own photo |
+| `public/images/products/udang-windu-jumbo-tahun-baru.jpg` | [32230042](https://www.pexels.com/photo/32230042/) | see Pexels page | copy of udang-windu.jpg for the New Year's Eve pre-order; replace with your own photo |

@@ -1,7 +1,7 @@
 // Generates supabase/seed.sql from src/lib/data/seed.ts so both modes share one catalogue.
 // Run: node scripts/gen-seed.mts
 import { writeFileSync } from "node:fs";
-import { seedAccounts, seedAreas, seedCategories, seedProducts, seedPromos, seedSettings, seedSlots } from "../src/lib/data/seed.ts";
+import { seedAccounts, seedAreas, seedCampaigns, seedCategories, seedProducts, seedPromos, seedSettings, seedSlots } from "../src/lib/data/seed.ts";
 
 const q = (v: unknown): string => {
   if (v === null || v === undefined) return "null";
@@ -26,8 +26,12 @@ sql += `insert into settings (id, ${sc.join(", ")}) values (1, ${sc.map((k) => q
 
 sql += insert("categories", ["id", "slug", "name", "name_en", "description", "description_en", "sort", "icon", "image_url", "is_seafood"], seedCategories.map((c) => [c.id, c.slug, c.name, c.name_en, c.description, c.description_en, c.sort, c.icon, c.image_url, c.is_seafood])) + "\n";
 
-const pc = ["id", "slug", "category_id", "name", "name_en", "scientific_name", "aliases", "description", "description_en", "origin", "origin_en", "storage_class", "storage_note", "storage_note_en", "is_catch_weight", "available_today", "is_active", "is_featured", "image_url", "icon", "sort", "curated"] as const;
-sql += insert("products", [...pc], seedProducts.map((p) => pc.map((k) => (k === "curated" ? p.curated ?? false : p[k])))) + "\n";
+// Campaigns start switched off on a real project: the owner sets the dates and prices, then switches the page on.
+const cc = ["id", "slug", "name", "name_en", "intro", "intro_en", "image_url", "opens_on", "order_by", "deliver_from", "deliver_to", "is_active"] as const;
+sql += insert("campaigns", [...cc], seedCampaigns.map((c) => cc.map((k) => (k === "is_active" ? false : c[k])))) + "\n";
+
+const pc = ["id", "slug", "category_id", "name", "name_en", "scientific_name", "aliases", "description", "description_en", "origin", "origin_en", "storage_class", "storage_note", "storage_note_en", "is_catch_weight", "available_today", "is_active", "is_featured", "image_url", "icon", "sort", "curated", "campaign_id"] as const;
+sql += insert("products", [...pc], seedProducts.map((p) => pc.map((k) => (k === "curated" ? p.curated ?? false : k === "campaign_id" ? p.campaign_id ?? null : p[k])))) + "\n";
 
 const vc = ["id", "product_id", "label", "label_en", "unit", "min_qty", "step_qty", "price_retail", "price_business", "cost", "stock_qty", "business_only", "is_active", "sort"] as const;
 sql += insert("variants", [...vc], seedProducts.flatMap((p) => p.variants.map((v) => vc.map((k) => v[k])))) + "\n";

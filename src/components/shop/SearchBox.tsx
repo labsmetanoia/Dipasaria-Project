@@ -6,7 +6,7 @@ import { ProductCard } from "./ProductCard";
 import { useT } from "@/lib/i18n/client";
 import { fmt } from "@/lib/i18n/dict";
 
-export function SearchBox({ products, segment, discountPct }: { products: Product[]; segment: Segment; discountPct?: number }) {
+export function SearchBox({ products, segment, discountPct, preorders = {} }: { products: Product[]; segment: Segment; discountPct?: number; preorders?: Record<string, { text: string; open: boolean }> }) {
  const { t, locale } = useT();
  const [q, setQ] = useState("");
  const results = useMemo(() => {
@@ -33,7 +33,7 @@ export function SearchBox({ products, segment, discountPct }: { products: Produc
       )}
       {q && (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-          {results.length ? results.map((p) => <ProductCard key={p.id} p={p} segment={segment} discountPct={discountPct} locale={locale} />) : <p className="col-span-full py-10 text-center text-sm text-mute">{fmt(t.shop.noResults, { q })}</p>}
+          {results.length ? results.map((p) => <ProductCard key={p.id} p={p} segment={segment} discountPct={discountPct} locale={locale} preorder={preorders[p.id] ?? null} />) : <p className="col-span-full py-10 text-center text-sm text-mute">{fmt(t.shop.noResults, { q })}</p>}
         </div>
       )}
     </div>

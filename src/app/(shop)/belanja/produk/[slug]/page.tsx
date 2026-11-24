@@ -25,12 +25,22 @@ import { TrackView } from "@/components/Track";
 import { recipesForProduct } from "@/lib/content/recipes";
 import { recipeTotal, resolveRecipe } from "@/lib/content/recipe-items";
 import { RecipeCard } from "@/components/site/RecipeCard";
+import { campaignState, everyday, isListed, preorderBadge, preorderFacts } from "@/lib/campaigns";
+import { nowJakarta } from "@/lib/format";
+import type { Campaign, Settings } from "@/lib/types";
+
+/** The listed campaign of a pre-order product; null when the product is everyday, undefined when its campaign is not public. */
+function campaignOf(campaignId: string | null | undefined, campaigns: Campaign[], settings: Settings): Campaign | null | undefined {
+  if (!campaignId) return null;
+  const c = campaigns.find((x) => x.id === campaignId);
+  return c && isListed(c, nowJakarta(), settings.cutoff_time) ? c : undefined;
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const repo = await getRepo();
-  const [p, settings] = await Promise.all([repo.getProductBySlug(slug), repo.getSettings()]);
-  if (!p) return { title: "Produk tidak ditemukan", robots: NOINDEX };
+  const [p, settings, campaigns] = await Promise.all([repo.getProductBySlug(slug), repo.getSettings(), repo.getCampaigns()]);
+  if (!p || campaignOf(p.campaign_id, campaigns, settings) === undefined) return { title: "Produk tidak ditemukan", robots: NOINDEX };
   return pageMeta({ title: productTitle(p), description: productDescription(p, settings.cutoff_time), path: `/belanja/produk/${p.slug}`, image: p.image_url });
 }
 
@@ -42,8 +52,12 @@ const FAQ = {
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const repo = await getRepo();
-  const [product, account, categories, products, { locale, t }, ratings] = await Promise.all([repo.getProductBySlug(slug), getCurrentAccount(), repo.getCategories(), repo.getProducts(), getT(), repo.productRatings()]);
+  const [product, account, categories, products, { locale, t }, ratings, campaigns, settings] = await Promise.all([repo.getProductBySlug(slug), getCurrentAccount(), repo.getCategories(), repo.getProducts().then(everyday), getT(), repo.productRatings(), repo.getCampaigns(), repo.getSettings()]);
   if (!product) notFound();
+  // a pre-order product is public while its campaign is switched on and not over
+  const campaign = campaignOf(product.campaign_id, campaigns, settings);
+  if (campaign === undefined) notFound();
+  const badge = campaign ? preorderBadge(campaign, campaignState(campaign, nowJakarta(), settings.cutoff_time), locale === "en") : null;
   // stars appear once enough customers have rated the product, so one early opinion does not define it
   const rated = ratings[product.id] && ratings[product.id].count >= RATING_MIN_SHOWN ? ratings[product.id] : null;
   const cat = categories.find((c) => c.id === product.category_id);
@@ -66,7 +80,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const stepIcons = [<ClipboardList key="a" className="h-5 w-5" />, <CalendarDays key="b" className="h-5 w-5" />, <Fish key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
   const steps = en ? ["Choose products, sizes and preparation", "Pick a delivery day and slot", "We auction, weigh and prepare at dawn", "Delivered cold to your door"] : ["Pilih produk, ukuran, dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, siapkan, dan timbang saat subuh", "Diantar dingin sampai ke pintu Anda"];
   const cookWith = recipesForProduct(product.variants.map((v) => v.id)).slice(0, 3);
-  const jsonLd = [...[productLd(product, cat, rated)].filter((x) => x !== null), breadcrumbLd([["Belanja", "/belanja"], ...(cat ? [[cat.name, `/belanja/kategori/${cat.slug}`] as [string, string]] : []), [product.name, `/belanja/produk/${product.slug}`]])];
+  const jsonLd = [...[productLd(product, cat, rated, badge?.open ?? false)].filter((x) => x !== null), breadcrumbLd([["Belanja", "/belanja"], ...(cat ? [[cat.name, `/belanja/kategori/${cat.slug}`] as [string, string]] : []), [product.name, `/belanja/produk/${product.slug}`]])];
   return (
     <>
       <JsonLd data={jsonLd} />
@@ -82,7 +96,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             {rated && <p className="mt-2 flex items-center gap-2 font-sans text-[13px]"><Stars value={rated.average} /><b>{rated.average.toFixed(1).replace(".", en ? "." : ",")}</b><span className="text-mute">{en ? `from ${rated.count} customers who received it` : `dari ${rated.count} pelanggan yang menerimanya`}</span></p>}
             <p className="mt-1 font-sans text-[13px] text-mute">{en ? product.name : product.name_en}{product.scientific_name && <i> · {product.scientific_name}</i>}</p>
             <WeeklyContents product={product} en={en} />
-            <div className="mt-6"><ProductSheet product={product} account={account} /></div>
+            {campaign && badge && (
+              <div className="mt-5 border-l-4 border-coral-500 bg-sand-50 px-4 py-3" data-preorder-panel>
+                <p className="font-sans text-[10.5px] font-bold uppercase tracking-[0.18em] text-gold-ink">{badge.text}</p>
+                <dl className="mt-2 grid gap-2 font-sans text-[12.5px] sm:grid-cols-3">{preorderFacts(campaign, settings.cutoff_time, en).map(([k, v]) => <div key={k}><dt className="text-mute">{k}</dt><dd className="font-semibold">{v}</dd></div>)}</dl>
+                <Link href={`/belanja/musim/${campaign.slug}`} className="mt-2 inline-block font-sans text-[12px] font-bold text-gold-ink underline">{en ? `All ${campaign.name_en || campaign.name} pre-orders` : `Semua pre-order ${campaign.name}`} →</Link>
+              </div>
+            )}
+            <div className="mt-6"><ProductSheet product={product} account={account} locked={badge && !badge.open ? badge.text : null} /></div>
             {pairs.length > 0 && (
               <div className="mt-8">
                 <p className="eyebrow">{en ? "Often bought together" : "Sering dibeli bersama"}</p>

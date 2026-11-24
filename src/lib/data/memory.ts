@@ -2,6 +2,7 @@
 // It applies the same business rules as the SQL functions, via src/lib/pricing.ts.
 
 import type {
+  Campaign,
   Rating,
   FunnelRow,
   AccountPayment,
@@ -33,12 +34,13 @@ import type {
   Variant,
 } from "../types";
 import type { Repo, Result, SalesRow } from "./repo";
-import { seedAccounts, seedAreas, seedCategories, seedProducts, seedPromos, seedSettings, seedSlots } from "./seed";
+import { seedAccounts, seedAreas, seedCampaigns, seedCategories, seedProducts, seedPromos, seedSettings, seedSlots } from "./seed";
 import { availableDates, lineTotal, quote, segmentOf, slotsForSegment, unitPrice } from "../pricing";
 import { addDays, isValidPhone, jam, jamRange, normalizePhone, nowJakarta } from "../format";
 import { newId, orderCode, randomCode, sessionToken } from "../ids";
 import { TEXT_LIMITS, paymentChangeError, safeMapsUrl, statusChangeError, weighError } from "../orderRules";
 import { amountOf, buildLedger, dueDateFor, termsBlock } from "../receivables";
+import { PREORDER_COD_ERROR, campaignError, cartCampaign, preorderDateError, preorderPaymentError } from "../campaigns";
 
 interface Store {
   settings: Settings;
@@ -55,6 +57,7 @@ interface Store {
   accPayments: AccountPayment[];
   allocations: PaymentAllocation[];
   contracts: ContractPrice[];
+  campaigns: Campaign[];
 }
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -75,6 +78,7 @@ function buildStore(): Store {
     accPayments: [],
     allocations: [],
     contracts: [],
+    campaigns: clone(seedCampaigns),
   };
   seedDemoOrders(store);
   seedReceivables(store);
@@ -351,6 +355,22 @@ export const memoryRepo: Repo = {
     const p = getStore().promos.find((x) => x.code.toUpperCase() === code.trim().toUpperCase());
     return p ? clone(p) : null;
   },
+  async getCampaigns(opts) {
+    const cs = getStore().campaigns.filter((c) => opts?.includeInactive || c.is_active);
+    return clone([...cs].sort((a, b) => b.deliver_from.localeCompare(a.deliver_from)));
+  },
+  async saveCampaign(c) {
+    const store = getStore();
+    const err = campaignError(c);
+    if (err) return fail(err);
+    if (store.campaigns.some((x) => x.slug === c.slug && x.id !== c.id)) return fail("Alamat halaman ini sudah dipakai pre-order lain.");
+    const ex = c.id ? store.campaigns.find((x) => x.id === c.id) : undefined;
+    if (c.id && !ex) return fail("Pre-order tidak ditemukan.");
+    if (ex) { Object.assign(ex, c); return ok(clone(ex)); }
+    const nc: Campaign = { ...c, id: newId("cm"), created_at: new Date().toISOString() };
+    store.campaigns.push(nc);
+    return ok(clone(nc));
+  },
   async getSlotUsage(dates) {
     const out: Record<string, number> = {};
     for (const o of getStore().orders) {
@@ -398,13 +418,20 @@ export const memoryRepo: Repo = {
     if (input.promo_code && q.promo_error) return fail(q.promo_error);
     const area = store.areas.find((a) => a.id === input.area_id && a.is_active);
     if (!area) return fail("Wilayah pengiriman tidak valid.");
-    if (!availableDates(store.settings, now).includes(input.delivery_date)) return fail(`Tanggal pengiriman tidak tersedia. Batas pemesanan untuk pengiriman besok pukul ${jam(store.settings.cutoff_time)} WIB.`);
+    // a pre-order (any line from a seasonal campaign) uses the campaign's delivery days instead (as in SQL place_order)
+    const pre = cartCampaign(input.lines, store.products, store.campaigns);
+    if (pre.error) return fail(pre.error);
+    if (pre.campaign) {
+      const e = preorderDateError(pre.campaign, store.settings, now, input.delivery_date);
+      if (e) return fail(e);
+    } else if (!availableDates(store.settings, now).includes(input.delivery_date)) return fail(`Tanggal pengiriman tidak tersedia. Batas pemesanan untuk pengiriman besok pukul ${jam(store.settings.cutoff_time)} WIB.`);
     const slot = slotsForSegment(store.slots, segment).find((s) => s.id === input.slot_id);
     if (!slot) return fail("Jam pengiriman ini tidak tersedia untuk pesanan Anda.");
     const used = (await this.getSlotUsage([input.delivery_date]))[`${input.delivery_date}|${slot.id}`] ?? 0;
     if (used >= slot.capacity) return fail("Kuota jam pengiriman ini sudah penuh. Silakan pilih jam lain.");
     const pm = input.payment_method;
     if (!["qris", "transfer", "cod", "terms"].includes(pm)) return fail("Metode pembayaran tidak valid.");
+    if (pre.campaign && pm === "cod") return fail(PREORDER_COD_ERROR);
     // a gift is paid by the sender: the recipient must never be asked for money at the door (as in SQL place_order)
     const gift = input.gift ?? null;
     if (gift) {
@@ -417,6 +444,11 @@ export const memoryRepo: Repo = {
     if (pm === "terms" && account) {
       const block = termsBlock(buildLedger(account, store.orders, store.accPayments, store.allocations, now.date), account, store.settings, q.total, now.date);
       if (block) return fail(block);
+    }
+
+    if (pre.campaign) {
+      const e = preorderPaymentError(pm, q.has_catch_weight);
+      if (e) return fail(e);
     }
 
     // Reserve stock
@@ -493,6 +525,7 @@ export const memoryRepo: Repo = {
       gift_message: gift ? String(gift.message ?? "").trim() : null,
       gift_from: gift ? String(gift.from ?? "").trim() || null : null,
       recipient_phone: gift ? normalizePhone(gift.recipient_phone) : null,
+      campaign_id: pre.campaign?.id ?? null,
       customer_note: input.customer_note?.trim() ?? "",
       internal_note: "",
       created_at: created,
@@ -585,6 +618,7 @@ export const memoryRepo: Repo = {
     if (filter.status === "open") os = os.filter((o) => !["completed", "cancelled"].includes(o.status));
     else if (filter.status) os = os.filter((o) => o.status === filter.status);
     if (filter.segment) os = os.filter((o) => o.segment === filter.segment);
+    if (filter.campaignId) os = os.filter((o) => o.campaign_id === filter.campaignId);
     if (filter.q) {
       const q = filter.q.toLowerCase();
       os = os.filter((o) => o.code.toLowerCase().includes(q) || o.customer_name.toLowerCase().includes(q) || o.phone.includes(q));
@@ -793,6 +827,9 @@ export const memoryRepo: Repo = {
 
   async upsertProduct(p) {
     const store = getStore();
+    // same rule as the products_campaign_fixed_price constraint
+    if (p.campaign_id && !store.campaigns.some((c) => c.id === p.campaign_id)) return fail("Pre-order tidak ditemukan.");
+    if (p.campaign_id && p.is_catch_weight) return fail("Produk pre-order harus berharga tetap (tidak ditimbang), agar dapat dibayar di muka.");
     const existing = store.products.find((x) => x.id === p.id);
     if (existing) {
       Object.assign(existing, p, { variants: existing.variants, prep_options: existing.prep_options });

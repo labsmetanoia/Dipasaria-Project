@@ -1,4 +1,5 @@
 import { getRepo } from "@/lib/data";
+import { everyday } from "@/lib/campaigns";
 import { getCurrentAccount } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n";
@@ -13,7 +14,7 @@ export const metadata = pageMeta({ title: "Semua produk: ikan, udang, ayam, telu
 
 export default async function AllProductsPage() {
   const repo = await getRepo();
-  const [categories, products, account, { locale, t }] = await Promise.all([repo.getCategories(), repo.getProducts(), getCurrentAccount(), getT()]);
+  const [categories, products, account, { locale, t }] = await Promise.all([repo.getCategories(), repo.getProducts().then(everyday), getCurrentAccount(), getT()]);
   const en = locale === "en";
   return (
     <>

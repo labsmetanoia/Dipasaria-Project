@@ -6,6 +6,8 @@ import { SITE_URL } from "@/lib/config";
 import { recipes } from "@/lib/content/recipes";
 import { guides } from "@/lib/content/guides";
 import { IMAGES } from "@/lib/content/images";
+import { isListed } from "@/lib/campaigns";
+import { nowJakarta } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +16,15 @@ const img = (src: string | null | undefined) => (src ? [/^https?:\/\//.test(src)
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const repo = await getRepo();
-  const [categories, products] = await Promise.all([repo.getCategories(), repo.getProducts()]);
+  const [categories, allProducts, campaigns, settings] = await Promise.all([repo.getCategories(), repo.getProducts(), repo.getCampaigns(), repo.getSettings()]);
+  // seasonal pre-orders appear while their page is public (switched on and not over), with their products
+  const listed = campaigns.filter((c) => isListed(c, nowJakarta(), settings.cutoff_time));
+  const products = allProducts.filter((p) => !p.campaign_id || listed.some((c) => c.id === p.campaign_id));
   const page = (path: string, priority: number, changeFrequency: "daily" | "weekly" | "monthly", images?: string[]) => ({ url: url(path), priority, changeFrequency, ...(images ? { images } : {}) });
   return [
     page("/belanja", 1, "daily"),
     page("/belanja/semua", 0.8, "daily"),
+    ...listed.map((c) => page(`/belanja/musim/${c.slug}`, 0.9, "daily", img(c.image_url))),
     ...categories.map((c) => page(`/belanja/kategori/${c.slug}`, 0.8, "daily", img(IMAGES.category[c.slug] ?? c.image_url))),
     ...products.filter((p) => p.is_active).map((p) => page(`/belanja/produk/${p.slug}`, 0.9, "daily", img(p.image_url))),
     page("/resep", 0.7, "weekly"),

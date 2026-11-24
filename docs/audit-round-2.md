@@ -685,3 +685,78 @@ The dashboard shows the same text under **Ringkasan pagi**, opened automatically
 2. Set `ALERT_WEBHOOK_URL` if you have not yet (README, "Protection and monitoring"); the brief then arrives at 02.00. Vercel's schedule is fixed in UTC, so 02.00 WIB is written as 19.00 UTC.
 3. Set the trader's-pick box prices, cost and stock in **Produk dan stok**, replace its photo when you have your own, and write the first week's contents on **Belanja subuh**.
 4. For the holidays, mention gifts in the WhatsApp status and on Instagram. A gift-only promo code is not built; a normal promo code works for gifts too.
+
+## 15. Implemented after approval: seasonal pre-orders
+
+Item R1 of `docs/strategic-assessment.md` ("weeks 3–4"), ranked second there.
+
+**Purpose:** the highest-value days of the year (New Year's Eve, Chinese New Year, Lebaran) become plannable. Customers order and pay weeks ahead; the owner buys at the auction to the number of paid orders, instead of guessing.
+
+### What it does
+
+**For the owner (Pre-order musiman in the back-office):**
+- Create a campaign with a name, a page address, an introduction (Indonesian and English), an optional photo and four dates:
+  - the day it opens;
+  - the last order day, which closes at the shop cut-off (20.00);
+  - the first and last delivery days.
+- The dates must run in that order: ordering closes before the first delivery day, so the buying can be planned. The delivery window is at most 14 days. Delivery days may be weeks beyond the usual six days ahead.
+- A product joins a campaign from its product page (**Pre-order musiman**). It must have a fixed price, so the total is known and can be paid in advance; the database refuses a weighed pre-order product. Stock limits the quantity, as for any product.
+- Each campaign shows:
+  - its orders, paid (or tempo) and unpaid, and the sales that are certain;
+  - orders per delivery day;
+  - **Rencana pembelian:** quantities per size and delivery day, paid apart from unpaid (unpaid ones may still be cancelled at their payment deadline), with the stock left.
+  On the delivery day the orders also appear on Belanja subuh, the route sheet and everywhere else, like any order.
+- The morning brief adds one line per campaign that is open or still to deliver: orders, how many are paid, certain sales, and when it closes.
+
+**For customers:**
+- While a campaign is open (or about to open), a band under the shop's hero links to its page. The page shows the three facts (order by, delivered, paid in advance with limited quantities), the products, and how a pre-order works. Before opening it shows the opening date; after closing it says so, and products cannot be added.
+- Pre-order products are not on the everyday shelves (categories, all products, featured, weekly boxes, restaurant standing orders). They appear on their campaign page, in search while the campaign is open, and on their own product page with a pre-order panel.
+- At checkout, a cart with a pre-order product offers only the campaign's delivery days and explains them. Payment is QRIS or transfer for households, with the usual payment deadline; restaurants may also use tempo. Cash on delivery is refused.
+- A pre-order can include everyday products with a fixed price for the same delivery. Weighed fresh fish is refused in a paid-in-advance pre-order (its total is only known after weighing), except for a restaurant on tempo. One order holds one campaign.
+
+**For Google:** the campaign page and its products are in the sitemap while the page is public. Product data says *PreOrder* while orders are open and *OutOfStock* once closed. Pre-order products are left out of the Merchant Center feed.
+
+### Rules in the database
+
+`place_order` enforces all of it, whatever the form sends:
+- the campaign must be switched on, open, and not past its cut-off;
+- the delivery date must be a campaign day;
+- one campaign per order;
+- no cash on delivery;
+- no weighed products unless on tempo.
+
+An everyday order still cannot use a campaign's far-off date. The order keeps the campaign it was placed under (`orders.campaign_id`). Deleting a campaign leaves its orders and products in place, unlinked.
+
+### Example campaign
+
+The seed adds **Malam Tahun Baru**: a grill box in two sizes (Rp549.000 and Rp989.000) and jumbo tiger prawns (Rp285.000 per kg), stock 40, 20 and 30, open now, last order 28 December, delivery 30–31 December. On a real project it is added switched off: set prices, costs, stock and photos, then switch it on. The photos are copies of existing product photos.
+
+### Tests
+
+- **SQL suite, section 28:**
+  - a pre-order on a campaign day, recording its campaign, with a known total, a payment deadline and stock taken;
+  - refusals: dates outside the campaign, an everyday order on a campaign day, weighed fish without tempo, cash on delivery, two campaigns in one order, a closed, not-yet-open or switched-off campaign;
+  - a restaurant on tempo adding weighed fish;
+  - the fixed-price and date-order constraints;
+  - deleting a campaign unlinks its products.
+- **Rules test: 79 checks** (19 new): campaign states and dates, validation, the demo data layer's pre-order rules, the buying plan's paid and unpaid split, and the brief's pre-order line.
+- **Main browser suite: 139 of 139** (11 new checks):
+  - the owner creates a campaign, with a wrong date order refused first;
+  - linking a weighed product is refused;
+  - the shop banner;
+  - pre-order products absent from a category;
+  - the campaign page and product panel;
+  - checkout offering only the campaign days and no cash on delivery;
+  - the order booked on the chosen day;
+  - the buying plan counting it;
+  - after closing, the add button disabled.
+- **Upgrade path:** checked on a copy of the previous schema with migration 016, `schema.sql` (twice) and `seed.sql`.
+- **Screenshots:** `docs/screenshots/73-preorder-page-mobile.png` to `75-admin-preorder-desktop.png`.
+
+### Owner setup
+
+1. Run `supabase/migrations/016_seasonal_preorders.sql`, then `supabase/schema.sql`, then `supabase/seed.sql`.
+2. In **Pre-order musiman**, open *Malam Tahun Baru*, check the dates, and in **Produk dan stok** set the prices, costs, stock and photos of its two products. Then tick **Tampilkan di toko**.
+3. For Chinese New Year (early February 2027) and Lebaran (around the second week of March 2027), create a campaign three to four weeks ahead, add its products, and choose them from each product's **Pre-order musiman** field. Please check the exact holiday dates against the official calendar.
+4. Announce it on Instagram and the WhatsApp status, linking the campaign page.
+

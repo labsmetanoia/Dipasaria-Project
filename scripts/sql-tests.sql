@@ -519,5 +519,59 @@ begin
   update products set curated = true, weekly_contents = 'Kakap 1 ekor, udang 500 g' where id = 'p_salmon';
   if (select weekly_contents from products where id = 'p_salmon' and curated) <> 'Kakap 1 ekor, udang 500 g' then raise exception 'weekly contents'; end if;
 
+  -- 28. Seasonal pre-orders: campaign delivery days beyond the usual days ahead, open window, paid in advance
+  insert into campaigns (id, slug, name, opens_on, order_by, deliver_from, deliver_to)
+    values ('cm_t', 'uji-musim', 'Uji Musim', jakarta_now()::date - 1, jakarta_now()::date + 3, jakarta_now()::date + 10, jakarta_now()::date + 12);
+  update products set campaign_id = 'cm_t' where id in ('p_ty_udang', 'p_ty_bakar');
+  select stock_qty into stock_before from variants where id = 'v_ty_udang';
+  oid := place_order(jsonb_build_object('customer_name', 'Ibu Musim', 'phone', '081277770080', 'address', 'Jl. Uji Musim 1', 'area_id', 'a_selatan',
+    'delivery_date', (jakarta_now()::date + 11)::text, 'slot_id', 's_sore', 'payment_method', 'qris',
+    'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_udang', 'qty', 2), jsonb_build_object('variant_id', 'v_salmon', 'qty', 1))));
+  select * into o from orders where id = oid;
+  if o.campaign_id is distinct from 'cm_t' then raise exception 'pre-order should record its campaign'; end if;
+  if o.delivery_date <> jakarta_now()::date + 11 then raise exception 'pre-order delivery date'; end if;
+  if o.pay_by is null or o.total_final is null then raise exception 'a pre-order has a known total and a payment deadline'; end if;
+  if (select stock_qty from variants where id = 'v_ty_udang') <> stock_before - 2 then raise exception 'pre-order stock not reserved'; end if;
+  if (select campaign_id from orders where phone = '6281277770071' limit 1) is not null then raise exception 'ordinary orders have no campaign'; end if;
+  -- outside the campaign's delivery days, or an everyday order on a campaign day
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770081', 'address', 'Jl. Uji 81', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_udang', 'qty', 2))))$q$, 'dikirim tanggal');
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770081', 'address', 'Jl. Uji 81', 'area_id', 'a_selatan',
+    'delivery_date', (jakarta_now()::date + 13)::text, 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_udang', 'qty', 2))))$q$, 'dikirim tanggal');
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770081', 'address', 'Jl. Uji 81', 'area_id', 'a_selatan',
+    'delivery_date', (jakarta_now()::date + 11)::text, 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 3))))$q$, 'Tanggal pengiriman tidak tersedia');
+  -- paid in advance: no cash at the door, no weighed products unless the restaurant pays on tempo
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770081', 'address', 'Jl. Uji 81', 'area_id', 'a_selatan',
+    'delivery_date', (jakarta_now()::date + 11)::text, 'slot_id', 's_sore', 'payment_method', 'qris',
+    'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_udang', 'qty', 1), jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 2))))$q$, 'tidak dapat digabung');
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081200000001', 'address', 'Jl. Uji 82', 'area_id', 'a_utara',
+    'delivery_date', (jakarta_now()::date + 11)::text, 'slot_id', 's_dapur', 'payment_method', 'cod', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_bakar_s', 'qty', 2))), 'ba_bahari')$q$, '(COD) tidak tersedia');
+  oid2 := place_order(jsonb_build_object('customer_name', 'Seafood Bahari Gading', 'phone', '081200000001', 'address', 'Jl. Uji 82', 'area_id', 'a_utara',
+    'delivery_date', (jakarta_now()::date + 12)::text, 'slot_id', 's_dapur', 'payment_method', 'terms',
+    'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_bakar_s', 'qty', 2), jsonb_build_object('variant_id', 'v_kakap_l', 'qty', 3))), 'ba_bahari');
+  if (select campaign_id from orders where id = oid2) is distinct from 'cm_t' then raise exception 'tempo pre-order with weighed products is allowed'; end if;
+  -- one campaign per order, and only while it is open
+  insert into campaigns (id, slug, name, opens_on, order_by, deliver_from, deliver_to)
+    values ('cm_t2', 'uji-musim-2', 'Uji Musim Dua', jakarta_now()::date - 1, jakarta_now()::date + 3, jakarta_now()::date + 10, jakarta_now()::date + 12);
+  update products set campaign_id = 'cm_t2' where id = 'p_ty_bakar';
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770081', 'address', 'Jl. Uji 81', 'area_id', 'a_selatan',
+    'delivery_date', (jakarta_now()::date + 11)::text, 'slot_id', 's_sore', 'payment_method', 'qris',
+    'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_udang', 'qty', 1), jsonb_build_object('variant_id', 'v_ty_bakar_s', 'qty', 1))))$q$, 'satu pre-order musiman');
+  update campaigns set order_by = jakarta_now()::date - 1 where id = 'cm_t';
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770081', 'address', 'Jl. Uji 81', 'area_id', 'a_selatan',
+    'delivery_date', (jakarta_now()::date + 11)::text, 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_udang', 'qty', 2))))$q$, 'sudah ditutup');
+  update campaigns set opens_on = jakarta_now()::date + 1, order_by = jakarta_now()::date + 3 where id = 'cm_t';
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770081', 'address', 'Jl. Uji 81', 'area_id', 'a_selatan',
+    'delivery_date', (jakarta_now()::date + 11)::text, 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_udang', 'qty', 2))))$q$, 'belum dibuka');
+  update campaigns set opens_on = jakarta_now()::date - 1, is_active = false where id = 'cm_t';
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770081', 'address', 'Jl. Uji 81', 'area_id', 'a_selatan',
+    'delivery_date', (jakarta_now()::date + 11)::text, 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_ty_udang', 'qty', 2))))$q$, 'belum dibuka');
+  -- pre-order products are fixed-price; ordering closes before deliveries start
+  perform _expect_error($q$update products set is_catch_weight = true where id = 'p_ty_udang'$q$, 'products_campaign_fixed_price');
+  perform _expect_error($q$update campaigns set order_by = deliver_from where id = 'cm_t'$q$, 'campaigns_check');
+  -- deleting a campaign leaves its orders and products in place, unlinked
+  delete from campaigns where id = 'cm_t2';
+  if (select campaign_id from products where id = 'p_ty_bakar') is not null then raise exception 'deleting a campaign should unlink its products'; end if;
+
   raise notice 'all assertions passed';
 end $$;

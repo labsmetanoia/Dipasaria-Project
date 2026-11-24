@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/auth";
+import { everyday } from "@/lib/campaigns";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { getRepo } from "@/lib/data";
@@ -11,7 +12,7 @@ import { StandingStatusToggle } from "@/components/admin/StandingStatusToggle";
 export default async function StandingOrdersAdminPage() {
   await requireAdmin();
   const repo = await getRepo();
-  const [list, accounts, products, slots, settings, runs, customers] = await Promise.all([repo.listStandingOrders(), repo.listAccounts(), repo.getProducts(), repo.getSlots(), repo.getSettings(), repo.listStandingRuns({ limit: 30 }), repo.listCustomers(1000)]);
+  const [list, accounts, products, slots, settings, runs, customers] = await Promise.all([repo.listStandingOrders(), repo.listAccounts(), repo.getProducts().then(everyday), repo.getSlots(), repo.getSettings(), repo.listStandingRuns({ limit: 30 }), repo.listCustomers(1000)]);
   // who a standing order belongs to: a restaurant, or a household with a weekly box
   const owner = (so: (typeof list)[number] | undefined) => {
     if (!so) return null;

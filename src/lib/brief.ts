@@ -3,10 +3,11 @@
 // that failed, guarantee reports and low ratings waiting, receivables past due, WhatsApp messages waiting to be sent
 // by hand, unresolved errors, and yesterday's real margin and shrinkage from the buying log.
 import type { Repo } from "./data/repo";
-import { addDays, formatDate, rupiah } from "./format";
+import { addDays, formatDate, nowJakarta, rupiah } from "./format";
 import { SITE_URL, UNIT_LABEL } from "./config";
 import { buildLedger } from "./receivables";
 import { dayCost } from "./daycost";
+import { campaignState, campaignSummary, dayRange } from "./campaigns";
 
 /** Telegram accepts 4096 characters per message; the brief stays well under it. */
 const MAX_CHARS = 3500;
@@ -31,6 +32,11 @@ export async function buildBrief(repo: Repo, date: string, now: Date = new Date(
     repo.listOrders({ date: yesterday }), repo.listPurchases({ date: yesterday }), repo.dailySummary(yesterday),
   ]);
   const live = orders.filter((o) => o.status !== "cancelled");
+  // seasonal pre-orders still taking orders or still to deliver: what is sold, what is paid
+  const [campaigns, products, settings] = await Promise.all([repo.getCampaigns(), repo.getProducts(), repo.getSettings()]);
+  const jnow = nowJakarta(now);
+  const seasons = campaigns.filter((c) => ["open", "closed"].includes(campaignState(c, jnow, settings.cutoff_time)));
+  const seasonOrders = await Promise.all(seasons.map((c) => repo.listOrders({ campaignId: c.id, limit: 5000 })));
   const out: string[] = [];
   out.push(`Ringkasan pagi · ${formatDate(date, "long")}`);
 
@@ -51,6 +57,13 @@ export async function buildBrief(repo: Repo, date: string, now: Date = new Date(
     ].filter(Boolean);
     if (facts.length) out.push(facts.join(" · "));
   }
+
+  // ---------- seasonal pre-orders ----------
+  seasons.forEach((c, i) => {
+    const sum = campaignSummary(seasonOrders[i], new Set(products.filter((p) => p.campaign_id === c.id).map((p) => p.id)));
+    const open = campaignState(c, jnow, settings.cutoff_time) === "open";
+    out.push(`Pre-order ${c.name}: ${sum.orders} pesanan (${sum.paidOrders} lunas/tempo) · ${juta(sum.paidSales)} pasti · ${open ? `tutup ${formatDate(c.order_by, "short")}` : "sudah ditutup"}, kirim ${dayRange(c.deliver_from, c.deliver_to)}`);
+  });
 
   // ---------- buying list, fresh first ----------
   if (lines.length) {

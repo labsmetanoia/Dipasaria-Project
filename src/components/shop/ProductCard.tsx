@@ -24,7 +24,7 @@ const CAT_LABEL: Record<string, { id: string; en: string }> = {
   c_paket: { id: "Paket hemat", en: "Value box" },
 };
 
-export function ProductCard({ p, segment, discountPct = 0, locale = "id", quickAdd = true, size = "md" }: { p: Product; segment: Segment; discountPct?: number; locale?: Locale; quickAdd?: boolean; size?: "md" | "lg" }) {
+export function ProductCard({ p, segment, discountPct = 0, locale = "id", quickAdd = true, size = "md", preorder = null }: { p: Product; segment: Segment; discountPct?: number; locale?: Locale; quickAdd?: boolean; size?: "md" | "lg"; preorder?: { text: string; open: boolean } | null }) {
   const t = dict[locale];
   const en = locale === "en";
   const v = defaultVariant(p, segment);
@@ -40,7 +40,9 @@ export function ProductCard({ p, segment, discountPct = 0, locale = "id", quickA
   const preps = prepCount === 0 ? [] : prepCount === 1 ? [pick(locale, p.prep_options[0].label, p.prep_options[0].label_en).split(" (")[0]] : [en ? `${prepCount} preparations` : `${prepCount} cara penyiapan`];
   const spec = [variants.length > 1 ? `${variants.length} ${en ? "sizes" : "pilihan ukuran"}` : pick(locale, v.label, v.label_en), ...preps, ...(p.is_catch_weight ? [en ? "weighed" : "ditimbang"] : [])].join(" · ");
   // One badge at most, in priority order: availability first, then access, then merchandising.
-  const badge: { text: string; tone: "dark" | "gold" | "light" } | null = off
+  const badge: { text: string; tone: "dark" | "gold" | "light" } | null = preorder
+    ? { text: out ? t.shop.outOfStock : preorder.text, tone: preorder.open && !out ? "gold" : "light" }
+    : off
     ? { text: t.shop.soldOut, tone: "light" }
     : v.business_only
       ? { text: t.shop.businessOnly, tone: "dark" }
@@ -68,7 +70,7 @@ export function ProductCard({ p, segment, discountPct = 0, locale = "id", quickA
             <p className="font-display text-[21px] font-bold leading-none sm:text-[25px]"><span className="whitespace-nowrap">{rupiah(price)}</span><span className="ml-1 whitespace-nowrap font-sans text-[11px] font-semibold text-mute">/{t.unit[v.unit]}</span></p>
             {retail !== null && <p className="font-sans text-[11px] text-mute line-through">{rupiah(retail)}</p>}
           </div>
-          {quickAdd && <QuickAdd product={p} variant={v} disabled={off || out} />}
+          {quickAdd && <QuickAdd product={p} variant={v} disabled={off || out || (preorder !== null && !preorder.open)} />}
         </div>
       </div>
     </div>

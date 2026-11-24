@@ -12,7 +12,7 @@ import { useCart } from "@/store/cart";
 import { StockAlert } from "./StockAlert";
 import { QtyStepper } from "./QtyStepper";
 
-export function ProductSheet({ product, account }: { product: Product; account: BusinessAccount | null }) {
+export function ProductSheet({ product, account, locked = null }: { product: Product; account: BusinessAccount | null; locked?: string | null }) {
  const { t, locale } = useT();
  const segment = segmentOf(account);
  const variants = product.variants.filter((v) => v.is_active && (segment === "business" || !v.business_only));
@@ -40,7 +40,7 @@ export function ProductSheet({ product, account }: { product: Product; account: 
  const prep = product.prep_options.find((p) => p.id === prepId) ?? null;
  const price = useMemo(() => (variant ? unitPrice(variant, segment, account) + (prep?.surcharge ?? 0) : 0), [variant, segment, account, prep]);
  const total = lineTotal(price, qty);
- const off = !product.available_today;
+ const off = !product.available_today || locked !== null;
  const outOfStock = variant?.stock_qty !== null && variant?.stock_qty !== undefined && variant.stock_qty < (variant.min_qty ?? 1);
  if (!variant) return <p className="font-sans text-sm text-mute">{t.shop.businessOnlyProduct}</p>;
  const unit = t.unit[variant.unit];
@@ -96,14 +96,14 @@ export function ProductSheet({ product, account }: { product: Product; account: 
         <p className="font-sans text-[13px] text-mute">{product.is_catch_weight ? `± ${t.common.estimated}: ` : `${t.shop.total}: `}<b className="text-ink">{rupiah(total)}</b></p>
       </div>
       <button ref={ctaRef} type="button" disabled={off || outOfStock} onClick={doAdd} className="btn-accent w-full py-4 text-[13.5px]">
-        {added ? <><Check className="h-4 w-4" /> {t.shop.added}</> : off ? t.shop.soldOut : outOfStock ? t.shop.outOfStock : <><ShoppingBag className="h-4 w-4" /> {t.shop.addToCart}</>}
+        {added ? <><Check className="h-4 w-4" /> {t.shop.added}</> : locked !== null ? locked : off ? t.shop.soldOut : outOfStock ? t.shop.outOfStock : <><ShoppingBag className="h-4 w-4" /> {t.shop.addToCart}</>}
       </button>
-      {product.category_id === "c_paket" && segment === "retail" && (
+      {product.category_id === "c_paket" && segment === "retail" && !product.campaign_id && (
         <Link href={`/akun?langganan=${variant.id}#langganan`} className="-mt-2 flex items-center justify-center gap-2 border border-ocean-950 px-4 py-3 font-sans text-[12px] font-bold uppercase tracking-[0.14em] hover:bg-ocean-950 hover:text-coral-500">
           <Repeat className="h-4 w-4" /> {locale === "en" ? "Get this box every week" : "Langganan kotak ini tiap minggu"}
         </Link>
       )}
-      {(off || outOfStock) && <StockAlert productId={product.id} />}
+      {(off || outOfStock) && locked === null && !product.campaign_id && <StockAlert productId={product.id} />}
       {variant.stock_qty !== null && variant.stock_qty <= 5 && variant.stock_qty > 0 && <p className="-mt-3 font-sans text-xs text-gold-ink">{fmt(t.shop.leftInStock, { n: variant.stock_qty, unit })}</p>}
 
       <div className="grid grid-cols-4 gap-2 border-y border-line py-4">

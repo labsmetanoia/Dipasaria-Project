@@ -3,6 +3,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  Campaign,
   Rating,
   FunnelRow,
   AccountPayment,
@@ -33,6 +34,7 @@ import type {
 import type { Repo, Result, SalesRow } from "./repo";
 import { addDays, normalizePhone, nowJakarta } from "../format";
 import { newId } from "../ids";
+import { campaignError } from "../campaigns";
 
 let client: SupabaseClient | null = null;
 function sb(): SupabaseClient {
@@ -81,6 +83,16 @@ function mapVariant(r: Row): Variant {
   };
 }
 
+function mapCampaign(r: Row): Campaign {
+  const d = (x: unknown) => String(x).slice(0, 10);
+  return {
+    id: String(r.id), slug: String(r.slug), name: String(r.name), name_en: (r.name_en as string | null) ?? null,
+    intro: (r.intro as string) ?? "", intro_en: (r.intro_en as string | null) ?? null, image_url: (r.image_url as string | null) ?? null,
+    opens_on: d(r.opens_on), order_by: d(r.order_by), deliver_from: d(r.deliver_from), deliver_to: d(r.deliver_to),
+    is_active: Boolean(r.is_active), created_at: String(r.created_at),
+  };
+}
+
 function mapProduct(r: Row): Product {
   const variants = ((r.variants as Row[]) ?? []).map(mapVariant).sort((a, b) => a.sort - b.sort);
   const preps = ((r.prep_options as Row[]) ?? []).map((p) => ({
@@ -116,6 +128,7 @@ function mapProduct(r: Row): Product {
     weekly_contents: (r.weekly_contents as string | null) ?? "",
     weekly_contents_en: (r.weekly_contents_en as string | null) ?? null,
     weekly_contents_at: (r.weekly_contents_at as string | null) ?? null,
+    campaign_id: (r.campaign_id as string | null) ?? null,
     image_url: (r.image_url as string | null) ?? null,
     icon: (r.icon as string) ?? "fish",
     sort: num(r.sort),
@@ -185,6 +198,7 @@ function mapOrder(r: Row): Order {
     gift_message: (r.gift_message as string | null) ?? null,
     gift_from: (r.gift_from as string | null) ?? null,
     recipient_phone: (r.recipient_phone as string | null) ?? null,
+    campaign_id: (r.campaign_id as string | null) ?? null,
     promo_code: (r.promo_code as string | null) ?? null,
     customer_note: (r.customer_note as string) ?? "",
     internal_note: (r.internal_note as string) ?? "",
@@ -309,6 +323,23 @@ export const supabaseRepo: Repo = {
     if (error) throw error;
     return (data as Row[]).map((r) => ({ id: r.id as string, name: r.name as string, fee: num(r.fee), is_active: Boolean(r.is_active), sort: num(r.sort) }));
   },
+  async getCampaigns(opts) {
+    let q = sb().from("campaigns").select("*").order("deliver_from", { ascending: false });
+    if (!opts?.includeInactive) q = q.eq("is_active", true);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map(mapCampaign);
+  },
+  async saveCampaign(c) {
+    const err = campaignError(c);
+    if (err) return fail(err);
+    const row = { slug: c.slug, name: c.name.trim(), name_en: c.name_en, intro: c.intro, intro_en: c.intro_en, image_url: c.image_url, opens_on: c.opens_on, order_by: c.order_by, deliver_from: c.deliver_from, deliver_to: c.deliver_to, is_active: c.is_active };
+    const res = c.id
+      ? await sb().from("campaigns").update(row).eq("id", c.id).select("*").maybeSingle()
+      : await sb().from("campaigns").insert({ ...row, id: newId("cm") }).select("*").single();
+    if (res.error) return fail(res.error.code === "23505" ? "Alamat halaman ini sudah dipakai pre-order lain." : msg(res.error));
+    return res.data ? ok(mapCampaign(res.data as Row)) : fail("Pre-order tidak ditemukan.");
+  },
   async getSlots(opts) {
     let q = sb().from("delivery_slots").select("*").order("sort");
     if (!opts?.includeInactive) q = q.eq("is_active", true);
@@ -395,6 +426,7 @@ export const supabaseRepo: Repo = {
     if (filter.status === "open") q = q.not("status", "in", "(completed,cancelled)");
     else if (filter.status) q = q.eq("status", filter.status);
     if (filter.segment) q = q.eq("segment", filter.segment);
+    if (filter.campaignId) q = q.eq("campaign_id", filter.campaignId);
     if (filter.q) {
       const s = filterSafe(filter.q);
       q = q.or(`code.ilike.%${s}%,customer_name.ilike.%${s}%,phone.ilike.%${s}%`);

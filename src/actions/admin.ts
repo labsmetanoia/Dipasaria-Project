@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getRepo } from "@/lib/data";
 import { adminLogin, adminLogout, isAdmin } from "@/lib/auth";
-import type { BusinessAccount, DeliveryArea, DeliverySlot, Order, OrderStatus, PaymentStatus, PrepOption, Product, Promo, Settings, Variant } from "@/lib/types";
+import type { BusinessAccount, Campaign, DeliveryArea, DeliverySlot, Order, OrderStatus, PaymentStatus, PrepOption, Product, Promo, Settings, Variant } from "@/lib/types";
 import { runStandingOrders, type RunOutcome } from "@/lib/standing";
 import type { StandingOrder } from "@/lib/types";
 import { expireIfDue } from "@/lib/expiry";
@@ -149,7 +149,9 @@ export async function setAvailabilityAction(productId: string, available: boolea
 
 export async function upsertProductAction(p: Omit<Product, "variants" | "prep_options">) {
   await guard();
-  const r = await (await getRepo()).upsertProduct(p);
+  // a pre-order is paid in advance, so its products have a price known at checkout (products_campaign_fixed_price)
+  if (p.campaign_id && p.is_catch_weight) return wrap<Product>({ ok: false, error: "Produk pre-order harus berharga tetap (tidak ditimbang), agar dapat dibayar di muka." });
+  const r = await (await getRepo()).upsertProduct({ ...p, campaign_id: p.campaign_id || null });
   revalidatePath("/", "layout");
   return wrap(r);
 }
@@ -383,5 +385,17 @@ export async function adminSetStandingStatusAction(id: string, status: StandingO
   await guard();
   const r = await (await getRepo()).setStandingOrderStatus(id, status);
   revalidatePath("/admin/rutin");
+  return wrap(r);
+}
+
+// ---- seasonal pre-orders ----
+export async function saveCampaignAction(c: Omit<Campaign, "id" | "created_at"> & { id?: string }) {
+  await guard();
+  const clean = {
+    ...c, slug: c.slug.trim().toLowerCase(), name: c.name.trim(), name_en: c.name_en?.trim() || null,
+    intro: (c.intro ?? "").trim().slice(0, 1000), intro_en: c.intro_en?.trim().slice(0, 1000) || null, image_url: c.image_url?.trim() || null,
+  };
+  const r = await (await getRepo()).saveCampaign(clean);
+  revalidatePath("/", "layout");
   return wrap(r);
 }

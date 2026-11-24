@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { campaignState, everyday, isListed, preorderBadge } from "@/lib/campaigns";
+import { formatDate, nowJakarta } from "@/lib/format";
 import { ArrowRight, ClipboardList, CalendarDays, Fish, Truck, Check, Snowflake, BadgeCheck, ShieldCheck } from "lucide-react";
 import { getRepo } from "@/lib/data";
 import { getCurrentAccount } from "@/lib/auth";
@@ -77,7 +79,10 @@ export default async function BelanjaPage() {
   const c = copy[locale];
   const en = locale === "en";
   const segment = segmentOf(account);
-  const [settings, categories, products, orders] = await Promise.all([repo.getSettings(), repo.getCategories(), repo.getProducts(), account ? repo.getOrdersForAccount(account.id, 3) : Promise.resolve([])]);
+  const [settings, categories, products, orders, campaigns] = await Promise.all([repo.getSettings(), repo.getCategories(), repo.getProducts().then(everyday), account ? repo.getOrdersForAccount(account.id, 3) : Promise.resolve([]), repo.getCampaigns()]);
+  // seasonal pre-orders that are open (or about to open) get a band right under the hero
+  const now = nowJakarta();
+  const seasons = campaigns.filter((x) => isListed(x, now, settings.cutoff_time) && campaignState(x, now, settings.cutoff_time) !== "closed").sort((a, b) => a.deliver_from.localeCompare(b.deliver_from));
   const seafood = new Set(categories.filter((x) => x.is_seafood).map((x) => x.id));
   const catchToday = products.filter((p) => p.storage_class === "chilled" && p.is_catch_weight && seafood.has(p.category_id)).slice(0, 5);
   const featured = products.filter((p) => p.is_featured && p.available_today).slice(0, 8);
@@ -102,6 +107,15 @@ export default async function BelanjaPage() {
           </div>
         </div>
       )}
+
+      {seasons.map((x) => { const b = preorderBadge(x, campaignState(x, now, settings.cutoff_time), en); return (
+        <Link key={x.id} href={`/belanja/musim/${x.slug}`} data-season-banner className="group block bg-ocean-950 text-white">
+          <div className="container-x flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4">
+            <div><p className="font-sans text-[10.5px] font-bold uppercase tracking-[0.18em] text-coral-500">{b.text}</p><p className="font-display text-[1.6rem] font-bold uppercase leading-none sm:text-[2rem]">{en ? `${x.name_en || x.name} pre-order` : `Pre-order ${x.name}`}</p></div>
+            <p className="font-sans text-[12.5px] text-white/75">{b.open ? (en ? `Order by ${formatDate(x.order_by, "short", "en")} · paid in advance · limited quantities` : `Pesan paling lambat ${formatDate(x.order_by, "short")} · dibayar di muka · jumlah terbatas`) : ""}</p>
+            <span className="border border-coral-500 px-3 py-1.5 font-sans text-[11px] font-bold uppercase tracking-[0.14em] text-coral-500 group-hover:bg-coral-500 group-hover:text-ocean-950">{en ? "See the pre-order" : "Lihat pre-order"} →</span>
+          </div>
+        </Link>); })}
 
       {/* Trust bar */}
       <div className="border-b border-line bg-white">

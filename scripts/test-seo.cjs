@@ -98,8 +98,11 @@ async function read(path) {
   const of = (r, t) => r.ld.find((x) => x["@type"] === t);
   const products = indexable.filter((r) => r.path.startsWith("/belanja/produk/"));
   const priced = products.filter((r) => of(r, "Product"));
-  bad = priced.filter((r) => { const p = of(r, "Product"); const offers = [].concat(p.offers || []); return !p.name || !p.image || !offers.length || offers.some((o) => !(o.price > 0) || o.priceCurrency !== "IDR" || !/schema\.org\/(InStock|OutOfStock)$/.test(o.availability)); });
+  bad = priced.filter((r) => { const p = of(r, "Product"); const offers = [].concat(p.offers || []); return !p.name || !p.image || !offers.length || offers.some((o) => !(o.price > 0) || o.priceCurrency !== "IDR" || !/schema\.org\/(InStock|OutOfStock|PreOrder)$/.test(o.availability)); });
   check(priced.length >= 40 && bad.length === 0, `${priced.length} of ${products.length} product pages carry Product data with photo, price in IDR and availability` + list(bad));
+  const preorders = products.filter((r) => [].concat(of(r, "Product")?.offers || []).some((o) => /PreOrder$/.test(o.availability)));
+  // (the example campaign's dates are fixed, so after it closes no product says PreOrder; that is correct too)
+  check(preorders.every((r) => /tahun-baru/.test(r.path)), `only seasonal pre-order products say PreOrder to Google (${preorders.length} now)` + list(preorders.filter((r) => !/tahun-baru/.test(r.path))));
   bad = products.filter((r) => !of(r, "Product") && !/Khusus akun bisnis/.test(r.html));
   check(bad.length === 0, "only restaurant-only products (no household price to publish) go without Product data" + list(bad));
   const weighed = seen.get("/belanja/produk/kakap-merah");

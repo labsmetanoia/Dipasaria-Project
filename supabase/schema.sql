@@ -462,6 +462,35 @@ alter table orders add column if not exists recipient_phone text;
 alter table orders add column if not exists gift_from text;
 alter table orders add column if not exists gift_message text;
 
+-- Seasonal pre-orders: a campaign page per occasion (New Year's Eve, Chinese New Year, Lebaran) with its own products.
+-- Ordering opens on opens_on and closes at the shop cut-off on order_by, before deliveries start; delivery is on a
+-- day between deliver_from and deliver_to (beyond the usual days ahead). Quantities are limited with variant stock.
+-- Products of a campaign are fixed-price, so the order total is known and can be paid in advance.
+create table if not exists campaigns (
+  id text primary key default new_id('cm'),
+  slug text not null unique check (slug ~ '^[a-z0-9][a-z0-9-]{1,59}$'),
+  name text not null check (length(name) between 2 and 80),
+  name_en text,
+  intro text not null default '',
+  intro_en text,
+  image_url text,
+  opens_on date not null,
+  order_by date not null,
+  deliver_from date not null,
+  deliver_to date not null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  check (opens_on <= order_by and order_by < deliver_from and deliver_from <= deliver_to and deliver_to - deliver_from <= 13)
+);
+alter table products add column if not exists campaign_id text references campaigns(id) on delete set null;
+alter table orders add column if not exists campaign_id text references campaigns(id) on delete set null;
+create index if not exists orders_campaign_idx on orders(campaign_id) where campaign_id is not null;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'products_campaign_fixed_price') then
+    alter table products add constraint products_campaign_fixed_price check (campaign_id is null or not is_catch_weight);
+  end if;
+end $$;
+
 create table if not exists claims (
   id text primary key default new_id('cl'),
   order_id text not null references orders(id) on delete cascade,
@@ -624,7 +653,7 @@ create index if not exists customer_sessions_expires_idx on customer_sessions(ex
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices','funnel_daily','ratings','rating_items']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices','funnel_daily','ratings','rating_items','campaigns']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -680,6 +709,9 @@ declare
   v_rphone text;
   cprice numeric;
   ex record;
+  camp campaigns%rowtype;
+  n_camp int;
+  v_camp text;
 begin
   -- Idempotency: the same checkout submission never creates a second order.
   if v_ref is not null then
@@ -710,10 +742,24 @@ begin
   end if;
   if jsonb_array_length(coalesce(p->'lines', '[]'::jsonb)) = 0 then raise exception 'Keranjang Anda masih kosong.'; end if;
 
-  -- delivery date vs cut-off
+  -- delivery date vs cut-off; a pre-order (any line from a seasonal campaign) uses the campaign's delivery days instead
   d := (p->>'delivery_date')::date;
   first_date := jnow::date + case when jnow::time < s.cutoff_time::time then 1 else 2 end;
-  if d < first_date or d > jnow::date + s.max_days_ahead then
+  select count(distinct pr.campaign_id), min(pr.campaign_id) into n_camp, v_camp
+    from jsonb_array_elements(p->'lines') l join variants v on v.id = l->>'variant_id' join products pr on pr.id = v.product_id
+   where pr.campaign_id is not null;
+  if n_camp > 1 then raise exception 'Satu pesanan hanya dapat berisi produk dari satu pre-order musiman.'; end if;
+  if n_camp = 1 then
+    select * into camp from campaigns where id = v_camp;
+    if not camp.is_active or jnow::date < camp.opens_on then raise exception 'Pre-order % belum dibuka.', camp.name; end if;
+    if jnow::date > camp.order_by or (jnow::date = camp.order_by and jnow::time >= s.cutoff_time::time) then
+      raise exception 'Pre-order % sudah ditutup.', camp.name;
+    end if;
+    if d < greatest(first_date, camp.deliver_from) or d > camp.deliver_to then
+      raise exception 'Pre-order % dikirim tanggal % sampai %. Pilih salah satu tanggal tersebut.', camp.name,
+        to_char(greatest(first_date, camp.deliver_from), 'DD/MM/YYYY'), to_char(camp.deliver_to, 'DD/MM/YYYY');
+    end if;
+  elsif d < first_date or d > jnow::date + s.max_days_ahead then
     raise exception 'Tanggal pengiriman tidak tersedia. Batas pemesanan untuk pengiriman besok pukul % WIB.', replace(s.cutoff_time, ':', '.');
   end if;
 
@@ -730,6 +776,8 @@ begin
   if pm not in ('qris','transfer','cod','terms') then raise exception 'Metode pembayaran tidak valid.'; end if;
   if pm = 'cod' and not (seg = 'business' and acc.allow_cod) then raise exception 'Bayar di tempat (COD) hanya tersedia untuk akun bisnis yang telah disetujui.'; end if;
   if pm = 'terms' and not (seg = 'business' and acc.payment_terms <> 'prepaid') then raise exception 'Pembayaran tempo hanya tersedia untuk akun bisnis dengan fasilitas tempo.'; end if;
+  -- a pre-order is paid before the auction: never cash at the door
+  if n_camp = 1 and pm = 'cod' then raise exception 'Pre-order dibayar di muka: bayar di tempat (COD) tidak tersedia.'; end if;
   -- a gift is paid by the sender: the recipient must never be asked for money at the door
   if v_gift then
     if pm = 'cod' then raise exception 'Hadiah dibayar oleh pengirim: pilih QRIS atau transfer.'; end if;
@@ -747,13 +795,13 @@ begin
   end loop;
   insert into orders (id, code, segment, account_id, customer_name, phone, address, area_id, area_name, maps_url, delivery_date,
     slot_id, slot_label, payment_method, payment_status, status, customer_note, history, client_ref, wa_opt_in, substitution,
-    recipient_phone, gift_from, gift_message)
+    recipient_phone, gift_from, gift_message, campaign_id)
   values (oid, v_code, seg, acc.id, trim(p->>'customer_name'), v_phone, trim(p->>'address'), area.id, area.name, v_maps, d,
     slot.id, slot.label || ' ' || replace(slot.start_time, ':', '.') || '–' || replace(slot.end_time, ':', '.'), pm, 'unpaid', 'new', coalesce(trim(p->>'customer_note'), ''),
     jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())), v_ref, coalesce(p->>'wa_opt_in', 'true') <> 'false',
     case when p->>'substitution' in ('similar','contact','remove') then p->>'substitution' else 'contact' end,
     case when v_gift then v_rphone end, case when v_gift then nullif(trim(coalesce(p->>'gift_from', '')), '') end,
-    case when v_gift then trim(coalesce(p->>'gift_message', '')) end);
+    case when v_gift then trim(coalesce(p->>'gift_message', '')) end, case when n_camp = 1 then camp.id end);
 
   -- lines
   for line in select value from jsonb_array_elements(p->'lines') order by value->>'variant_id', value->>'prep_option_id' loop
@@ -808,6 +856,11 @@ begin
     has_catch := has_catch or prod.is_catch_weight;
     items_count := items_count + 1;
   end loop;
+
+  -- paid in advance means the total is known now: weighed products are ordered separately (tempo is billed later anyway)
+  if n_camp = 1 and has_catch and pm <> 'terms' then
+    raise exception 'Pre-order dibayar di muka, sehingga tidak dapat digabung dengan produk yang ditimbang. Pesan produk tersebut secara terpisah.';
+  end if;
 
   min_order := case when seg = 'business' then s.min_order_business else s.min_order_retail end;
   if v_subtotal < min_order then raise exception 'Pesanan belum mencapai minimal pesanan Rp%.', replace(to_char(min_order, 'FM999,999,999'), ',', '.'); end if;
