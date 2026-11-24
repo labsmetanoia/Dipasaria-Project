@@ -557,3 +557,62 @@ What the measurements do and do not show: pages are lighter (the table above), b
 - Search Console: indexed pages, impressions and clicks per search term, rich-result reports for products and recipes.
 - **Laporan → Corong kunjungan:** visits and conversion per step, week on week.
 - Results in search take weeks, not days: expect product and recipe pages to start appearing two to six weeks after the sitemap is submitted.
+
+---
+
+## 13. Implemented after approval: retention metrics and ratings after delivery
+
+**Purpose:** the first priority of `docs/strategic-assessment.md`. The platform measured cost well and customers poorly; these two features tell the owner whether customers come back and what they thought.
+
+### Ratings after delivery
+
+| Part | What it does |
+|---|---|
+| **Asking** | The "pesanan sudah diterima" WhatsApp message now also invites a rating. The order page shows **Bagaimana pesanan Anda?**: tap 1–5 stars for the order, optionally tap stars for a product that stood out, add a comment, send. A product only receives the stars the customer tapped for it; the overall score is never copied onto products (unless the order holds a single product). |
+| **Who can rate** | Only the customer who placed the order (order code and WhatsApp number), once per order, within 14 days of delivery. The database enforces this. |
+| **Low ratings** | One or two stars alerts the owner at once and shows on the dashboard. The customer is pointed to the guarantee report while its two-hour window is open, and to WhatsApp after that. |
+| **Product pages** | A product shows its average and the number of ratings once it has three, on the page and in the product data sent to Google (which can show stars in search results). |
+| **Back-office** | **Laporan → Penilaian pelanggan**: the average, the spread of stars, ratings of three stars or less with comment, product and a prepared WhatsApp reply, the lowest-rated products, and recent comments. The order page shows its rating. |
+
+### Retention
+
+**Laporan → Pelanggan kembali** covers the last 180 days. Households are identified by WhatsApp number, restaurants by account.
+
+- **Repeat within 30 days:** of customers whose first order is at least 30 days old, how many ordered again within 30 days. Newer customers are left out, so the figure is not flattered or punished by people who have not had time to return.
+- **Typical gap between orders** and **average order value**, each for households and for restaurants.
+- **By first-order month:** customers gained, how many came back at all and within 30 days, and spend per customer.
+- **Sudah lama tidak memesan:** customers past their usual rhythm (a household after 21 days, a restaurant after 7, or twice their own usual gap), biggest spenders first, with a prepared WhatsApp greeting.
+  - The greeting is offered only for restaurants and for households who agreed to receive offers. The others are listed without a link.
+
+### Customer and business benefits
+
+- **Customer:** a simple way to be heard, and a prompt route to a replacement or refund when something was wrong.
+- **Business:**
+  - quality problems surface the same morning, per product;
+  - the star rating earns trust on product pages and in search;
+  - the repeat rate becomes the baseline for every later growth step (broadcasts, referral, weekly box promotion).
+- **How to measure:** average rating and share of low ratings per week; repeat-within-30-days per first-order month; number of quiet customers greeted and how many order again.
+
+### How it works (for the developer)
+
+- **Ratings:**
+  - tables `ratings` (one per order) and `rating_items` (stars per product);
+  - SQL `create_rating` and `product_rating_summary` (migration `014_ratings.sql`);
+  - `rateOrderAction` in `src/actions/care.ts`;
+  - `src/components/shop/RatingForm.tsx`.
+  Product stars are read with the catalogue cache and cleared when a rating arrives.
+- **Retention:** `src/lib/retention.ts`, pure functions over `listOrderFacts` (orders reduced to customer, date and amount), rendered by `src/components/admin/CustomerReports.tsx`.
+- **WhatsApp:** the text of `dipasaria_pesanan_sampai` changed (same three variables). If you already created it at Meta, edit its text there; until then customers still receive the old wording and the page works the same.
+
+### Tests
+
+- **SQL suite, section 26:** not before delivery, only the order's customer, stars 1–5, only products in the order, once per order, the 14-day window, the product summary.
+- **Rules test: 47 checks** (12 new): the retention figures on a constructed set of customers, and ratings on the demo data layer.
+- **Main browser suite: 123 of 123** (7 new checks): the customer rates a delivered order low; the dashboard, the report and the order page show it; the rating cannot be given twice; the retention section renders.
+- **Screenshot:** `docs/screenshots/69-rating-mobile.png`.
+
+### Owner setup
+
+1. Run `supabase/migrations/014_ratings.sql`, then `supabase/schema.sql` again.
+2. Update the text of the `dipasaria_pesanan_sampai` template at Meta from `docs/whatsapp-templates.md` (or create it with the new text).
+3. Nothing else: both report sections fill in as orders are delivered.

@@ -20,7 +20,7 @@ The app fills the variables from the order (`src/lib/notify/templates.ts`). If y
 | `dipasaria_dalam_pengiriman` | The order is marked "Dalam pengiriman" | 4 |
 | `dipasaria_pengingat_bayar` | 30 minutes before an unpaid order's payment deadline | 5 |
 | `dipasaria_pesanan_dibatalkan` | An order is cancelled (by you, or automatically when unpaid) | 4 |
-| `dipasaria_pesanan_sampai` | Delivery mode records the order as received; includes the 2-hour guarantee link | 3 |
+| `dipasaria_pesanan_sampai` | Delivery mode records the order as received; asks for a rating and carries the 2-hour guarantee link | 3 |
 | `dipasaria_keputusan_garansi` | You decide a freshness-guarantee report (replace, refund or decline) | 3 |
 | `dipasaria_stok_tersedia` | A sold-out product is switched back on, for customers who tapped "Kabari saya" | 2 |
 | `dipasaria_pesanan_rutin` | A restaurant's standing order, or a household's weekly box, is placed (with any items left out; for a box also the total and the payment deadline) | 5 |
@@ -148,7 +148,7 @@ Body:
 ```
 Halo {{1}}, pesanan {{2}} sudah diterima. Terima kasih!
 
-Bila ada produk yang kurang segar atau tidak sesuai, laporkan dengan foto dalam 2 jam dan kami ganti atau kembalikan dananya: {{3}}
+Beri nilai pesanan Anda di tautan ini. Bila ada produk yang kurang segar atau tidak sesuai, laporkan dengan foto dalam 2 jam di tautan yang sama dan kami ganti atau kembalikan dananya: {{3}}
 
 Salam segar, Dipasaria.
 ```

@@ -32,7 +32,7 @@ const CATALOGUE_TAG = "catalogue";
 const CATALOGUE_TTL_SECONDS = 60;
 const INVALIDATING = new Set<keyof Repo>([
   "placeOrder", "updateOrderStatus", "expireUnpaidOrders", "upsertProduct", "updateVariant", "createVariant", "setProductAvailability",
-  "upsertPrepOption", "deletePrepOption", "updateSettings", "upsertArea", "upsertSlot",
+  "upsertPrepOption", "deletePrepOption", "updateSettings", "upsertArea", "upsertSlot", "createRating",
 ]);
 // Kept on globalThis: Next.js may load this module once per route bundle. `boot` keeps demo data (which lives in
 // memory) from being read out of a cache entry written by an earlier run of the server.
@@ -56,6 +56,8 @@ function withCatalogueCache(repo: Repo): Repo {
     // found in the cached list (same rows, same hidden cost), so made-up addresses never create cache entries of their own
     getProductBySlug: async (slug: string) => (await cachedRead("products", repo.mode, () => repo.getProducts())).find((p) => p.slug === slug) ?? null,
     getAreas: (opts?: Parameters<Repo["getAreas"]>[0]) => (opts?.includeInactive ? repo.getAreas(opts) : cachedRead("areas", repo.mode, () => repo.getAreas())),
+    // stars on product pages: read with the catalogue, cleared when a new rating arrives
+    productRatings: () => cachedRead("ratings", repo.mode, () => repo.productRatings()),
     getSlots: (opts?: Parameters<Repo["getSlots"]>[0]) => (opts?.includeInactive ? repo.getSlots(opts) : cachedRead("slots", repo.mode, () => repo.getSlots())),
   };
   return new Proxy(repo, {

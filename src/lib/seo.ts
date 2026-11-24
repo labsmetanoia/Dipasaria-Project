@@ -77,7 +77,7 @@ export function productDescription(p: Product, cutoff: string): string {
  * Product data for Google: one offer per size sold to households, with price, currency and availability.
  * Items sold by weight carry the price per kilogram. Null for products sold only to restaurants.
  */
-export function productLd(p: Product, category: Category | undefined) {
+export function productLd(p: Product, category: Category | undefined, rating?: { average: number; count: number } | null) {
   // Restaurant-only products publish no household price; without an offer Google rejects the item, so none is sent.
   if (!retailVariants(p).length) return null;
   const url = abs(`/belanja/produk/${p.slug}`);
@@ -105,6 +105,8 @@ export function productLd(p: Product, category: Category | undefined) {
     brand: { "@type": "Brand", name: BRAND.name },
     ...(category ? { category: category.name } : {}),
     ...(offers.length ? { offers } : {}),
+    // stars from customers who received the product; shown on the page too (Google requires both)
+    ...(rating ? { aggregateRating: { "@type": "AggregateRating", ratingValue: rating.average, ratingCount: rating.count, bestRating: 5, worstRating: 1 } } : {}),
   };
 }
 

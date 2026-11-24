@@ -3,6 +3,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  Rating,
   FunnelRow,
   AccountPayment,
   ContractPrice,
@@ -945,6 +946,33 @@ export const supabaseRepo: Repo = {
     if (error) throw error;
   },
 
+  async createRating(code, phone, r, windowDays) {
+    const { data, error } = await sb().rpc("create_rating", { p_code: code, p_phone: phone, p_stars: r.stars, p_comment: r.comment, p_items: r.items.map((i) => ({ item_id: i.item_id, stars: String(i.stars) })), p_window_days: windowDays });
+    return error ? fail(msg(error)) : ok(String(data));
+  },
+  async getRatingForOrder(orderId) {
+    const { data, error } = await sb().from("ratings").select("*, rating_items(product_id, stars)").eq("order_id", orderId).maybeSingle();
+    if (error) throw error;
+    return data ? mapRating(data as Row) : null;
+  },
+  async listRatings(filter) {
+    let q = sb().from("ratings").select("*, rating_items(product_id, stars), orders(code, customer_name, phone)").order("created_at", { ascending: false }).limit(filter?.limit ?? 200);
+    if (filter?.since) q = q.gte("created_at", `${filter.since}T00:00:00+07:00`);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map(mapRating);
+  },
+  async productRatings() {
+    const { data, error } = await sb().rpc("product_rating_summary");
+    if (error) throw error;
+    return Object.fromEntries(((data as Row[]) ?? []).map((r) => [String(r.product_id), { average: num(r.average), count: num(r.n) }]));
+  },
+  async listOrderFacts(since) {
+    const { data, error } = await sb().from("orders").select("code, segment, account_id, phone, customer_name, delivery_date, total_final, total_est").neq("status", "cancelled").gte("delivery_date", since).order("delivery_date").limit(20000);
+    if (error) throw error;
+    return (data as Row[]).map((r) => ({ code: String(r.code), segment: r.segment as Order["segment"], account_id: (r.account_id as string | null) ?? null, phone: String(r.phone), customer_name: String(r.customer_name), delivery_date: String(r.delivery_date).slice(0, 10), total: num(r.total_final ?? r.total_est) }));
+  },
+
   async trackEvent(event, productId = "") {
     const { error } = await sb().rpc("track_event", { p_event: event, p_product: productId });
     if (error) throw error;
@@ -983,6 +1011,15 @@ function mapPayment(r: Row): Payment {
     amount: num(r.amount), amount_paid: numOrNull(r.amount_paid), status: r.status as Payment["status"],
     qr_string: (r.qr_string as string | null) ?? null, qr_url: (r.qr_url as string | null) ?? null,
     expires_at: (r.expires_at as string | null) ?? null, created_at: String(r.created_at), paid_at: (r.paid_at as string | null) ?? null,
+  };
+}
+
+function mapRating(r: Row): Rating {
+  const o = r.orders as Row | null | undefined;
+  return {
+    id: String(r.id), order_id: String(r.order_id), stars: num(r.stars), comment: String(r.comment ?? ""), created_at: String(r.created_at),
+    items: ((r.rating_items as Row[] | null) ?? []).map((i) => ({ product_id: String(i.product_id), stars: num(i.stars) })),
+    ...(o ? { order_code: String(o.code), customer_name: String(o.customer_name), phone: String(o.phone) } : {}),
   };
 }
 

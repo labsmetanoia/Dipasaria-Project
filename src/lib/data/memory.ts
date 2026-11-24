@@ -2,6 +2,7 @@
 // It applies the same business rules as the SQL functions, via src/lib/pricing.ts.
 
 import type {
+  Rating,
   FunnelRow,
   AccountPayment,
   ContractPrice,
@@ -285,11 +286,13 @@ function getStore(): Store {
 }
 
 // Kept on globalThis like the store: Next.js may load this module once per route bundle, and these must be shared.
-const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }>; claims: Claim[]; alerts: Array<{ product_id: string; phone: string; notified: boolean }>; purchases: Purchase[]; funnel?: FunnelRow[] } };
+const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }>; claims: Claim[]; alerts: Array<{ product_id: string; phone: string; notified: boolean }>; purchases: Purchase[]; funnel?: FunnelRow[]; ratings?: Rating[] } };
 g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [], wa: [], customers: [], addresses: [], csessions: new Map(), codes: new Map(), claims: [], alerts: [], purchases: [] };
 g.__dpMem.claims ??= [];
 g.__dpMem.funnel ??= [];
 const funnel = g.__dpMem.funnel;
+g.__dpMem.ratings ??= [];
+const ratings = g.__dpMem.ratings;
 g.__dpMem.alerts ??= [];
 g.__dpMem.purchases ??= [];
 g.__dpMem.payments ??= [];
@@ -1265,6 +1268,43 @@ export const memoryRepo: Repo = {
   async deleteContractPrice(id) {
     const store = getStore();
     store.contracts = store.contracts.filter((c) => c.id !== id);
+  },
+
+  async createRating(code, phone, r, windowDays) {
+    const o = getStore().orders.find((x) => x.code.toUpperCase() === code.trim().toUpperCase() && x.phone === normalizePhone(phone));
+    if (!o) return fail("Pesanan tidak ditemukan.");
+    if (o.status !== "completed") return fail("Penilaian dapat diberikan setelah pesanan diterima.");
+    const delivered = o.delivered_at ? Date.parse(o.delivered_at) : Date.parse(`${o.delivery_date}T12:00:00+07:00`);
+    if (Date.now() > delivered + windowDays * 86400_000) return fail("Batas waktu penilaian untuk pesanan ini sudah lewat.");
+    if (!Number.isInteger(r.stars) || r.stars < 1 || r.stars > 5) return fail("Pilih 1 sampai 5 bintang.");
+    if (ratings.some((x) => x.order_id === o.id)) return fail("Pesanan ini sudah Anda nilai. Terima kasih.");
+    const perProduct = new Map<string, number[]>();
+    for (const it of r.items) {
+      const line = o.items.find((i) => i.id === it.item_id);
+      if (!line || !Number.isInteger(it.stars) || it.stars < 1 || it.stars > 5) return fail("Penilaian produk tidak valid.");
+      perProduct.set(line.product_id, [...(perProduct.get(line.product_id) ?? []), it.stars]);
+    }
+    const id = newId("rt");
+    ratings.push({ id, order_id: o.id, stars: r.stars, comment: r.comment.trim().slice(0, 500), created_at: new Date().toISOString(),
+      items: [...perProduct.entries()].map(([product_id, xs]) => ({ product_id, stars: Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) })) });
+    return ok(id);
+  },
+  async getRatingForOrder(orderId) {
+    const r = ratings.find((x) => x.order_id === orderId);
+    return r ? clone(r) : null;
+  },
+  async listRatings(filter) {
+    const rows = ratings.filter((r) => !filter?.since || r.created_at.slice(0, 10) >= filter.since).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, filter?.limit ?? 200);
+    return clone(rows).map((r) => { const o = getStore().orders.find((x) => x.id === r.order_id); return { ...r, order_code: o?.code, customer_name: o?.customer_name, phone: o?.phone }; });
+  },
+  async productRatings() {
+    const sums = new Map<string, { total: number; count: number }>();
+    for (const r of ratings) for (const it of r.items) { const s = sums.get(it.product_id) ?? { total: 0, count: 0 }; s.total += it.stars; s.count++; sums.set(it.product_id, s); }
+    return Object.fromEntries([...sums.entries()].map(([id, s]) => [id, { average: Math.round((s.total / s.count) * 100) / 100, count: s.count }]));
+  },
+  async listOrderFacts(since) {
+    return getStore().orders.filter((o) => o.status !== "cancelled" && o.delivery_date >= since)
+      .map((o) => ({ code: o.code, segment: o.segment, account_id: o.account_id, phone: o.phone, customer_name: o.customer_name, delivery_date: o.delivery_date, total: o.total_final ?? o.total_est }));
   },
 
   async trackEvent(event, productId = "") {

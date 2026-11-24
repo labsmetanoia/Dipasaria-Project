@@ -1,4 +1,7 @@
 import type {
+  Rating,
+  ProductRating,
+  OrderFact,
   FunnelEvent,
   FunnelRow,
   AccountPayment,
@@ -218,6 +221,19 @@ export interface Repo {
   listContractPrices(accountId?: string): Promise<ContractPrice[]>;
   addContractPrice(c: Pick<ContractPrice, "account_id" | "variant_id" | "price" | "starts_on" | "ends_on" | "note">): Promise<Result<ContractPrice>>;
   deleteContractPrice(id: string): Promise<void>;
+
+  // Ratings after delivery
+  /** One rating per delivered order, by its customer (code + phone); `items` are stars per order line. */
+  createRating(code: string, phone: string, r: { stars: number; comment: string; items: Array<{ item_id: string; stars: number }> }, windowDays: number): Promise<Result<string>>;
+  getRatingForOrder(orderId: string): Promise<Rating | null>;
+  /** Newest first, with the order's code and customer for the back-office. */
+  listRatings(filter?: { since?: string; limit?: number }): Promise<Rating[]>;
+  /** Average stars and number of ratings per product id. */
+  productRatings(): Promise<Record<string, ProductRating>>;
+
+  // Customer retention
+  /** Non-cancelled orders with a delivery date on or after `since`, reduced to customer, date and amount. */
+  listOrderFacts(since: string): Promise<OrderFact[]>;
 
   // Visit funnel (anonymous daily counters; no visitor id is stored)
   trackEvent(event: FunnelEvent, productId?: string): Promise<void>;

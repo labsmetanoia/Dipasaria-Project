@@ -15,13 +15,14 @@ import { ReorderButton } from "./ReorderPanel";
 import { Emblem } from "@/components/Logo";
 import { QrisPay } from "./QrisPay";
 import { ClaimForm } from "./ClaimForm";
+import { RatingForm } from "./RatingForm";
 import { ShieldCheck } from "lucide-react";
 
 const STEPS: Order["status"][] = ["new", "confirmed", "packing", "delivering", "completed"];
 
 export type ClaimSummary = { id: string; status: "open" | "replace" | "refund" | "declined"; resolution_note: string; refund_amount: number | null; created_at: string };
 
-export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claims = [], claimUntil = null, box = null }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean; claims?: ClaimSummary[]; claimUntil?: string | null; /** this order came from a weekly box; skippable while unpaid and before the cut-off */ box?: { skippable: boolean } | null }) {
+export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claims = [], claimUntil = null, box = null, rating = null }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean; claims?: ClaimSummary[]; claimUntil?: string | null; /** the rating already given, "open" while the order can still be rated, null otherwise */ rating?: { stars: number; comment: string } | "open" | null; /** this order came from a weekly box; skippable while unpaid and before the cut-off */ box?: { skippable: boolean } | null }) {
  const { t, locale } = useT();
  const [order, setOrder] = useState(initial);
  const [pending, start] = useTransition();
@@ -122,6 +123,7 @@ export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claim
       )}
       {!finalKnown && order.status !== "cancelled" && <div className=" bg-tide-50 px-5 py-4 text-sm text-tide-700">{t.tracking.catchPending}</div>}
       {order.delivered_at && <div className="card flex items-start gap-3 p-5 text-sm"><CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-success-600" /><p>{locale === "en" ? "Delivered" : "Diterima"} {formatDateTime(order.delivered_at, locale)} WIB{order.delivery_note ? ` · ${order.delivery_note}` : ""}</p></div>}
+      {rating && <RatingForm order={order} existing={rating === "open" ? null : rating} claimOpen={Boolean(claimUntil)} />}
       {claims.map((c) => (
         <div key={c.id} className="card flex items-start gap-3 p-5 text-sm">
           <ShieldCheck className="mt-0.5 h-5 w-5 flex-none text-tide-600" />

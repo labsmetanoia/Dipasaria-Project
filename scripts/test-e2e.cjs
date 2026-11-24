@@ -487,6 +487,15 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   // customer: delivered, then a guarantee report with a photo
   await v.goto(vUrl, { waitUntil: "networkidle" });
   check((await v.getByText(/Diterima .* WIB · Satpam lobi/).count()) === 1, "customer sees when and to whom the order was delivered");
+  // rating after delivery: two stars overall, one star for the fish, a comment
+  check((await v.getByText("Bagaimana pesanan Anda?").count()) === 1, "a delivered order asks its customer for a rating");
+  await v.getByRole("radiogroup", { name: "Nilai untuk seluruh pesanan" }).getByRole("radio", { name: "2 / 5" }).click();
+  await v.getByRole("radiogroup", { name: "Nilai untuk Kakap Putih" }).getByRole("radio", { name: "1 / 5" }).click();
+  await v.getByLabel("Komentar (opsional)").fill("Kakapnya kurang segar.");
+  await v.screenshot({ path: `${OUT}/69-rating-mobile.png`, fullPage: true });
+  await v.getByRole("button", { name: "Kirim penilaian" }).click();
+  await v.waitForSelector("text=Terima kasih atas penilaian Anda.", { timeout: 10000 });
+  check((await v.getByText(/Laporkan produknya dengan foto di bawah/).count()) === 1, "a low rating points the customer to the guarantee report while its window is open");
   await v.getByRole("button", { name: "Laporkan masalah" }).click();
   await v.locator("label", { hasText: "Kakap Putih" }).first().locator("input[type=checkbox]").check();
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
@@ -499,6 +508,7 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   // admin decides; customer sees the decision
   await a.goto(BASE + "/admin", { waitUntil: "networkidle" });
   check((await a.getByText(/laporan garansi menunggu keputusan/).count()) === 1, "dashboard flags the open guarantee report");
+  check((await a.getByText(/1 penilaian rendah \(1–2 bintang\)/).count()) === 1, "dashboard flags the low rating");
   await a.goto(BASE + "/admin/garansi", { waitUntil: "networkidle" });
   const claimCard = a.locator("div.card", { hasText: vCode }).first();
   check((await claimCard.locator("img[alt^='Foto 1']").count()) === 1, "the report's photo is visible to the owner");
@@ -509,6 +519,7 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   await a.waitForSelector("text=Tidak ada laporan yang menunggu.", { timeout: 10000 });
   await v.reload({ waitUntil: "networkidle" });
   check((await v.getByText(/dana dikembalikan Rp/).count()) === 1, "customer sees the refund decision on the order page");
+  check((await v.getByText("Terima kasih atas penilaian Anda.").count()) === 1 && (await v.getByText("Bagaimana pesanan Anda?").count()) === 0, "the rating stays on the order page and cannot be given twice");
   await a.goto(BASE + "/admin/whatsapp", { waitUntil: "networkidle" });
   check((await a.getByText("Pesanan sudah diterima").count()) >= 1 && (await a.getByText("Keputusan laporan garansi").count()) >= 1, "delivered and guarantee-decision WhatsApp messages are prepared");
   // buying log: record what was paid at the auction
@@ -739,6 +750,15 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   check(steps.join(",") === "1,1,1,1,1", "funnel counts one visit once per step, from opening the shop to the order: " + steps.join(","));
   check((await funnel.getByText(/Dari kunjungan menjadi pesanan: 100%/).count()) === 1, "the report shows the conversion from visit to order");
   check((await funnel.locator("tr", { hasText: "Fillet Dada Ayam Beku" }).count()) === 1, "the report lists the product that was viewed and added");
+  // ratings and retention on the same page
+  const ratingsBox = a.locator("section", { hasText: "Penilaian pelanggan" });
+  check((await ratingsBox.getByRole("link", { name: vCode }).count()) === 1 && (await ratingsBox.getByText("“Kakapnya kurang segar.”").count()) === 1 && (await ratingsBox.getByText("Nilai rendah: Kakap Putih", { exact: true }).count()) === 1, "the report lists the low rating with its comment, a link to the order, and only the product the customer marked down");
+  const back = a.locator("section", { hasText: "Pelanggan kembali" });
+  check((await back.getByText("Pesan lagi dalam 30 hari").count()) === 1 && (await back.getByText("Sudah lama tidak memesan").count()) === 1 && (await back.locator("tbody tr").count()) >= 1, "the report shows retention: repeat rate, order gap, order value and first-order months");
+  await a.locator(`a[href^="/admin/pesanan/"]`, { hasText: vCode }).first().click();
+  await a.waitForSelector("text=Penilaian pelanggan: 2 dari 5", { timeout: 10000 });
+  check(true, "the order page in the back-office shows the customer's rating");
+  await a.goto(BASE + "/admin/laporan", { waitUntil: "networkidle" });
   await funnel.scrollIntoViewIfNeeded();
   await a.screenshot({ path: `${OUT}/68-admin-funnel-desktop.png`, fullPage: true });
 

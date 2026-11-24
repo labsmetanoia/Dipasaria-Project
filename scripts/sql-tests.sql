@@ -477,5 +477,24 @@ begin
   if (select f.n from funnel_daily f where f.event = 'product_view' and f.product_id = 'p_kakap') <> 1 then raise exception 'funnel per-product counter'; end if;
   perform _expect_error($q$select track_event('password_typed')$q$, 'funnel_daily_event_check');
 
+  -- 26. Ratings after delivery: once per delivered order, by its customer; stars per product for the product page
+  oid := place_order(jsonb_build_object('customer_name', 'Ibu Nilai', 'phone', '081277770070', 'address', 'Jl. Uji 70', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 3), jsonb_build_object('variant_id', 'v_dada', 'qty', 2))));
+  v_code := (select code from orders where id = oid);
+  perform _expect_error(format($q$select create_rating('%s', '081277770070', 5, '', '[]'::jsonb, 14)$q$, v_code), 'setelah pesanan diterima');
+  perform mark_delivered(oid, 'Diterima', null);
+  perform _expect_error(format($q$select create_rating('%s', '081200000000', 5, '', '[]'::jsonb, 14)$q$, v_code), 'tidak ditemukan');
+  perform _expect_error(format($q$select create_rating('%s', '081277770070', 6, '', '[]'::jsonb, 14)$q$, v_code), '1 sampai 5');
+  perform _expect_error(format($q$select create_rating('%s', '081277770070', 4, '', '[{"item_id":"nope","stars":"5"}]'::jsonb, 14)$q$, v_code), 'produk tidak valid');
+  perform _expect_error(format($q$select create_rating('%s', '081277770070', 4, '', (select jsonb_agg(jsonb_build_object('item_id', id, 'stars', '9')) from order_items where order_id = '%s'), 14)$q$, v_code, oid), 'produk tidak valid');
+  cid := create_rating(v_code, '0812 7777 0070', 4, 'Segar, datang tepat waktu', (select jsonb_agg(jsonb_build_object('item_id', id, 'stars', case when variant_id = 'v_salmon' then '5' else '3' end)) from order_items where order_id = oid), 14);
+  if (select stars || '/' || comment from ratings where id = cid) <> '4/Segar, datang tepat waktu' then raise exception 'rating not stored'; end if;
+  if (select s.average || '/' || s.n from product_rating_summary() s where s.product_id = 'p_salmon') <> '5.00/1' then raise exception 'product rating summary: %', (select s.average || '/' || s.n from product_rating_summary() s where s.product_id = 'p_salmon'); end if;
+  perform _expect_error(format($q$select create_rating('%s', '081277770070', 5, '', '[]'::jsonb, 14)$q$, v_code), 'sudah Anda nilai');
+  update orders set delivered_at = now() - interval '20 days' where id = oid;
+  delete from ratings where id = cid;
+  if exists (select 1 from rating_items where rating_id = cid) then raise exception 'rating items should go with the rating'; end if;
+  perform _expect_error(format($q$select create_rating('%s', '081277770070', 5, '', '[]'::jsonb, 14)$q$, v_code), 'Batas waktu penilaian');
+
   raise notice 'all assertions passed';
 end $$;

@@ -68,3 +68,7 @@ export const BUSINESS_TYPES = [
 
 /** The freshness guarantee: problems can be reported with photos this many hours after delivery (as promised on /tentang). */
 export const CLAIM_WINDOW_HOURS = 2;
+/** A delivered order can be rated for this many days. */
+export const RATING_WINDOW_DAYS = 14;
+/** A product shows its stars (on the page and to Google) once it has this many ratings. */
+export const RATING_MIN_SHOWN = 3;

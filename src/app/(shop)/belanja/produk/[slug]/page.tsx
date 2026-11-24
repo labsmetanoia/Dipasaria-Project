@@ -18,6 +18,8 @@ import { segmentOf } from "@/lib/pricing";
 import { rupiah } from "@/lib/format";
 import { NOINDEX, breadcrumbLd, pageMeta, productDescription, productLd, productTitle } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
+import { Stars } from "@/components/shop/RatingForm";
+import { RATING_MIN_SHOWN } from "@/lib/config";
 import { TrackView } from "@/components/Track";
 import { recipesForProduct } from "@/lib/content/recipes";
 import { recipeTotal, resolveRecipe } from "@/lib/content/recipe-items";
@@ -39,8 +41,10 @@ const FAQ = {
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const repo = await getRepo();
-  const [product, account, categories, products, { locale, t }] = await Promise.all([repo.getProductBySlug(slug), getCurrentAccount(), repo.getCategories(), repo.getProducts(), getT()]);
+  const [product, account, categories, products, { locale, t }, ratings] = await Promise.all([repo.getProductBySlug(slug), getCurrentAccount(), repo.getCategories(), repo.getProducts(), getT(), repo.productRatings()]);
   if (!product) notFound();
+  // stars appear once enough customers have rated the product, so one early opinion does not define it
+  const rated = ratings[product.id] && ratings[product.id].count >= RATING_MIN_SHOWN ? ratings[product.id] : null;
   const cat = categories.find((c) => c.id === product.category_id);
   const segment = segmentOf(account);
   const related = products.filter((p) => p.category_id === product.category_id && p.id !== product.id && p.available_today).slice(0, 4);
@@ -61,7 +65,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const stepIcons = [<ClipboardList key="a" className="h-5 w-5" />, <CalendarDays key="b" className="h-5 w-5" />, <Fish key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
   const steps = en ? ["Choose products, sizes and preparation", "Pick a delivery day and slot", "We auction, weigh and prepare at dawn", "Delivered cold to your door"] : ["Pilih produk, ukuran, dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, siapkan, dan timbang saat subuh", "Diantar dingin sampai ke pintu Anda"];
   const cookWith = recipesForProduct(product.variants.map((v) => v.id)).slice(0, 3);
-  const jsonLd = [...[productLd(product, cat)].filter((x) => x !== null), breadcrumbLd([["Belanja", "/belanja"], ...(cat ? [[cat.name, `/belanja/kategori/${cat.slug}`] as [string, string]] : []), [product.name, `/belanja/produk/${product.slug}`]])];
+  const jsonLd = [...[productLd(product, cat, rated)].filter((x) => x !== null), breadcrumbLd([["Belanja", "/belanja"], ...(cat ? [[cat.name, `/belanja/kategori/${cat.slug}`] as [string, string]] : []), [product.name, `/belanja/produk/${product.slug}`]])];
   return (
     <>
       <JsonLd data={jsonLd} />
@@ -74,6 +78,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <div className="px-5 py-8 sm:px-10 lg:px-14 lg:py-14">
             <nav aria-label="Breadcrumb" className="font-sans text-[10.5px] font-bold uppercase tracking-[0.18em] text-mute"><Link href="/belanja" className="hover:text-gold-ink">{t.common.shop}</Link> / {cat && <Link href={`/belanja/kategori/${cat.slug}`} className="hover:text-gold-ink">{catName}</Link>}</nav>
             <h1 className="mt-3 text-[2.6rem] sm:text-[3.4rem]">{name}</h1>
+            {rated && <p className="mt-2 flex items-center gap-2 font-sans text-[13px]"><Stars value={rated.average} /><b>{rated.average.toFixed(1).replace(".", en ? "." : ",")}</b><span className="text-mute">{en ? `from ${rated.count} customers who received it` : `dari ${rated.count} pelanggan yang menerimanya`}</span></p>}
             <p className="mt-1 font-sans text-[13px] text-mute">{en ? product.name : product.name_en}{product.scientific_name && <i> · {product.scientific_name}</i>}</p>
             <div className="mt-6"><ProductSheet product={product} account={account} /></div>
             {pairs.length > 0 && (

@@ -19,5 +19,6 @@ export default async function OrderAdminPage({ params }: { params: Promise<{ id:
   const [fresh, payments, wa, claims] = await Promise.all([repo.getOrder(id), repo.listPayments(id), repo.listWa(id), repo.listClaims({ orderId: id, status: "open" })]);
   const account = order.account_id ? await repo.getAccount(order.account_id) : null;
   const terms = account ? `${TERMS_LABEL[account.payment_terms]}${account.allow_cod ? " · COD" : ""}${account.discount_pct ? ` · diskon ${account.discount_pct}%` : ""}` : undefined;
-  return <OrderAdmin order={fresh ?? order} settings={settings} accountTerms={terms} payments={payments} wa={wa} waApi={waApiEnabled()} claimsOpen={claims.length} />;
+  const rating = await repo.getRatingForOrder(order.id);
+  return <OrderAdmin order={fresh ?? order} settings={settings} accountTerms={terms} payments={payments} wa={wa} waApi={waApiEnabled()} claimsOpen={claims.length} rating={rating ? { stars: rating.stars, comment: rating.comment } : null} />;
 }

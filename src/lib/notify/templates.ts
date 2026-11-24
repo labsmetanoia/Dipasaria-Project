@@ -41,7 +41,7 @@ export const TEMPLATES: Record<WaKind, Template> = {
   delivered: {
     name: "dipasaria_pesanan_sampai",
     label: "Pesanan sudah diterima",
-    body: "Halo {{1}}, pesanan {{2}} sudah diterima. Terima kasih!\n\nBila ada produk yang kurang segar atau tidak sesuai, laporkan dengan foto dalam 2 jam dan kami ganti atau kembalikan dananya: {{3}}\n\nSalam segar, Dipasaria.",
+    body: "Halo {{1}}, pesanan {{2}} sudah diterima. Terima kasih!\n\nBeri nilai pesanan Anda di tautan ini. Bila ada produk yang kurang segar atau tidak sesuai, laporkan dengan foto dalam 2 jam di tautan yang sama dan kami ganti atau kembalikan dananya: {{3}}\n\nSalam segar, Dipasaria.",
   },
   claim: {
     name: "dipasaria_keputusan_garansi",

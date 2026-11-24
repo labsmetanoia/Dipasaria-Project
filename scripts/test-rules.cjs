@@ -121,6 +121,40 @@ const check = (cond, name) => { if (cond) { oks++; console.log("ok: " + name); }
   const stm = R.buildStatement(l, "2026-11-05", today);
   check(stm.opening === 1000000 && stm.invoiced === 400000 && stm.received === 600000 && stm.closing === 800000, "statement: opening + invoices - payments = closing");
 
+  // ---------- customer retention ----------
+  const T = await jiti.import("../src/lib/retention.ts");
+  const fact = (phone, date, total, extra = {}) => ({ code: "X", segment: "retail", account_id: null, phone, customer_name: "Ibu " + phone.slice(-2), delivery_date: date, total, ...extra });
+  const facts = [
+    fact("6281300000001", "2026-09-01", 200000), fact("6281300000001", "2026-09-15", 300000), fact("6281300000001", "2026-09-15", 100000), fact("6281300000001", "2026-09-29", 250000), // every two weeks, then silent
+    fact("6281300000002", "2026-10-01", 180000), // once, long ago
+    fact("6281300000003", "2026-10-20", 150000), fact("6281300000003", "2026-11-20", 150000), // came back, but after 31 days
+    fact("6281300000004", "2026-11-18", 220000), // new: too early to judge
+    fact("6281200000001", "2026-11-10", 2000000, { segment: "business", account_id: "ba_x", customer_name: "Resto X" }), fact("6281200000001", "2026-11-12", 1800000, { segment: "business", account_id: "ba_x", customer_name: "Resto X" }),
+  ];
+  const ret = T.buildRetention(facts, "2026-11-24");
+  check(ret.customers === 5 && ret.bySegment.retail.customers === 4 && ret.bySegment.business.customers === 1, "retention: households by phone, restaurants by account");
+  check(ret.eligible30 === 3 && ret.returned30 === 1, "repeat within 30 days counts only customers whose first order is old enough to judge (1 of 3)");
+  check(ret.repeatCustomers === 3 && ret.bySegment.retail.medianGap === 14 && ret.bySegment.retail.aov === Math.round(1550000 / 8), "two orders for the same day are one visit; median gap and average order value");
+  const sep = ret.cohorts.find((c) => c.month === "2026-09"), oct = ret.cohorts.find((c) => c.month === "2026-10");
+  check(sep.customers === 1 && sep.returned30 === 1 && oct.customers === 2 && oct.returned === 1 && oct.returned30 === 0, "cohorts by first-order month: came back at all, and within 30 days");
+  const quietKeys = ret.quiet.map((c) => c.phone);
+  check(JSON.stringify(quietKeys) === JSON.stringify(["6281200000001", "6281300000001", "6281300000002"]), "quiet list: the restaurant after a week, the fortnightly household after a month, the one-time buyer; biggest spender first");
+  check(!quietKeys.includes("6281300000003") && !quietKeys.includes("6281300000004") && ret.quiet.find((c) => c.phone === "6281300000001").threshold === 28, "recent customers are not quiet; the threshold stretches to twice a customer's usual gap");
+
+  // ---------- ratings on the demo data layer ----------
+  await repo.customerRequestCode("6281377770092", "h2");
+  const rated = (await repo.placeOrder({ lines: [{ product_id: "p_salmon", variant_id: "v_salmon", qty: 3, prep_option_id: null }, { product_id: "p_dada", variant_id: "v_dada", qty: 2, prep_option_id: null }], customer_name: "Ibu Nilai", phone: "081377770093", address: "Jl. Uji Nilai 3", area_id: "a_selatan", delivery_date: availableDates(await repo.getSettings(), nowJakarta())[0], slot_id: "s_pagi", payment_method: "qris" }, null)).data;
+  const lineOf = (pid) => rated.items.find((i) => i.product_id === pid).id;
+  check(/setelah pesanan diterima/.test((await repo.createRating(rated.code, rated.phone, { stars: 5, comment: "", items: [] }, 14)).error || ""), "an order cannot be rated before it is delivered");
+  await repo.markDelivered(rated.id, "Diterima", null);
+  check(/tidak ditemukan/.test((await repo.createRating(rated.code, "081300000000", { stars: 5, comment: "", items: [] }, 14)).error || ""), "only the customer who placed the order can rate it");
+  check(/tidak valid/.test((await repo.createRating(rated.code, rated.phone, { stars: 4, comment: "", items: [{ item_id: "nope", stars: 5 }] }, 14)).error || ""), "stars for a product that is not in the order are refused");
+  const okRating = await repo.createRating(rated.code, rated.phone, { stars: 4, comment: "Segar", items: [{ item_id: lineOf("p_salmon"), stars: 5 }, { item_id: lineOf("p_dada"), stars: 2 }] }, 14);
+  const summary = await repo.productRatings();
+  check(okRating.ok && summary.p_salmon.average === 5 && summary.p_salmon.count === 1 && summary.p_dada.average === 2, "a rating is stored with stars per product");
+  check(/sudah Anda nilai/.test((await repo.createRating(rated.code, rated.phone, { stars: 1, comment: "", items: [] }, 14)).error || ""), "one rating per order");
+  check((await repo.getRatingForOrder(rated.id)).stars === 4 && (await repo.listRatings({ limit: 5 }))[0].order_code === rated.code, "the rating is found by order and listed with the order code");
+
   console.log(fails ? `\n${fails} FAILURES` : `\nALL RULES CHECKS PASSED (${oks})`);
   process.exit(fails ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

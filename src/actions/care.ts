@@ -5,7 +5,7 @@ import { allow, clientIp, TOO_MANY } from "@/lib/guard";
 import { isValidPhone } from "@/lib/format";
 import { alert, reportError } from "@/lib/monitor";
 import { getCurrentCustomer } from "@/lib/customer";
-import { CLAIM_WINDOW_HOURS } from "@/lib/config";
+import { CLAIM_WINDOW_HOURS, RATING_WINDOW_DAYS } from "@/lib/config";
 import type { ClaimReason } from "@/lib/types";
 
 type R<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -26,6 +26,29 @@ export async function createClaimAction(code: string, phone: string, input: { it
   if (!r.ok) return r;
   try { await alert(`Laporan garansi baru untuk ${order.code} (${order.customer_name}). Putuskan di /admin/garansi`); } catch (e) { await reportError("action", e, { path: "claim/alert" }); }
   return r;
+}
+
+/**
+ * Rate a delivered order: 1-5 stars overall, optional stars per item and a comment. Only the customer who placed the
+ * order can rate it (order code + phone), once. A low rating reaches the owner at once.
+ */
+export async function rateOrderAction(code: string, phone: string, input: { stars: number; comment: string; items: Array<{ item_id: string; stars: number }> }): Promise<R<{ stars: number }>> {
+  if (!(await allow("claim", await clientIp()))) return { ok: false, error: TOO_MANY };
+  const stars = Math.round(Number(input?.stars));
+  if (typeof code !== "string" || typeof phone !== "string" || !Number.isFinite(stars) || stars < 1 || stars > 5) return { ok: false, error: "Pilih 1 sampai 5 bintang." };
+  const items = (Array.isArray(input.items) ? input.items : []).slice(0, 40).map((i) => ({ item_id: String(i?.item_id ?? ""), stars: Math.round(Number(i?.stars)) }));
+  if (items.some((i) => !i.item_id || !(i.stars >= 1 && i.stars <= 5))) return { ok: false, error: "Penilaian produk tidak valid." };
+  const comment = String(input.comment ?? "").trim().slice(0, 500);
+  const repo = await getRepo();
+  const r = await repo.createRating(code, phone, { stars, comment, items }, RATING_WINDOW_DAYS);
+  if (!r.ok) return r;
+  if (stars <= 2) {
+    try {
+      const order = await repo.lookupOrder(code, phone);
+      await alert(`Penilaian rendah (${stars} dari 5) untuk ${order?.code ?? code} (${order?.customer_name ?? "pelanggan"})${comment ? `: “${comment.slice(0, 200)}”` : ""}. Lihat /admin/laporan`);
+    } catch (e) { await reportError("action", e, { path: "rating/alert" }); }
+  }
+  return { ok: true, data: { stars } };
 }
 
 /** "Kabari saya": one WhatsApp message when a sold-out product is available again. */

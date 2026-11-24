@@ -531,6 +531,24 @@ create table if not exists contract_prices (
 );
 create index if not exists contract_prices_account_idx on contract_prices(account_id);
 
+-- Ratings after delivery: one per order, given by the customer who placed it (order code + phone), with optional
+-- stars per product. Product pages show the average once there are enough.
+create table if not exists ratings (
+  id text primary key default new_id('rt'),
+  order_id text not null unique references orders(id) on delete cascade,
+  stars int not null check (stars between 1 and 5),
+  comment text not null default '',
+  created_at timestamptz not null default now()
+);
+create table if not exists rating_items (
+  rating_id text not null references ratings(id) on delete cascade,
+  product_id text not null references products(id) on delete cascade,
+  stars int not null check (stars between 1 and 5),
+  primary key (rating_id, product_id)
+);
+create index if not exists rating_items_product_idx on rating_items(product_id);
+create index if not exists ratings_created_idx on ratings(created_at desc);
+
 -- Anonymous visit funnel: one counter per day and step (and per product for views and add-to-cart).
 -- No visitor id, IP address or cookie is stored: these are counts, not personal data.
 create table if not exists funnel_daily (
@@ -595,7 +613,7 @@ create index if not exists customer_sessions_expires_idx on customer_sessions(ex
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices','funnel_daily']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices','funnel_daily','ratings','rating_items']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -1221,6 +1239,44 @@ begin
   perform allocate_account_credit(v_account);
 end $$;
 
+-- ---------- ratings after delivery ----------
+-- The customer (order code + phone) rates a delivered order once, within p_window_days of delivery: 1-5 stars
+-- overall, an optional comment, and optionally stars per item (stored per product, for the product page).
+create or replace function create_rating(p_code text, p_phone text, p_stars int, p_comment text, p_items jsonb, p_window_days int)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare o orders%rowtype; rid text; delivered timestamptz;
+begin
+  select * into o from orders where code = upper(trim(p_code)) and phone = normalize_phone(p_phone) for update;
+  if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
+  if o.status <> 'completed' then raise exception 'Penilaian dapat diberikan setelah pesanan diterima.'; end if;
+  delivered := coalesce(o.delivered_at, ((o.delivery_date::timestamp + interval '12 hours') at time zone 'Asia/Jakarta'));
+  if now() > delivered + make_interval(days => p_window_days) then raise exception 'Batas waktu penilaian untuk pesanan ini sudah lewat.'; end if;
+  if p_stars is null or p_stars < 1 or p_stars > 5 then raise exception 'Pilih 1 sampai 5 bintang.'; end if;
+  if exists (select 1 from ratings where order_id = o.id) then raise exception 'Pesanan ini sudah Anda nilai. Terima kasih.'; end if;
+  if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' then raise exception 'Penilaian tidak valid.'; end if;
+  if exists (
+    select 1 from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) e
+     where not exists (select 1 from order_items oi where oi.order_id = o.id and oi.id = e->>'item_id')
+        or coalesce(e->>'stars', '') !~ '^[1-5]$'
+  ) then raise exception 'Penilaian produk tidak valid.'; end if;
+  insert into ratings (order_id, stars, comment) values (o.id, p_stars, left(trim(coalesce(p_comment, '')), 500)) returning id into rid;
+  -- two sizes of the same product in one order count as one rating for that product
+  insert into rating_items (rating_id, product_id, stars)
+  select rid, oi.product_id, round(avg((e->>'stars')::int))::int
+    from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) e
+    join order_items oi on oi.order_id = o.id and oi.id = e->>'item_id'
+   group by oi.product_id;
+  return rid;
+end $$;
+
+-- Average stars and number of ratings per product.
+create or replace function product_rating_summary()
+returns table (product_id text, average numeric, n int)
+language sql stable security definer set search_path = public as $$
+  select ri.product_id, round(avg(ri.stars)::numeric, 2), count(*)::int from rating_items ri group by ri.product_id;
+$$;
+
 -- Count one funnel step for today (Jakarta date). Called by the server only, for steps it has validated.
 create or replace function track_event(p_event text, p_product text default '')
 returns void
@@ -1464,7 +1520,7 @@ begin
     'place_order(jsonb, text)', 'weigh_order(text, jsonb)', 'set_order_status(text, text, text)', 'set_payment_status(text, text)',
     'customer_confirm_payment(text, text)', 'apply_account(jsonb)', 'approve_account(text, numeric, text, boolean, text)',
     'regenerate_access_code(text)', 'business_login(text, text)', 'daily_summary(date)', 'buying_list(date)', 'sales_report(date, date)',
-    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'mark_delivered(text, text, numeric)', 'create_claim(text, text, jsonb, text, text, jsonb, numeric)', 'resolve_claim(text, text, text, numeric)', 'account_exposure(text, text)', 'allocate_account_credit(text)', 'record_account_payment(text, numeric, date, text, text, text)', 'delete_account_payment(text)', 'track_event(text, text)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
+    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'mark_delivered(text, text, numeric)', 'create_claim(text, text, jsonb, text, text, jsonb, numeric)', 'resolve_claim(text, text, text, numeric)', 'account_exposure(text, text)', 'allocate_account_credit(text)', 'record_account_payment(text, numeric, date, text, text, text)', 'delete_account_payment(text)', 'track_event(text, text)', 'create_rating(text, text, integer, text, jsonb, integer)', 'product_rating_summary()', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

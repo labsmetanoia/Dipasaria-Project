@@ -14,7 +14,7 @@ import { FLOW, nextStatuses, parseWeight, paymentChangeError, safeMapsUrl, weigh
 
 const PAY_LABEL: Record<Payment["status"], string> = { pending: "menunggu", paid: "dibayar", expired: "kedaluwarsa", failed: "gagal", cancelled: "dibatalkan" };
 
-export function OrderAdmin({ order: initial, settings, accountTerms, payments = [], wa = [], waApi = false, claimsOpen = 0 }: { order: Order; settings: Settings; accountTerms?: string; payments?: Payment[]; wa?: WaMessage[]; waApi?: boolean; claimsOpen?: number }) {
+export function OrderAdmin({ order: initial, settings, accountTerms, payments = [], wa = [], waApi = false, claimsOpen = 0, rating = null }: { order: Order; settings: Settings; accountTerms?: string; payments?: Payment[]; wa?: WaMessage[]; waApi?: boolean; claimsOpen?: number; rating?: { stars: number; comment: string } | null }) {
   const [order, setOrder] = useState(initial);
   const [weights, setWeights] = useState<Record<string, string>>(() => Object.fromEntries(order.items.filter((i) => i.is_catch_weight).map((i) => [i.id, i.qty_final === null ? "" : String(i.qty_final).replace(".", ",")])));
   const [note, setNote] = useState(order.internal_note);
@@ -125,6 +125,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms, payments = 
             {order.customer_note && <p className="mt-3 bg-warn-50 px-3 py-2 text-sm text-warn-600">“{order.customer_note}”</p>}
             <p className="mt-2 text-xs"><span className="text-mute">Bila produk kosong di lelang: </span><b>{order.substitution === "similar" ? "ganti dengan yang sejenis" : order.substitution === "remove" ? "hapus saja" : "hubungi pelanggan dulu"}</b></p>
             {order.delivered_at && <p className="mt-1 text-xs text-success-600">Diterima {formatDateTime(order.delivered_at)} WIB{order.delivery_note ? ` · ${order.delivery_note}` : ""}{order.cod_collected !== null && order.cod_collected !== undefined ? ` · tunai ${rupiah(order.cod_collected)}` : ""}</p>}
+            {rating && <p className={`mt-2 px-3 py-2 text-xs ${rating.stars <= 2 ? "bg-coral-50 text-gold-ink" : "bg-sand-100"}`}><b>Penilaian pelanggan: {rating.stars} dari 5</b>{rating.comment ? ` · “${rating.comment}”` : ""}</p>}
             {claimsOpen > 0 && <Link href="/admin/garansi" className="mt-2 block bg-coral-50 px-3 py-2 text-xs font-semibold text-gold-ink">{claimsOpen} laporan garansi menunggu keputusan →</Link>}
             {accountTerms && <p className="mt-2 text-xs text-mute">Akun: {accountTerms}</p>}
           </div>

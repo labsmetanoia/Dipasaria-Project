@@ -2,6 +2,8 @@
 
 **Date:** 24 November 2026 · **Basis:** the platform on branch `claude/amazing-cori-ggmx09`, after the two audits and the features in `docs/audit-round-2.md` (sections 5 and 10–12) · **Supersedes** the ordering in `docs/roadmap-next.md`; item numbers from that document (N4, N5, …) are kept for reference.
 
+> **Update, 24 November 2026:** priority 1 (C1 retention metrics and C2 ratings after delivery) is built; see `docs/audit-round-2.md`, section 13.
+
 Effort figures are my build estimates in working days. Running costs are from public sources checked on 24 November 2026; several are third-party summaries and are marked "to confirm" (section 7).
 
 ---
@@ -220,7 +222,7 @@ The platform itself still costs nothing to run on free tiers. The variable costs
 | Shrinkage (leftover and waste against purchases) | Belanja subuh | Below 4% |
 | Receivables past due as a share of the total | Piutang | Below 10% (my suggestion) |
 | Visit-to-order conversion | Laporan → Corong kunjungan | Set a baseline in month one, then improve it |
-| Repeat rate (customers ordering again within 30 days) | Not built yet: C1 | Set a baseline |
+| Repeat rate (customers ordering again within 30 days) | Laporan → Pelanggan kembali | Set a baseline |
 
 **Triggers for the items that wait**
 

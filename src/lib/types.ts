@@ -468,6 +468,32 @@ export type CustomerLoginResult = { status: "ok"; customerId: string } | { statu
 
 export type Substitution = "similar" | "contact" | "remove";
 
+/** A customer's rating of a delivered order (1-5 stars), with optional stars per product. */
+export interface Rating {
+  id: string;
+  order_id: string;
+  stars: number;
+  comment: string;
+  items: Array<{ product_id: string; stars: number }>;
+  created_at: string;
+  /** filled for back-office lists */
+  order_code?: string;
+  customer_name?: string;
+  phone?: string;
+}
+export interface ProductRating { average: number; count: number }
+
+/** One non-cancelled order, reduced to what customer-retention figures need. */
+export interface OrderFact {
+  code: string;
+  segment: Segment;
+  account_id: string | null;
+  phone: string;
+  customer_name: string;
+  delivery_date: string;
+  total: number;
+}
+
 /** A step of the visit funnel (anonymous daily counters). */
 export type FunnelEvent = "visit" | "product_view" | "add_to_cart" | "checkout_start" | "order_placed";
 export interface FunnelRow { day: string; event: FunnelEvent; product_id: string; n: number }
