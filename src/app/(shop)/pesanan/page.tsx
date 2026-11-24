@@ -3,8 +3,9 @@ import { getCurrentAccount } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { OrderLookup } from "@/components/shop/OrderLookup";
 import { MyOrders } from "@/components/shop/MyOrders";
+import { NOINDEX } from "@/lib/seo";
 
-export const metadata = { title: "Lacak pesanan" };
+export const metadata = { title: "Lacak pesanan", robots: NOINDEX };
 export const dynamic = "force-dynamic";
 
 export default async function OrdersPage() {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Instagram, MessageCircle, Send } from "lucide-react";
-import { Logo, Seal, Tagline } from "@/components/Logo";
+import { Logo, Tagline } from "@/components/Logo";
 import { Sisik } from "@/components/site/Decor";
 import { waLink } from "@/lib/format";
 import { fmt, type Dict } from "@/lib/i18n/dict";
@@ -58,7 +58,9 @@ export function Footer({ settings, t, locale }: { settings: Settings; t: Dict; l
         <Sisik opacity={0.1} />
         <div className="container-x relative flex items-center justify-between gap-6 py-10">
           <div><Tagline dark /><p className="mt-3 max-w-md font-display text-[1.8rem] font-bold uppercase leading-none text-white sm:text-[2.2rem]">{en ? "Fresh from the dawn auction, ready for your kitchen." : "Segar dari lelang subuh, siap untuk dapur Anda."}</p></div>
-          <Seal className="h-24 w-24 flex-none sm:h-32 sm:w-32" />
+          {/* a file, not inline SVG: 14 KB that the browser caches instead of downloading with every page */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/seal.svg" alt="Dipasaria · Segar & terpilih · Muara Baru, Jakarta" width={128} height={128} loading="lazy" decoding="async" className="h-24 w-24 flex-none sm:h-32 sm:w-32" />
         </div>
       </div>
       <div className="border-t border-white/10">

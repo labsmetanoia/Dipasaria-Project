@@ -1,8 +1,9 @@
 import { getRepo } from "@/lib/data";
 import { getT } from "@/lib/i18n/server";
 import { BusinessApplyForm } from "@/components/shop/BusinessApplyForm";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata = { title: "Daftar akun bisnis" };
+export const metadata = pageMeta({ title: "Daftar akun bisnis restoran dan katering", description: "Daftarkan restoran, katering, atau kafe Anda untuk harga grosir, pesanan rutin, pengiriman dapur pagi, dan tempo pembayaran. Disetujui dalam satu hari kerja.", path: "/akun/daftar" });
 
 export default async function DaftarPage() {
   const [areas, { t }] = await Promise.all([(await getRepo()).getAreas(), getT()]);

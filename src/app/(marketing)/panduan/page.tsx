@@ -7,8 +7,9 @@ import { PageHero } from "@/components/site/Sections";
 import { ImageSlot } from "@/components/site/Decor";
 import { IMAGES } from "@/lib/content/images";
 import { formatDate } from "@/lib/format";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Panduan" };
+export const metadata: Metadata = pageMeta({ title: "Panduan memilih dan menyimpan ikan segar", description: "Panduan dapur dari pedagang ikan: cara mengenali kakap merah asli, membaca ukuran udang, menyimpan ikan segar tanpa bau amis, dan menghitung biaya per porsi untuk restoran.", path: "/panduan" });
 
 export default async function PanduanPage() {
   const { locale } = await getT();

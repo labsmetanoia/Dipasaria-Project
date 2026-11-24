@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { track } from "@/components/Track";
 import { useRouter } from "next/navigation";
 import { Loader2, Tag, ShieldCheck, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import type { Substitution } from "@/lib/types";
@@ -129,6 +130,8 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
     });
   };
 
+ // visit funnel: reaching checkout with something in the cart (counted once per visit)
+ useEffect(() => { if (mounted && lines.length > 0) track("checkout_start"); }, [mounted, lines.length]);
  if (!mounted) return <div className="h-64 animate-pulse bg-sand-100" />;
  if (!lines.length) return <p className="text-mute">{t.checkout.emptyCart}</p>;
  const steps = [t.checkout.step1, t.checkout.step2, t.checkout.step3];

@@ -531,6 +531,16 @@ create table if not exists contract_prices (
 );
 create index if not exists contract_prices_account_idx on contract_prices(account_id);
 
+-- Anonymous visit funnel: one counter per day and step (and per product for views and add-to-cart).
+-- No visitor id, IP address or cookie is stored: these are counts, not personal data.
+create table if not exists funnel_daily (
+  day date not null,
+  event text not null check (event in ('visit','product_view','add_to_cart','checkout_start','order_placed')),
+  product_id text not null default '',
+  n int not null default 0 check (n >= 0),
+  primary key (day, event, product_id)
+);
+
 -- Supabase Auth users allowed into the back-office.
 create table if not exists admins (
   user_id uuid primary key,
@@ -585,7 +595,7 @@ create index if not exists customer_sessions_expires_idx on customer_sessions(ex
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices','funnel_daily']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -1211,6 +1221,14 @@ begin
   perform allocate_account_credit(v_account);
 end $$;
 
+-- Count one funnel step for today (Jakarta date). Called by the server only, for steps it has validated.
+create or replace function track_event(p_event text, p_product text default '')
+returns void
+language sql security definer set search_path = public as $$
+  insert into funnel_daily (day, event, product_id, n) values (jakarta_now()::date, p_event, left(coalesce(p_product, ''), 60), 1)
+  on conflict (day, event, product_id) do update set n = funnel_daily.n + 1;
+$$;
+
 -- Sliding-window rate limit: true (and the hit is counted) while under p_max hits in the last p_window_seconds.
 create or replace function hit_rate_limit(p_key text, p_window_seconds int, p_max int)
 returns boolean
@@ -1446,7 +1464,7 @@ begin
     'place_order(jsonb, text)', 'weigh_order(text, jsonb)', 'set_order_status(text, text, text)', 'set_payment_status(text, text)',
     'customer_confirm_payment(text, text)', 'apply_account(jsonb)', 'approve_account(text, numeric, text, boolean, text)',
     'regenerate_access_code(text)', 'business_login(text, text)', 'daily_summary(date)', 'buying_list(date)', 'sales_report(date, date)',
-    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'mark_delivered(text, text, numeric)', 'create_claim(text, text, jsonb, text, text, jsonb, numeric)', 'resolve_claim(text, text, text, numeric)', 'account_exposure(text, text)', 'allocate_account_credit(text)', 'record_account_payment(text, numeric, date, text, text, text)', 'delete_account_payment(text)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
+    'expire_unpaid_orders()', 'record_gateway_payment(text, text, numeric, jsonb)', 'customer_request_code(text, text)', 'customer_login(text, text, text)', 'mark_delivered(text, text, numeric)', 'create_claim(text, text, jsonb, text, text, jsonb, numeric)', 'resolve_claim(text, text, text, numeric)', 'account_exposure(text, text)', 'allocate_account_credit(text)', 'record_account_payment(text, numeric, date, text, text, text)', 'delete_account_payment(text)', 'track_event(text, text)', 'hit_rate_limit(text, integer, integer)', 'log_error(text, text, text, text, text)']) loop
     execute format('revoke all on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

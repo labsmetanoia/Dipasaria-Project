@@ -7,8 +7,9 @@ import { PageHero, Band } from "@/components/site/Sections";
 import { ContactForm } from "@/components/site/ContactForm";
 import { jam, waLink } from "@/lib/format";
 import { fmt } from "@/lib/i18n/dict";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Kontak" };
+export const metadata: Metadata = pageMeta({ title: "Kontak dan WhatsApp", description: "Satu nomor WhatsApp untuk pertanyaan pesanan, keluhan, dan kerja sama. Jam layanan, wilayah pengiriman Jakarta dan Tangerang, serta cara menghubungi Dipasaria.", path: "/kontak" });
 
 export default async function KontakPage() {
   const settings = await (await getRepo()).getSettings();

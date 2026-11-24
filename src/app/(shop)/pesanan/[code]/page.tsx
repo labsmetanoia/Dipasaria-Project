@@ -8,8 +8,10 @@ import { CLAIM_WINDOW_HOURS } from "@/lib/config";
 import { boxSkippable } from "@/lib/standing";
 import { availableDates } from "@/lib/pricing";
 import { nowJakarta } from "@/lib/format";
+import { NOINDEX } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Pesanan", robots: NOINDEX };
 
 export default async function OrderPage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ hp?: string; baru?: string }> }) {
   const { code } = await params;

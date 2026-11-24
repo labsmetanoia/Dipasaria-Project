@@ -8,11 +8,22 @@ import { CollectionView } from "@/components/shop/CollectionView";
 import { IMAGES } from "@/lib/content/images";
 import { ImageSlot } from "@/components/site/Decor";
 import { CategoryRail } from "@/components/site/Sections";
+import { NOINDEX, breadcrumbLd, pageMeta, shopTitle } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const cat = (await (await getRepo()).getCategories()).find((c) => c.slug === slug);
-  return { title: cat?.name ?? "Kategori" };
+  const repo = await getRepo();
+  const [categories, products] = await Promise.all([repo.getCategories(), repo.getProducts()]);
+  const cat = categories.find((c) => c.slug === slug);
+  if (!cat) return { title: "Kategori tidak ditemukan", robots: NOINDEX };
+  const list = products.filter((p) => p.category_id === cat.id);
+  const names = list.slice(0, 4).map((p) => p.name).join(", ");
+  return pageMeta({
+    title: shopTitle(cat.name),
+    description: `${cat.description.replace(/[.!]?$/, ".")} ${list.length} pilihan${names ? `, antara lain ${names}` : ""}. Pesan sebelum pukul 20.00, diantar dingin besok pagi.`,
+    path: `/belanja/kategori/${cat.slug}`, image: IMAGES.category[cat.slug] ?? cat.image_url,
+  });
 }
 
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -27,6 +38,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const promo = slug === "paket-hemat" ? undefined : { eyebrow: en ? "Value boxes" : "Paket hemat", title: en ? "Stock the freezer in one order" : "Isi freezer dalam sekali pesan", body: en ? "Freezer-ready boxes below the price of buying separately." : "Paket beku siap simpan, lebih hemat daripada membeli satuan.", cta: en ? "Shop boxes" : "Lihat paket", href: "/belanja/kategori/paket-hemat", image: IMAGES.box };
   return (
     <>
+      <JsonLd data={breadcrumbLd([["Belanja", "/belanja"], [cat.name, `/belanja/kategori/${cat.slug}`]])} />
       <section className="bg-sand-100">
         <div className="grid md:grid-cols-12">
           <div className="container-x py-12 md:col-span-7 md:py-16 md:pr-10 lg:pl-[max(2.5rem,calc((100vw-1320px)/2+2.5rem))]">

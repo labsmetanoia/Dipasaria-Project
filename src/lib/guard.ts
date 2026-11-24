@@ -32,6 +32,7 @@ export const LIMITS = {
   otpVerify: { windowSeconds: 900, max: 30 }, // per IP: login codes checked
   claim: { windowSeconds: 3600, max: 10 }, // per IP: guarantee reports
   stockAlert: { windowSeconds: 3600, max: 20 }, // per IP: back-in-stock requests
+  track: { windowSeconds: 600, max: 120 }, // per IP: anonymous funnel counters (a shared office or carrier address still fits)
 } as const;
 
 export const TOO_MANY = "Terlalu banyak percobaan dari perangkat ini. Coba lagi beberapa menit lagi, atau pesan melalui WhatsApp.";

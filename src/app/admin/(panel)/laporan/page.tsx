@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { getRepo } from "@/lib/data";
 import { ReportView } from "@/components/admin/ReportView";
+import { FunnelReport } from "@/components/admin/FunnelReport";
 import { addDays, formatDate, nowJakarta, rupiah } from "@/lib/format";
 
 export default async function ReportPage({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
@@ -10,7 +11,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
   const from = sp.from && /^\d{4}-\d{2}-\d{2}$/.test(sp.from) ? sp.from : addDays(today, -13);
   const to = sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to) ? sp.to : addDays(today, 1);
   const repo = await getRepo();
-  const [rows, purchases, claims] = await Promise.all([repo.salesReport(from, to), repo.listPurchases({ from, to }), repo.listClaims({ limit: 500 })]);
+  const [rows, purchases, claims, funnel, products] = await Promise.all([repo.salesReport(from, to), repo.listPurchases({ from, to }), repo.listClaims({ limit: 500 }), repo.funnelReport(from, to), repo.getProducts({ includeInactive: true })]);
   const paidByDate = new Map<string, number>();
   for (const p of purchases) if (p.kind === "purchase") paidByDate.set(p.delivery_date, (paidByDate.get(p.delivery_date) ?? 0) + p.total_cost);
   const inRange = claims.filter((c) => c.created_at.slice(0, 10) >= from && c.created_at.slice(0, 10) <= to);
@@ -26,6 +27,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         </form>
       </div>
       <ReportView rows={rows} from={from} to={to} />
+      <FunnelReport rows={funnel} products={products} />
       <div className="grid gap-4 md:grid-cols-2">
         <div className="card p-5 text-sm">
           <h2 className="text-ocean-900">Modal belanja subuh tercatat</h2>

@@ -1,3 +1,4 @@
+import { slimProducts } from "@/lib/catalogue";
 import { getRepo } from "@/lib/data";
 import { getCurrentAccount } from "@/lib/auth";
 import { getCurrentCustomer } from "@/lib/customer";
@@ -6,8 +7,9 @@ import { CheckoutForm } from "@/components/shop/CheckoutForm";
 import { availableDates } from "@/lib/pricing";
 import { nowJakarta } from "@/lib/format";
 import { buildLedger, termsBlock } from "@/lib/receivables";
+import { NOINDEX } from "@/lib/seo";
 
-export const metadata = { title: "Pengiriman dan pembayaran" };
+export const metadata = { title: "Pengiriman dan pembayaran", robots: NOINDEX };
 export const dynamic = "force-dynamic";
 
 export default async function CheckoutPage() {
@@ -22,5 +24,5 @@ export default async function CheckoutPage() {
     const l = buildLedger(account, r.orders, r.payments, r.allocations);
     termsInfo = { balance: l.balance, limit: account.credit_limit, overdue: termsBlock(l, { credit_limit: null }, settings, 0) };
   }
-  return <div className="container-x py-8 md:py-12"><h1 className="mb-6 text-[2.6rem] sm:text-[3.4rem]">{t.checkout.title}</h1><CheckoutForm products={products} settings={settings} areas={areas} slots={slots} slotUsage={slotUsage} account={account} household={household} termsInfo={termsInfo} /></div>;
+  return <div className="container-x py-8 md:py-12"><h1 className="mb-6 text-[2.6rem] sm:text-[3.4rem]">{t.checkout.title}</h1><CheckoutForm products={slimProducts(products)} settings={settings} areas={areas} slots={slots} slotUsage={slotUsage} account={account} household={household} termsInfo={termsInfo} /></div>;
 }

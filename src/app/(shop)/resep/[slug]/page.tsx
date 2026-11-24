@@ -11,11 +11,15 @@ import { RecipeBundle } from "@/components/shop/RecipeBundle";
 import { RecipeCard } from "@/components/site/RecipeCard";
 import { Band, SectionHead } from "@/components/site/Sections";
 import { Photo } from "@/components/Photo";
+import { NOINDEX, breadcrumbLd, pageMeta, recipeLd } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { qtyUnit } from "@/lib/format";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const r = getRecipe(slug);
-  return { title: r?.id.title ?? "Resep", description: r?.id.excerpt };
+  if (!r) return { title: "Resep tidak ditemukan", robots: NOINDEX };
+  return pageMeta({ title: `Resep ${r.id.title.charAt(0).toLowerCase()}${r.id.title.slice(1)}`, description: `${r.id.excerpt} Untuk ${r.servings} porsi, ${r.minutes} menit; semua bahan masuk keranjang dalam satu ketukan.`, path: `/resep/${r.slug}`, image: r.image, type: "article" });
 }
 
 export default async function RecipePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -29,8 +33,11 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
   const c = recipe[locale];
   const items = resolveRecipe(recipe, products);
   const others = recipes.filter((r) => r.slug !== recipe.slug).slice(0, 3);
+  // for search engines: ingredient lines in Indonesian, from the linked products (e.g. "1,5 kg Kakap Putih, disiangi")
+  const ingredientLines = items.map((it) => `${qtyUnit(it.qty, it.variant.unit)} ${it.product.name}${it.prep ? `, ${it.prep.label.split(" (")[0].toLowerCase()}` : ""}`);
   return (
     <>
+      <JsonLd data={[recipeLd(recipe, ingredientLines), breadcrumbLd([["Resep", "/resep"], [recipe.id.title, `/resep/${recipe.slug}`]])]} />
       <section className="bg-sand-100">
         <div className="grid lg:grid-cols-2">
           <div className="relative min-h-[300px] bg-ocean-950 lg:min-h-[560px]">

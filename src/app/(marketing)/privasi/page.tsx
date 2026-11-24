@@ -3,8 +3,9 @@ import { BRAND } from "@/lib/config";
 import { getT } from "@/lib/i18n/server";
 import { IMAGES } from "@/lib/content/images";
 import { PageHero } from "@/components/site/Sections";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Kebijakan privasi" };
+export const metadata: Metadata = pageMeta({ title: "Kebijakan privasi", description: "Data apa yang Dipasaria kumpulkan saat Anda memesan, untuk apa dipakai, berapa lama disimpan, dan cara meminta data Anda diubah atau dihapus sesuai UU PDP.", path: "/privasi" });
 
 const copy = {
   id: {
@@ -16,6 +17,7 @@ const copy = {
       "Pelacakan pesanan memerlukan nomor pesanan dan nomor WhatsApp yang digunakan saat memesan, sehingga orang lain tidak dapat melihat pesanan Anda. Pemilik akun bisnis masuk dengan kode akses yang dapat kami ganti kapan saja atas permintaan Anda.",
       "Anda dapat meminta salinan, perbaikan, atau penghapusan data Anda melalui WhatsApp kami. Riwayat transaksi yang diperlukan untuk kewajiban perpajakan disimpan sesuai ketentuan yang berlaku.",
       "Situs ini menyimpan keranjang belanja, pilihan bahasa, dan data pengiriman terakhir di perangkat Anda sendiri agar pesanan berikutnya lebih cepat; data tersebut tidak dikirim ke kami hingga Anda menekan tombol Buat pesanan.",
+      "Untuk memahami bagian toko mana yang perlu diperbaiki, kami menghitung jumlah kunjungan per langkah (membuka toko, melihat produk, menambah ke keranjang, checkout). Yang disimpan hanya angka harian: tidak ada cookie pelacak, alamat IP, atau identitas pengunjung, dan tidak ada pelacak pihak ketiga.",
     ],
   },
   en: {
@@ -27,6 +29,7 @@ const copy = {
       "Order tracking requires the order number and the WhatsApp number used when ordering, so nobody else can see your order. Business accounts sign in with an access code we can change at any time on request.",
       "You may request a copy, correction or deletion of your data through our WhatsApp. Transaction records required for tax obligations are kept as the law requires.",
       "This site stores your cart, language choice and last delivery details on your own device to speed up the next order; that data is not sent to us until you press the order button.",
+      "To learn which parts of the shop need improving, we count visits per step (opening the shop, viewing a product, adding to the cart, checkout). Only daily totals are stored: no tracking cookie, IP address or visitor identity, and no third-party tracker.",
     ],
   },
 };

@@ -16,8 +16,9 @@ import { rupiah } from "@/lib/format";
 import { recipes } from "@/lib/content/recipes";
 import { recipeTotal, resolveRecipe } from "@/lib/content/recipe-items";
 import { RecipeCard } from "@/components/site/RecipeCard";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata = { title: "Belanja" };
+export const metadata = pageMeta({ title: "Dipasaria – Seafood segar & ayam halal, antar Jakarta", absoluteTitle: true, description: "Ikan segar dari lelang subuh Muara Baru dengan jenis dan ukuran yang jelas, ayam halal, telur, dan bumbu dapur. Pesan sebelum pukul 20.00, diantar dingin besok pagi di Jakarta dan Tangerang.", path: "/belanja" });
 
 const copy = {
   id: {

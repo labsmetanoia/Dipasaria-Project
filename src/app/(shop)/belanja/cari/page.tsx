@@ -3,8 +3,9 @@ import { getCurrentAccount } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { segmentOf } from "@/lib/pricing";
 import { SearchBox } from "@/components/shop/SearchBox";
+import { NOINDEX } from "@/lib/seo";
 
-export const metadata = { title: "Cari" };
+export const metadata = { title: "Cari produk", robots: NOINDEX };
 
 export default async function SearchPage() {
   const repo = await getRepo();

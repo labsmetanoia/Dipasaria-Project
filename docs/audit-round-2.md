@@ -464,3 +464,96 @@ Boxes with items sold by weight work like any such order: the estimate is shown,
 
 - **Automatic charging** (card or e-wallet debit). Customers pay each box by QRIS or transfer. Auto-debit needs a recurring-payment product from the gateway and a refund flow; revisit when unpaid boxes become a measurable problem.
 - **A subscriber discount.** The value boxes already carry the price advantage, and margin is thin. If you want one later, a promo code restricted to box orders is the smallest change.
+
+---
+
+## 12. Implemented after approval: found on Google, with lighter pages (N6)
+
+**Purpose:** bring in customers who search ("beli kakap merah segar Jakarta", "supplier seafood restoran Jakarta", a recipe) at no cost per click, make pages lighter to download, and show where visitors drop off.
+
+### What a crawl of the site showed before
+
+| Finding | Before | After |
+|---|---|---|
+| `robots.txt` and `sitemap.xml` | Missing (404) | Both served; the sitemap lists 84 pages with product photos |
+| Canonical address on indexable pages | 0 of 86 | All |
+| Pages sharing the default description | 20 | 0 |
+| Descriptions shorter than 70 characters | 13 | 0 |
+| Product pages previewing with their own photo (WhatsApp, social, search) | 0 of 53 | 53 |
+| Recipe, guide and breadcrumb data for Google | None | 7 recipes, 6 guides; breadcrumbs on every product, category, recipe and guide page |
+| The bare address `/` | Temporary redirect (307) | Permanent (308) |
+| Private pages (cart, checkout, account, order tracking, search results) | Indexable | Marked "do not index"; crawling blocked in `robots.txt` |
+| Title, description and canonical address in the page head for ordinary browsers and Googlebot | Only on pages with fixed texts; product, category, recipe and guide pages delivered them late, in the body | Every page |
+| Lighthouse search score, product page | 91 | 100 |
+| Average HTML per page | 387 KB | 249 KB |
+| HTML download (compressed): home / product / Kontak | 136 / 101 / 79 KB | 109 / 74 / 51 KB |
+| Lighthouse speed score on a simulated slow phone: home / product | 85 / 86 | 87 / 87 (unchanged within run-to-run noise) |
+
+### What was built
+
+**For search engines**
+- **Sitemap and robots.** `/sitemap.xml` is built from the live catalogue, so a new product appears without a deploy. `/robots.txt` admits search engines to the shop and guides and keeps them out of the back-office, carts, accounts, orders and statements.
+- **A title and description per page, written for how people search.**
+  - Products: "Kakap Merah – beli online, antar Jakarta", with a description that carries the English name, the starting price, the order cut-off and the delivery area.
+  - Categories list their best-known products.
+  - Each static page has its own text. The texts are in `src/lib/seo.ts` and next to each page.
+- **One canonical address per page**, so sorted or filtered lists and links with tracking parameters never count as duplicates.
+- **Structured data Google can show as rich results:**
+  - Product: one offer per household size, with price in IDR and availability; per-kilogram pricing for items sold by weight. Restaurant-only products publish no price and so no product data.
+  - Recipe: photo, time, servings, ingredients from the linked products, steps.
+  - Article, on the guides.
+  - Breadcrumbs.
+  - The business itself (OnlineStore), with the WhatsApp number and Instagram account from **Pengaturan**. The placeholder number is never published.
+- **Product feed for Google Merchant Center** at `/feeds/google.xml`: optional, for free listings in Google's Shopping tab.
+- **Search Console verification** through the `GOOGLE_SITE_VERIFICATION` setting.
+- **Metadata in the head, for everyone (found while measuring).** Next.js by default sends the title, description and canonical address late, in the page body, to ordinary browsers, and keeps them in the head only for a fixed list of crawlers that does not include Googlebot. Google can usually recover them by running the page's JavaScript, but a canonical address should not depend on that. One setting (`htmlLimitedBots` in `next.config.ts`) now puts them in the head of the first HTML for every visitor, and the search test checks it with an ordinary phone browser's identity.
+
+**For speed**
+
+What the measurements do and do not show: pages are lighter (the table above), but the lab speed score did not move. On a simulated slow phone the largest element still appears at about 4 seconds, which is governed by the hero photo and by the browser starting up the page, not by the HTML size. The caching below saves database round trips, which only exist on Supabase, so its effect could not be measured in demo mode; check the real figure in Vercel's Speed Insights after go-live.
+
+- **The catalogue was being sent twice with every page** (75 KB each time): once for the cart drawer, and once more inside the built-in "page not found" screen that Next.js ships with each page. It is now sent once, without the descriptive texts the cart does not use. The "not found" screen uses a light frame; the footer seal became a cached file instead of 14 KB of inline drawing.
+- **Catalogue reads are cached.** Settings, categories, products, delivery areas and slots are read from the database at most once a minute and shared by all visitors, instead of on every page view.
+  - Anything that changes them clears the cache at once: a price, stock or availability edit; an order taking or returning stock; a settings change.
+  - Changes made directly in the database appear within a minute.
+  - Back-office screens that show costs or inactive products always read the database.
+
+**For decisions: the visit funnel**
+- **Laporan → Corong kunjungan** shows, for any period, how many visits reached each step (opened the shop, viewed a product, added to the cart, started checkout, placed an order), the conversion between steps, and the biggest drop.
+- A second table lists the most-viewed products with how often they were added to the cart. A product that is viewed often but rarely added is flagged: check its price, photo or availability.
+- It is first-party and anonymous: the browser reports each step once per visit (the order step from the "pesanan diterima" page), and only daily totals are stored. Sales figures are always read from the orders themselves, never from these counters. There is no cookie, no IP address, no visitor id and no third-party script. Crawlers and the owner's own visits are not counted. The privacy page says so.
+
+### What was not done, and why
+
+- **Whole-page caching.** Pages still render per request, because the header, prices and language depend on who is looking (restaurant account, language choice). Caching the data underneath gives most of the gain without that risk.
+- **English pages in Google.** The language toggle is a preference on the same address, so search engines index the Indonesian site. That matches how the Jakarta market searches; separate English addresses would be a larger change.
+- **Shipping and return details in the product data.** Delivery fees vary by area and order size, and the guarantee is counted in hours; publishing approximate figures to Google risks a mismatch with the site.
+
+### Tests
+
+- **New search test (`node scripts/test-seo.cjs`, 37 checks, in CI).** It reads the site as a search engine does:
+  - robots and sitemap;
+  - title, description and canonical address are in the head of the first HTML;
+  - every page reachable from the home page: a unique title within 60 characters, a unique 70–160 character description, a self-referencing canonical address, one main heading, a preview image, valid structured data;
+  - every indexable page is in the sitemap, and every sitemap entry loads;
+  - Product, Recipe, Article and breadcrumb data are complete;
+  - private pages are marked "do not index", and an unknown product answers 404;
+  - the product feed;
+  - a page-weight budget, so the duplicate catalogue cannot come back unnoticed.
+- **SQL suite, section 25:** funnel counters.
+- **Main browser suite: 116 of 116** (3 new checks), including the funnel end to end (one phone visit that places an order is counted once per step; the report shows 100% from visit to order). The existing checks that a price or availability edit shows in the shop immediately now also prove the cache is cleared on every change.
+
+### Owner setup
+
+1. Run `supabase/migrations/013_visit_funnel.sql`, then `supabase/schema.sql` again.
+2. Set `NEXT_PUBLIC_SITE_URL` in Vercel to the real address (for example `https://dipasaria.id`) before going live: the sitemap, canonical links and structured data use it.
+3. In **Pengaturan**, replace the placeholder WhatsApp number and fill in the Instagram account; both are published to Google with the business details.
+4. **Google Search Console** (free, about ten minutes): add the site, choose "HTML tag" verification, put the code in `GOOGLE_SITE_VERIFICATION`, redeploy, then submit `/sitemap.xml`. Search Console then reports which pages are indexed and which searches bring visitors.
+5. **Google Business Profile** (free): create a profile for Dipasaria as a delivery business serving Jakarta and Tangerang, with the same name, WhatsApp number and website. This is what puts the shop on Google Maps and in local results; it cannot be done from the website.
+6. Optional: **Google Merchant Center** (free listings). Add `/feeds/google.xml` as a scheduled feed and set delivery fees there.
+
+### How to measure
+
+- Search Console: indexed pages, impressions and clicks per search term, rich-result reports for products and recipes.
+- **Laporan → Corong kunjungan:** visits and conversion per step, week on week.
+- Results in search take weeks, not days: expect product and recipe pages to start appearing two to six weeks after the sitemap is submitted.

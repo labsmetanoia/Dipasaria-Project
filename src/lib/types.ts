@@ -468,6 +468,10 @@ export type CustomerLoginResult = { status: "ok"; customerId: string } | { statu
 
 export type Substitution = "similar" | "contact" | "remove";
 
+/** A step of the visit funnel (anonymous daily counters). */
+export type FunnelEvent = "visit" | "product_view" | "add_to_cart" | "checkout_start" | "order_placed";
+export interface FunnelRow { day: string; event: FunnelEvent; product_id: string; n: number }
+
 /** An agreed price for one restaurant and product size over a period (replaces the wholesale price and discount). */
 export interface ContractPrice {
   id: string;

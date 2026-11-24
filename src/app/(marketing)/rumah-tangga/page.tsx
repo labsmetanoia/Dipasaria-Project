@@ -7,8 +7,9 @@ import { PageHero, Band, SectionHead } from "@/components/site/Sections";
 import { IMAGES } from "@/lib/content/images";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { rupiah } from "@/lib/format";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Untuk rumah tangga" };
+export const metadata: Metadata = pageMeta({ title: "Ikan segar untuk rumah tangga, antar besok pagi", description: "Ikan segar yang sudah disiangi, ayam halal, telur, dan isi freezer dalam satu pesanan. Pesan sebelum pukul 20.00, diantar dingin besok pagi; tersedia kotak mingguan tanpa kontrak.", path: "/rumah-tangga" });
 
 const copy = {
   id: {

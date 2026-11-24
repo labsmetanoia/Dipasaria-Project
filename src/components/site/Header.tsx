@@ -14,7 +14,7 @@ import { useCart } from "@/store/cart";
 import { nowJakarta, parseTime, addDays, formatDate, jam } from "@/lib/format";
 import type { Category } from "@/lib/types";
 
-export function Header({ categories, cutoff, accountName }: { categories: Category[]; cutoff: string; accountName: string | null }) {
+export function Header({ categories, cutoff, accountName, cartLink = false }: { categories: Category[]; cutoff: string; accountName: string | null; /** no cart drawer on this page: the cart icon goes to the cart page instead */ cartLink?: boolean }) {
  const { t, locale } = useT();
  const pathname = usePathname();
  const [open, setOpen] = useState(false);
@@ -80,10 +80,17 @@ export function Header({ categories, cutoff, accountName }: { categories: Catego
             <div className="hidden lg:block"><LanguageToggle dark compact /></div>
             <Link href="/belanja/cari" aria-label={t.common.search} className="p-2 text-white/85 hover:text-coral-500"><Search className="h-5 w-5" /></Link>
             <Link href="/akun" aria-label={t.nav.businessAccount} className={`p-2 ${accountName ? "text-coral-500" : "text-white/85 hover:text-coral-500"}`}><UserRound className="h-5 w-5" /></Link>
-            <button onClick={openDrawer} aria-label={t.shop.cart} className="relative p-2 text-white/85 hover:text-coral-500">
-              <ShoppingBag className="h-5 w-5" />
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral-500 px-1 font-sans text-[10px] font-bold text-ocean-950">{n}</span>
-            </button>
+            {cartLink ? (
+              <Link href="/keranjang" aria-label={t.shop.cart} className="relative p-2 text-white/85 hover:text-coral-500">
+                <ShoppingBag className="h-5 w-5" />
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral-500 px-1 font-sans text-[10px] font-bold text-ocean-950">{n}</span>
+              </Link>
+            ) : (
+              <button onClick={openDrawer} aria-label={t.shop.cart} className="relative p-2 text-white/85 hover:text-coral-500">
+                <ShoppingBag className="h-5 w-5" />
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral-500 px-1 font-sans text-[10px] font-bold text-ocean-950">{n}</span>
+              </button>
+            )}
           </div>
         </div>
         {open && (

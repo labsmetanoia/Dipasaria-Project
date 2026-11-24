@@ -601,6 +601,7 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   await a.getByLabel("Harga kontrak per satuan (Rp)").fill("99000");
   await a.getByRole("button", { name: "Tambah harga kontrak" }).click();
   await a.waitForSelector("text=Harga kontrak ditambahkan.", { timeout: 10000 });
+  await a.getByText("Rp99.000").first().waitFor({ timeout: 10000 }); // the list refreshes a moment after the message
   check((await a.getByText("Rp99.000").count()) >= 1 && (await a.getByText("Kontrak Q4: kakap merah 1–2 kg").count()) === 1, "admin adds a contract price next to the existing one");
   const bc = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const bp = await bc.newPage();
@@ -705,6 +706,41 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   await k.locator("#langganan").getByText("Aktif", { exact: true }).waitFor({ timeout: 10000 });
   check(true, "pause and resume in one tap each");
   await km.close();
+
+  // 8h) Visit funnel: an ordinary phone browser (not a crawler, not the admin) is counted once per step;
+  //     the report shows the steps and the product that was viewed. The other contexts in this suite are headless
+  //     browsers, which the counter ignores, so every step reads exactly 1.
+  const fc = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36" });
+  await fc.addInitScript(() => { window.__dpTrackTests = true; });
+  const f = await fc.newPage();
+  f.on("pageerror", (e) => fails.push("pageerror(funnel): " + e.message));
+  await f.goto(BASE + "/belanja/produk/dada-fillet-ayam", { waitUntil: "networkidle" });
+  await f.reload({ waitUntil: "networkidle" }); // a second view in the same visit must not count again
+  for (let i = 0; i < 3; i++) await f.getByRole("button", { name: "Tambah", exact: true }).click();
+  await f.getByRole("button", { name: "Tambah ke keranjang" }).click();
+  await f.goto(BASE + "/checkout", { waitUntil: "networkidle" });
+  await f.waitForSelector("h2:has-text(\"Penerima\")");
+  await f.getByLabel("Nama penerima", { exact: true }).fill("Bapak Corong Uji");
+  await f.getByLabel("Nomor WhatsApp").fill("0813 7777 0088");
+  await f.getByLabel("Wilayah").selectOption({ index: 3 });
+  await f.getByLabel("Alamat lengkap").fill("Jl. Uji Corong No. 8, Jakarta Selatan");
+  await f.getByRole("button", { name: "Lanjut" }).click();
+  await f.locator('input[name="slot"]:not([disabled])').first().check();
+  await f.getByRole("button", { name: "Lanjut" }).click();
+  await f.getByRole("button", { name: "Buat pesanan" }).click();
+  await f.waitForURL(/\/pesanan\/DP-/, { timeout: 15000 });
+  await f.waitForSelector("text=Pesanan diterima");
+  await f.waitForTimeout(1200);
+  await fc.close();
+  await a.goto(BASE + "/admin/laporan", { waitUntil: "networkidle" });
+  const funnel = a.locator("section", { hasText: "Corong kunjungan" });
+  const stepCount = async (i) => Number((await funnel.locator("ol li").nth(i).locator("b").last().innerText()).replace(/\D/g, ""));
+  const steps = [await stepCount(0), await stepCount(1), await stepCount(2), await stepCount(3), await stepCount(4)];
+  check(steps.join(",") === "1,1,1,1,1", "funnel counts one visit once per step, from opening the shop to the order: " + steps.join(","));
+  check((await funnel.getByText(/Dari kunjungan menjadi pesanan: 100%/).count()) === 1, "the report shows the conversion from visit to order");
+  check((await funnel.locator("tr", { hasText: "Fillet Dada Ayam Beku" }).count()) === 1, "the report lists the product that was viewed and added");
+  await funnel.scrollIntoViewIfNeeded();
+  await a.screenshot({ path: `${OUT}/68-admin-funnel-desktop.png`, fullPage: true });
 
   // 9) Rate limit: a script guessing logins from one device is stopped (on top of the per-phone lockout)
   const rl = await browser.newContext();

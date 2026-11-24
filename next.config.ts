@@ -29,6 +29,10 @@ const security = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Title, description and canonical address always go in the <head> of the first HTML. By default Next.js sends
+  // them later in the body for ordinary browsers ("streaming metadata") and keeps them in the head only for a fixed
+  // list of crawlers that does not include Googlebot; search engines and link previews should never depend on that.
+  htmlLimitedBots: /.*/,
   // guarantee reports carry up to 3 photos (compressed in the browser to well under 1 MB each)
   experimental: { serverActions: { bodySizeLimit: "3mb" } },
   images: {

@@ -73,6 +73,7 @@ jobs:
         run: |
           npx next start -p 3000 > server-3000.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health > /dev/null && break; sleep 2; done
+          node scripts/test-seo.cjs
           node scripts/test-e2e.cjs
       - name: Midtrans QRIS against a local stand-in
         run: |

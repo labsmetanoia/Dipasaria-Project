@@ -469,5 +469,13 @@ begin
   delete from customers where id = 'cu_box';
   if exists (select 1 from standing_orders where id = 'so_box') then raise exception 'deleting the customer must delete their boxes'; end if;
 
+  -- 25. Visit funnel: anonymous daily counters
+  perform track_event('visit');
+  perform track_event('visit');
+  perform track_event('product_view', 'p_kakap');
+  if (select f.n from funnel_daily f where f.day = jakarta_now()::date and f.event = 'visit' and f.product_id = '') <> 2 then raise exception 'funnel counter should add up'; end if;
+  if (select f.n from funnel_daily f where f.event = 'product_view' and f.product_id = 'p_kakap') <> 1 then raise exception 'funnel per-product counter'; end if;
+  perform _expect_error($q$select track_event('password_typed')$q$, 'funnel_daily_event_check');
+
   raise notice 'all assertions passed';
 end $$;

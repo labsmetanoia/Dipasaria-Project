@@ -10,7 +10,7 @@ export default async function NotFound() {
   const { locale } = await getT();
   const en = locale === "en";
   return (
-    <SiteFrame>
+    <SiteFrame lite>
       <section className="container-x flex flex-col items-center py-20 text-center md:py-28">
         <Emblem className="h-28 w-28" />
         <p className="eyebrow mt-6">404</p>

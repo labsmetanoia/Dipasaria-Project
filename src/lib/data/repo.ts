@@ -1,4 +1,6 @@
 import type {
+  FunnelEvent,
+  FunnelRow,
   AccountPayment,
   ContractPrice,
   PaymentAllocation,
@@ -216,4 +218,8 @@ export interface Repo {
   listContractPrices(accountId?: string): Promise<ContractPrice[]>;
   addContractPrice(c: Pick<ContractPrice, "account_id" | "variant_id" | "price" | "starts_on" | "ends_on" | "note">): Promise<Result<ContractPrice>>;
   deleteContractPrice(id: string): Promise<void>;
+
+  // Visit funnel (anonymous daily counters; no visitor id is stored)
+  trackEvent(event: FunnelEvent, productId?: string): Promise<void>;
+  funnelReport(from: string, to: string): Promise<FunnelRow[]>;
 }

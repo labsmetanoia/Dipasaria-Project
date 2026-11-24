@@ -16,15 +16,19 @@ import { SectionHead, StepsStrip, Band } from "@/components/site/Sections";
 import { MarqueeBand } from "@/components/site/Decor";
 import { segmentOf } from "@/lib/pricing";
 import { rupiah } from "@/lib/format";
-import { SITE_URL } from "@/lib/config";
+import { NOINDEX, breadcrumbLd, pageMeta, productDescription, productLd, productTitle } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { TrackView } from "@/components/Track";
 import { recipesForProduct } from "@/lib/content/recipes";
 import { recipeTotal, resolveRecipe } from "@/lib/content/recipe-items";
 import { RecipeCard } from "@/components/site/RecipeCard";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const p = await (await getRepo()).getProductBySlug(slug);
-  return { title: p ? `${p.name}${p.name_en ? ` (${p.name_en})` : ""}` : "Produk", description: p?.description };
+  const repo = await getRepo();
+  const [p, settings] = await Promise.all([repo.getProductBySlug(slug), repo.getSettings()]);
+  if (!p) return { title: "Produk tidak ditemukan", robots: NOINDEX };
+  return pageMeta({ title: productTitle(p), description: productDescription(p, settings.cutoff_time), path: `/belanja/produk/${p.slug}`, image: p.image_url });
 }
 
 const FAQ = {
@@ -57,24 +61,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const stepIcons = [<ClipboardList key="a" className="h-5 w-5" />, <CalendarDays key="b" className="h-5 w-5" />, <Fish key="c" className="h-5 w-5" />, <Truck key="d" className="h-5 w-5" />];
   const steps = en ? ["Choose products, sizes and preparation", "Pick a delivery day and slot", "We auction, weigh and prepare at dawn", "Delivered cold to your door"] : ["Pilih produk, ukuran, dan cara penyiapan", "Tentukan hari dan jam pengiriman", "Kami pilih, siapkan, dan timbang saat subuh", "Diantar dingin sampai ke pintu Anda"];
   const cookWith = recipesForProduct(product.variants.map((v) => v.id)).slice(0, 3);
-  const active = product.variants.filter((v) => v.is_active && !v.business_only && v.price_retail > 0);
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.name,
-    alternateName: product.name_en ?? undefined,
-    description: product.description,
-    sku: product.slug,
-    image: product.image_url ? [`${SITE_URL}${product.image_url}`] : undefined,
-    brand: { "@type": "Brand", name: "Dipasaria" },
-    category: cat?.name,
-    offers: active.length
-      ? { "@type": "AggregateOffer", priceCurrency: "IDR", lowPrice: Math.min(...active.map((v) => v.price_retail)), highPrice: Math.max(...active.map((v) => v.price_retail)), offerCount: active.length, availability: product.available_today ? "https://schema.org/InStock" : "https://schema.org/OutOfStock", url: `${SITE_URL}/belanja/produk/${product.slug}` }
-      : undefined,
-  };
+  const jsonLd = [...[productLd(product, cat)].filter((x) => x !== null), breadcrumbLd([["Belanja", "/belanja"], ...(cat ? [[cat.name, `/belanja/kategori/${cat.slug}`] as [string, string]] : []), [product.name, `/belanja/produk/${product.slug}`]])];
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
+      <JsonLd data={jsonLd} />
+      <TrackView event="product_view" productId={product.id} />
       <section className="bg-white">
         <div className="grid lg:grid-cols-2">
           <div className="lg:sticky lg:top-[104px] lg:self-start">

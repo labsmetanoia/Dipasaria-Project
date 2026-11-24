@@ -9,8 +9,9 @@ import { IMAGES } from "@/lib/content/images";
 import { ProductIcon } from "@/components/Icons";
 import { Emblem, Logo } from "@/components/Logo";
 import { Sisik } from "@/components/site/Decor";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Tentang kami" };
+export const metadata: Metadata = pageMeta({ title: "Tentang kami: pedagang ikan lelang Muara Baru", description: "Dipasaria hadir di lantai lelang Muara Baru sejak pukul tiga pagi: memilih ikan dengan jenis dan ukuran yang jelas, menimbang dengan jujur, dan mengantarnya dingin ke dapur Jakarta.", path: "/tentang" });
 
 const copy = {
   id: {

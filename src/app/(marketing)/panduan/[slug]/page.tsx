@@ -6,6 +6,8 @@ import { getT } from "@/lib/i18n/server";
 import { PageHero } from "@/components/site/Sections";
 import { formatDate } from "@/lib/format";
 import { IMAGES } from "@/lib/content/images";
+import { NOINDEX, articleLd, breadcrumbLd, pageMeta } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
 
 export async function generateStaticParams() {
   return guides.map((g) => ({ slug: g.slug }));
@@ -14,7 +16,9 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const g = getGuide(slug);
-  return { title: g?.id.title ?? "Panduan", description: g?.id.excerpt };
+  if (!g) return { title: "Panduan tidak ditemukan", robots: NOINDEX };
+  // headlines are long: the " · Dipasaria" suffix is dropped when it would push the title past what search results show
+  return pageMeta({ title: g.id.title, absoluteTitle: g.id.title.length > 48, description: g.id.excerpt, path: `/panduan/${g.slug}`, image: IMAGES.guides[g.slug], type: "article" });
 }
 
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -26,6 +30,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const others = guides.filter((x) => x.slug !== g.slug).slice(0, 3);
   return (
     <>
+      <JsonLd data={[articleLd(g, IMAGES.guides[g.slug]), breadcrumbLd([["Panduan", "/panduan"], [g.id.title, `/panduan/${g.slug}`]])]} />
       <PageHero eyebrow={`${g.tag[locale]} · ${formatDate(g.date, "long", locale)}`} title={body.title} sub={body.excerpt} icon={g.icon} image={IMAGES.guides[g.slug]} />
       <article className="container-x py-16">
         <div className="mx-auto max-w-2xl">

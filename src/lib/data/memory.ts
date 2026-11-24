@@ -2,6 +2,7 @@
 // It applies the same business rules as the SQL functions, via src/lib/pricing.ts.
 
 import type {
+  FunnelRow,
   AccountPayment,
   ContractPrice,
   PaymentAllocation,
@@ -284,9 +285,11 @@ function getStore(): Store {
 }
 
 // Kept on globalThis like the store: Next.js may load this module once per route bundle, and these must be shared.
-const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }>; claims: Claim[]; alerts: Array<{ product_id: string; phone: string; notified: boolean }>; purchases: Purchase[] } };
+const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }>; claims: Claim[]; alerts: Array<{ product_id: string; phone: string; notified: boolean }>; purchases: Purchase[]; funnel?: FunnelRow[] } };
 g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [], wa: [], customers: [], addresses: [], csessions: new Map(), codes: new Map(), claims: [], alerts: [], purchases: [] };
 g.__dpMem.claims ??= [];
+g.__dpMem.funnel ??= [];
+const funnel = g.__dpMem.funnel;
 g.__dpMem.alerts ??= [];
 g.__dpMem.purchases ??= [];
 g.__dpMem.payments ??= [];
@@ -1262,5 +1265,14 @@ export const memoryRepo: Repo = {
   async deleteContractPrice(id) {
     const store = getStore();
     store.contracts = store.contracts.filter((c) => c.id !== id);
+  },
+
+  async trackEvent(event, productId = "") {
+    const day = nowJakarta().date;
+    const row = funnel.find((r) => r.day === day && r.event === event && r.product_id === productId);
+    if (row) row.n++; else funnel.push({ day, event, product_id: productId, n: 1 });
+  },
+  async funnelReport(from, to) {
+    return clone(funnel.filter((r) => r.day >= from && r.day <= to));
   },
 };

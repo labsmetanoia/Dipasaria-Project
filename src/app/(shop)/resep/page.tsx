@@ -7,8 +7,9 @@ import { recipeTotal, resolveRecipe } from "@/lib/content/recipe-items";
 import { PageHero } from "@/components/site/Sections";
 import { RecipeCard } from "@/components/site/RecipeCard";
 import { IMAGES } from "@/lib/content/images";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata = { title: "Resep", description: "Resep seafood dan ayam dengan semua bahan dalam satu keranjang." };
+export const metadata = pageMeta({ title: "Resep seafood dan ayam, bahannya sekali klik", description: "Resep ikan bakar, udang saus Padang, sup ikan, dan lainnya, teruji di dapur. Atur jumlah porsi, lalu masukkan semua bahannya ke keranjang dalam satu ketukan.", path: "/resep" });
 
 export default async function ResepPage() {
   const repo = await getRepo();

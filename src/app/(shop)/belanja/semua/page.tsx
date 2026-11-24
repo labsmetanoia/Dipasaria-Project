@@ -7,8 +7,9 @@ import { CollectionView } from "@/components/shop/CollectionView";
 import { IMAGES } from "@/lib/content/images";
 import { ImageSlot } from "@/components/site/Decor";
 import { CategoryRail } from "@/components/site/Sections";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata = { title: "Semua produk" };
+export const metadata = pageMeta({ title: "Semua produk: ikan, udang, ayam, telur, bumbu", description: "Daftar lengkap ikan segar, udang dan cumi, seafood beku, ayam halal, telur, olahan beku, bumbu dapur, dan paket hemat Dipasaria, dengan harga dan ukuran yang jelas.", path: "/belanja/semua" });
 
 export default async function AllProductsPage() {
   const repo = await getRepo();

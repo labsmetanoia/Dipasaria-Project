@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartLine } from "@/lib/types";
+import { track } from "@/components/Track";
 
 interface SavedCustomer {
   name: string;
@@ -45,8 +46,9 @@ export const useCart = create<CartState>()(
       drawerOpen: false,
       customer: { name: "", phone: "", address: "", area_id: "", maps_url: "" },
       orders: [],
-      add: (line) =>
-        set((s) => {
+      add: (line) => {
+        track("add_to_cart", line.product_id);
+        return set((s) => {
           const i = s.lines.findIndex((l) => same(l, line.variant_id, line.prep_option_id));
           if (i >= 0) {
             const next = s.lines.slice();
@@ -54,7 +56,8 @@ export const useCart = create<CartState>()(
             return { lines: next };
           }
           return { lines: [...s.lines, line] };
-        }),
+        });
+      },
       setQty: (variant_id, prep, qty) =>
         set((s) => ({ lines: qty <= 0 ? s.lines.filter((l) => !same(l, variant_id, prep)) : s.lines.map((l) => (same(l, variant_id, prep) ? { ...l, qty } : l)) })),
       remove: (variant_id, prep) => set((s) => ({ lines: s.lines.filter((l) => !same(l, variant_id, prep)) })),

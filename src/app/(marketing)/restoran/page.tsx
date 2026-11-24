@@ -6,8 +6,9 @@ import { PageHero, Band, SectionHead, StepsStrip } from "@/components/site/Secti
 import { IMAGES } from "@/lib/content/images";
 import { BusinessApplyForm } from "@/components/shop/BusinessApplyForm";
 import { rupiah } from "@/lib/format";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Untuk restoran" };
+export const metadata: Metadata = pageMeta({ title: "Supplier seafood & ayam untuk restoran Jakarta", description: "Pemasok ikan, udang, ayam halal, dan telur untuk restoran, katering, dan kafe: harga grosir, ukuran seragam, pesanan rutin otomatis, tempo pembayaran, dan pengiriman dapur pukul 05.00–08.00.", path: "/restoran" });
 
 const copy = {
   id: {

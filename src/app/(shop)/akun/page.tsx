@@ -23,8 +23,9 @@ import { statementToken } from "@/lib/statementLink";
 import { contractPrice } from "@/lib/pricing";
 import { BoxPanel, type BoxPreset } from "@/components/shop/BoxPanel";
 import type { Locale } from "@/lib/i18n";
+import { NOINDEX } from "@/lib/seo";
 
-export const metadata = { title: "Akun" };
+export const metadata = { title: "Akun", robots: NOINDEX };
 export const dynamic = "force-dynamic";
 
 function OrderList({ orders, t, locale }: { orders: Order[]; t: Awaited<ReturnType<typeof getT>>["t"]; locale: Locale }) {

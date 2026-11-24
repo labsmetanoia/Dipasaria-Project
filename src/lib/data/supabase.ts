@@ -3,6 +3,7 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  FunnelRow,
   AccountPayment,
   ContractPrice,
   PaymentAllocation,
@@ -942,6 +943,16 @@ export const supabaseRepo: Repo = {
   async deleteContractPrice(id) {
     const { error } = await sb().from("contract_prices").delete().eq("id", id);
     if (error) throw error;
+  },
+
+  async trackEvent(event, productId = "") {
+    const { error } = await sb().rpc("track_event", { p_event: event, p_product: productId });
+    if (error) throw error;
+  },
+  async funnelReport(from, to) {
+    const { data, error } = await sb().from("funnel_daily").select("*").gte("day", from).lte("day", to).limit(20000);
+    if (error) throw error;
+    return (data as Row[]).map((r) => ({ day: String(r.day).slice(0, 10), event: r.event as FunnelRow["event"], product_id: String(r.product_id ?? ""), n: num(r.n) }));
   },
   async listOrdersAutoCancelled(hours) {
     const now = new Date();
