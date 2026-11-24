@@ -539,7 +539,7 @@ create table if not exists account_payments (
   account_id text not null references business_accounts(id) on delete cascade,
   amount numeric not null check (amount > 0 and amount <= 1000000000),
   paid_on date not null,
-  method text not null default 'transfer' check (method in ('transfer','cash','qris','giro','other')),
+  method text not null default 'transfer' check (method in ('transfer','cash','qris','giro','va','other')),
   reference text not null default '',
   note text not null default '',
   created_at timestamptz not null default now()
@@ -570,6 +570,78 @@ create table if not exists contract_prices (
   unique (account_id, variant_id, starts_on)
 );
 create index if not exists contract_prices_account_idx on contract_prices(account_id);
+
+-- Virtual-account transfers (bank_transfer at the gateway) next to QRIS. A gateway payment belongs either to an order
+-- or to a restaurant account (paying its open invoices from the statement link); va_bank/va_number are the account
+-- number the customer transfers to.
+alter table payments alter column order_id drop not null;
+alter table payments add column if not exists account_id text references business_accounts(id) on delete cascade;
+alter table payments add column if not exists va_bank text;
+alter table payments add column if not exists va_number text;
+create index if not exists payments_account_idx on payments(account_id, created_at desc) where account_id is not null;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'payments_owner_check') then
+    alter table payments add constraint payments_owner_check check ((order_id is null) <> (account_id is null));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'payments_method_check') then
+    alter table payments add constraint payments_method_check check (method in ('qris', 'va'));
+  end if;
+  -- restaurant payments may arrive by virtual account
+  alter table account_payments drop constraint if exists account_payments_method_check;
+  alter table account_payments add constraint account_payments_method_check check (method in ('transfer','cash','qris','giro','va','other'));
+end $$;
+
+-- Money given back to a customer: amount, date, how, the bank reference and a photo of the proof. Recording one on an
+-- order waiting for a refund closes it (payment status "void").
+create table if not exists refunds (
+  id text primary key default new_id('rf'),
+  order_id text not null references orders(id) on delete cascade,
+  claim_id text references claims(id) on delete set null,
+  amount numeric not null check (amount > 0 and amount <= 1000000000),
+  refunded_on date not null,
+  method text not null check (method in ('transfer','cash','qris','va','other')),
+  reference text not null default '',
+  proof text,
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists refunds_order_idx on refunds(order_id);
+create index if not exists refunds_date_idx on refunds(refunded_on);
+
+-- Tax-invoice details (NPWP, the name and address registered with it) for restaurants, hotels and caterers, and the
+-- seller's own, printed on invoices, statements and quotations.
+alter table business_accounts add column if not exists npwp text;
+alter table business_accounts add column if not exists tax_name text;
+alter table business_accounts add column if not exists tax_address text;
+alter table settings add column if not exists npwp text;
+alter table settings add column if not exists legal_name text;
+
+-- Quotations for restaurants, hotels and caterers: agreed prices per size, an acceptance deadline and a price period.
+-- Accepting from the signed link turns the lines into contract prices (creating a pending account for a prospect).
+create table if not exists quotes (
+  id text primary key default new_id('qt'),
+  code text not null unique,
+  account_id text references business_accounts(id) on delete set null,
+  business_name text not null check (length(business_name) between 2 and 120),
+  contact_name text not null default '',
+  phone text not null default '',
+  address text not null default '',
+  business_type text not null default '',
+  npwp text,
+  tax_name text,
+  tax_address text,
+  lines jsonb not null default '[]'::jsonb,
+  valid_until date not null,
+  price_from date not null,
+  price_to date,
+  note text not null default '',
+  status text not null default 'draft' check (status in ('draft', 'sent', 'accepted', 'declined')),
+  accepted_at timestamptz,
+  accepted_name text,
+  created_at timestamptz not null default now(),
+  check (price_to is null or price_to >= price_from)
+);
+create index if not exists quotes_account_idx on quotes(account_id);
 
 -- Ratings after delivery: one per order, given by the customer who placed it (order code + phone), with optional
 -- stars per product. Product pages show the average once there are enough.
@@ -653,7 +725,7 @@ create index if not exists customer_sessions_expires_idx on customer_sessions(ex
 do $$
 declare t text;
 begin
-  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices','funnel_daily','ratings','rating_items','campaigns']) loop
+  for t in select unnest(array['settings','categories','products','variants','prep_options','delivery_areas','delivery_slots','promos','business_accounts','business_sessions','orders','order_items','admins','standing_orders','standing_order_runs','login_attempts','rate_hits','error_events','job_runs','payments','wa_messages','customers','customer_addresses','customer_sessions','login_codes','claims','stock_alerts','purchases','account_payments','payment_allocations','contract_prices','funnel_daily','ratings','rating_items','campaigns','refunds','quotes']) loop
     execute format('alter table %I enable row level security', t);
     execute format('drop policy if exists admin_all on %I', t);
     execute format('create policy admin_all on %I for all to authenticated using (is_admin()) with check (is_admin())', t);
@@ -1096,12 +1168,30 @@ end $$;
 create or replace function record_gateway_payment(p_payment_id text, p_status text, p_amount numeric, p_raw jsonb)
 returns text
 language plpgsql security definer set search_path = public as $$
-declare pay payments%rowtype; o orders%rowtype; fmt text; oid text;
+declare pay payments%rowtype; o orders%rowtype; fmt text; oid text; aid text; v_tag text; v_amt numeric;
 begin
   if p_status is null or p_status not in ('pending', 'paid', 'expired', 'failed', 'cancelled') then raise exception 'Status pembayaran gateway tidak valid.'; end if;
+  select order_id, account_id, case when method = 'va' then '[VA]' else '[QRIS]' end into oid, aid, v_tag from payments where id = p_payment_id;
+  if oid is null and aid is null then raise exception 'Pembayaran tidak ditemukan.'; end if;
+
+  -- a restaurant paying its open invoices from the statement: the money becomes an account payment, matched oldest first
+  if aid is not null then
+    perform 1 from business_accounts where id = aid for update;
+    select * into pay from payments where id = p_payment_id for update;
+    if pay.status = 'paid' or p_status = 'pending' then return 'noop'; end if;
+    if p_status <> 'paid' then
+      update payments set status = p_status, raw = p_raw where id = p_payment_id and status = 'pending';
+      return 'updated';
+    end if;
+    v_amt := round(coalesce(p_amount, pay.amount));
+    update payments set status = 'paid', paid_at = now(), amount_paid = v_amt, raw = p_raw where id = p_payment_id;
+    insert into account_payments (id, account_id, amount, paid_on, method, reference, note)
+    values (new_id('ap'), aid, v_amt, jakarta_now()::date, pay.method, p_payment_id, case when pay.method = 'va' then 'Virtual account ' || upper(coalesce(pay.va_bank, '')) || ' otomatis' else 'QRIS otomatis' end);
+    perform allocate_account_credit(aid);
+    return 'paid';
+  end if;
+
   -- lock order before payment, the same order as cancel and weighing use, so they cannot deadlock
-  select order_id into oid from payments where id = p_payment_id;
-  if oid is null then raise exception 'Pembayaran tidak ditemukan.'; end if;
   select * into o from orders where id = oid for update;
   select * into pay from payments where id = p_payment_id for update;
   if pay.status = 'paid' or p_status = 'pending' then return 'noop'; end if;
@@ -1114,22 +1204,101 @@ begin
   fmt := coalesce('Rp' || replace(to_char(p_amount, 'FM999,999,999'), ',', '.'), 'nominal tidak diketahui');
   if o.status = 'cancelled' then
     update orders set payment_status = 'refund_due',
-           internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] ' || fmt || ' diterima (' || p_payment_id || ') setelah pesanan dibatalkan. Kembalikan dana ke pelanggan.')
+           internal_note = trim(both E'\n' from internal_note || E'\n' || v_tag || ' ' || fmt || ' diterima (' || p_payment_id || ') setelah pesanan dibatalkan. Kembalikan dana ke pelanggan.')
      where id = o.id;
     return 'late';
   elsif o.payment_status = 'paid' then
-    update orders set internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] Pembayaran ganda ' || fmt || ' (' || p_payment_id || '). Kembalikan kelebihan dana.') where id = o.id;
+    update orders set internal_note = trim(both E'\n' from internal_note || E'\n' || v_tag || ' Pembayaran ganda ' || fmt || ' (' || p_payment_id || '). Kembalikan kelebihan dana.') where id = o.id;
     return 'duplicate';
   elsif o.total_final is null or p_amount is null or p_amount <> o.total_final then
     update orders set payment_status = 'awaiting_confirmation', pay_by = null,
-           internal_note = trim(both E'\n' from internal_note || E'\n' || '[QRIS] Diterima ' || fmt || ', tagihan ' || coalesce('Rp' || replace(to_char(o.total_final, 'FM999,999,999'), ',', '.'), 'belum final') || '. Periksa selisih sebelum menandai lunas.')
+           internal_note = trim(both E'\n' from internal_note || E'\n' || v_tag || ' Diterima ' || fmt || ', tagihan ' || coalesce('Rp' || replace(to_char(o.total_final, 'FM999,999,999'), ',', '.'), 'belum final') || '. Periksa selisih sebelum menandai lunas.')
      where id = o.id;
     return 'mismatch';
   end if;
   update orders set payment_status = 'paid', pay_by = null,
-         history = history || jsonb_build_object('status', 'paid', 'at', now(), 'note', 'QRIS otomatis')
+         history = history || jsonb_build_object('status', 'paid', 'at', now(), 'note', case when pay.method = 'va' then 'Virtual account otomatis' else 'QRIS otomatis' end)
    where id = o.id;
   return 'paid';
+end $$;
+
+-- ---------- refunds ----------
+-- Record money given back. Refunds on an order never add up to more than was received for it (or its total when it
+-- was marked paid by hand). An order waiting for a refund ("refund_due") is closed ("void") by the first refund.
+create or replace function record_refund(p_order_id text, p_amount numeric, p_on date, p_method text, p_reference text, p_proof text, p_note text, p_claim_id text default null)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare o orders%rowtype; v_id text := new_id('rf'); v_received numeric; v_done numeric;
+begin
+  select * into o from orders where id = p_order_id for update;
+  if not found then raise exception 'Pesanan tidak ditemukan.'; end if;
+  if p_amount is null or p_amount <= 0 or p_amount <> round(p_amount) then raise exception 'Jumlah pengembalian tidak valid.'; end if;
+  if p_on is null or p_on > jakarta_now()::date or p_on < jakarta_now()::date - 366 then raise exception 'Tanggal pengembalian tidak valid.'; end if;
+  if p_method is null or p_method not in ('transfer','cash','qris','va','other') then raise exception 'Cara pengembalian tidak valid.'; end if;
+  if p_proof is not null and (length(p_proof) > 800000 or p_proof !~ '^data:image/(jpeg|png|webp);base64,') then raise exception 'Bukti pengembalian harus berupa foto.'; end if;
+  if p_claim_id is not null and not exists (select 1 from claims where id = p_claim_id and order_id = p_order_id) then raise exception 'Laporan garansi tidak cocok dengan pesanan ini.'; end if;
+  select coalesce(sum(amount_paid), 0) into v_received from payments where order_id = p_order_id and status = 'paid';
+  if o.payment_status in ('paid', 'refund_due') or o.cod_collected is not null then
+    v_received := greatest(v_received, coalesce(o.total_final, o.total_est), coalesce(o.cod_collected, 0));
+  end if;
+  select coalesce(sum(amount), 0) into v_done from refunds where order_id = p_order_id;
+  if v_done + p_amount > v_received then
+    raise exception 'Pengembalian melebihi dana yang diterima untuk pesanan ini (sisa Rp%).', replace(to_char(greatest(0, v_received - v_done), 'FM999,999,999,990'), ',', '.');
+  end if;
+  insert into refunds (id, order_id, claim_id, amount, refunded_on, method, reference, proof, note)
+  values (v_id, p_order_id, p_claim_id, p_amount, p_on, p_method, left(trim(coalesce(p_reference, '')), 80), p_proof, left(trim(coalesce(p_note, '')), 300));
+  if o.payment_status = 'refund_due' then
+    update orders set payment_status = 'void',
+           history = history || jsonb_build_object('status', 'refunded', 'at', now(), 'note', 'Dana dikembalikan ' || 'Rp' || replace(to_char(p_amount, 'FM999,999,999'), ',', '.'))
+     where id = p_order_id;
+  end if;
+  return v_id;
+end $$;
+
+-- ---------- quotations ----------
+-- Accept a quotation from its signed link: its lines become contract prices from the later of today and the start of
+-- the price period. A prospect without an account gets one, pending the owner's approval (an existing account with
+-- the same phone number is used instead). Returns the account id.
+create or replace function accept_quote(p_id text, p_name text)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare q quotes%rowtype; aid text; v_phone text; line jsonb; v_from date; v_price numeric;
+begin
+  select * into q from quotes where id = p_id for update;
+  if not found then raise exception 'Penawaran tidak ditemukan.'; end if;
+  if q.status = 'accepted' then raise exception 'Penawaran ini sudah diterima.'; end if;
+  if q.status <> 'sent' then raise exception 'Penawaran ini tidak berlaku lagi. Hubungi kami untuk penawaran baru.'; end if;
+  if jakarta_now()::date > q.valid_until then raise exception 'Masa berlaku penawaran ini sudah lewat. Hubungi kami untuk penawaran baru.'; end if;
+  if length(trim(coalesce(p_name, ''))) < 2 or length(p_name) > 80 then raise exception 'Tulis nama Anda (2–80 karakter).'; end if;
+  if jsonb_array_length(q.lines) = 0 then raise exception 'Penawaran ini belum berisi produk.'; end if;
+
+  aid := q.account_id;
+  if aid is null then
+    v_phone := normalize_phone(q.phone);
+    if v_phone !~ '^62[0-9]{8,13}$' then raise exception 'Nomor WhatsApp pada penawaran tidak valid. Hubungi kami.'; end if;
+    select id into aid from business_accounts where phone = v_phone;
+    if aid is null then
+      insert into business_accounts (business_name, contact_name, phone, address, business_type, notes, npwp, tax_name, tax_address)
+      values (q.business_name, coalesce(nullif(trim(q.contact_name), ''), trim(p_name)), v_phone, q.address, q.business_type,
+              'Dari penawaran ' || q.code || ', diterima oleh ' || trim(p_name), q.npwp, q.tax_name, q.tax_address)
+      returning id into aid;
+    end if;
+  end if;
+  update business_accounts set npwp = coalesce(npwp, q.npwp), tax_name = coalesce(tax_name, q.tax_name), tax_address = coalesce(tax_address, q.tax_address) where id = aid;
+
+  v_from := greatest(q.price_from, jakarta_now()::date);
+  for line in select value from jsonb_array_elements(q.lines) loop
+    begin v_price := (line->>'price')::numeric; exception when others then v_price := null; end;
+    if v_price is null or v_price <= 0 or not exists (select 1 from variants where id = line->>'variant_id') then
+      raise exception 'Salah satu produk pada penawaran sudah tidak tersedia. Hubungi kami.';
+    end if;
+    insert into contract_prices (account_id, variant_id, price, starts_on, ends_on, note)
+    values (aid, line->>'variant_id', round(v_price), v_from, q.price_to, 'Penawaran ' || q.code)
+    on conflict (account_id, variant_id, starts_on) do update set price = excluded.price, ends_on = excluded.ends_on, note = excluded.note;
+  end loop;
+
+  update quotes set status = 'accepted', accepted_at = now(), accepted_name = trim(p_name), account_id = aid where id = p_id;
+  return aid;
 end $$;
 
 -- ---------- delivery mode ----------
@@ -1290,7 +1459,7 @@ begin
   if not exists (select 1 from business_accounts where id = p_account_id) then raise exception 'Akun tidak ditemukan.'; end if;
   if p_amount is null or p_amount <= 0 or p_amount > 1000000000 or p_amount <> round(p_amount) then raise exception 'Jumlah pembayaran tidak valid.'; end if;
   if p_paid_on is null or p_paid_on > jakarta_now()::date or p_paid_on < jakarta_now()::date - 366 then raise exception 'Tanggal pembayaran tidak valid.'; end if;
-  if p_method is null or p_method not in ('transfer','cash','qris','giro','other') then raise exception 'Cara pembayaran tidak valid.'; end if;
+  if p_method is null or p_method not in ('transfer','cash','qris','giro','va','other') then raise exception 'Cara pembayaran tidak valid.'; end if;
   insert into account_payments (id, account_id, amount, paid_on, method, reference, note)
   values (v_id, p_account_id, p_amount, p_paid_on, p_method, left(trim(coalesce(p_reference, '')), 80), left(trim(coalesce(p_note, '')), 200));
   perform allocate_account_credit(p_account_id);
@@ -1407,9 +1576,14 @@ begin
   if exists (select 1 from business_accounts where business_accounts.phone = v_phone) then
     raise exception 'Nomor ini sudah terdaftar. Hubungi kami melalui WhatsApp untuk mendapatkan kode akses.';
   end if;
-  insert into business_accounts (business_name, contact_name, phone, address, area_id, business_type, notes)
+  -- NPWP is optional: 15 digits (old format) or 16 (the NIK-based number), punctuation ignored
+  if coalesce(p->>'npwp', '') <> '' and regexp_replace(p->>'npwp', '[^0-9]', '', 'g') !~ '^[0-9]{15,16}$' then
+    raise exception 'NPWP harus 15 atau 16 angka.';
+  end if;
+  insert into business_accounts (business_name, contact_name, phone, address, area_id, business_type, notes, npwp, tax_name, tax_address)
   values (trim(p->>'business_name'), trim(p->>'contact_name'), v_phone, coalesce(trim(p->>'address'), ''),
-          nullif(p->>'area_id', ''), coalesce(p->>'business_type', ''), coalesce(trim(p->>'notes'), ''))
+          nullif(p->>'area_id', ''), coalesce(p->>'business_type', ''), coalesce(trim(p->>'notes'), ''),
+          nullif(regexp_replace(coalesce(p->>'npwp', ''), '[^0-9]', '', 'g'), ''), nullif(trim(coalesce(p->>'tax_name', '')), ''), nullif(trim(coalesce(p->>'tax_address', '')), ''))
   returning id into aid;
   return aid;
 end $$;

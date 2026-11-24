@@ -31,12 +31,19 @@ export function AccountsAdmin({ accounts: initial, slots, settings, focusId }: {
 }
 
 function AccountCard({ a, slots, settings, open, onToggle, onChange }: { a: BusinessAccount; slots: DeliverySlot[]; settings: Settings; open: boolean; onToggle: () => void; onChange: (a: BusinessAccount) => void }) {
-  const [form, setForm] = useState({ discount_pct: a.discount_pct, payment_terms: a.payment_terms, allow_cod: a.allow_cod, preferred_slot_id: a.preferred_slot_id ?? slots.find((s) => s.segment === "business")?.id ?? null, notes: a.notes });
+  const [form, setForm] = useState({ discount_pct: a.discount_pct, payment_terms: a.payment_terms, allow_cod: a.allow_cod, preferred_slot_id: a.preferred_slot_id ?? slots.find((s) => s.segment === "business")?.id ?? null, notes: a.notes, npwp: a.npwp ?? "", tax_name: a.tax_name ?? "", tax_address: a.tax_address ?? "" });
   const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const bizSlots = slots.filter((s) => s.segment !== "retail");
-  const approve = () => start(async () => { const r = await approveAccountAction(a.id, form); if (r.ok) onChange(r.data); });
-  const saveNotes = () => start(async () => { const r = await updateAccountAction(a.id, { notes: form.notes, discount_pct: form.discount_pct, payment_terms: form.payment_terms, allow_cod: form.allow_cod, preferred_slot_id: form.preferred_slot_id }); if (r.ok) onChange(r.data); });
+  const tax = { npwp: form.npwp, tax_name: form.tax_name, tax_address: form.tax_address };
+  const approve = () => start(async () => {
+    setErr(null);
+    const t = await updateAccountAction(a.id, tax); // tax details first: a wrong NPWP stops the approval
+    if (!t.ok) { setErr(t.error); return; }
+    const r = await approveAccountAction(a.id, form); if (r.ok) onChange(r.data); else setErr(r.error);
+  });
+  const saveNotes = () => start(async () => { setErr(null); const r = await updateAccountAction(a.id, { notes: form.notes, discount_pct: form.discount_pct, payment_terms: form.payment_terms, allow_cod: form.allow_cod, preferred_slot_id: form.preferred_slot_id, ...tax }); if (r.ok) onChange(r.data); else setErr(r.error); });
   const toggleSuspend = () => start(async () => { const r = await updateAccountAction(a.id, { status: a.status === "suspended" ? "approved" : "suspended" }); if (r.ok) onChange(r.data); });
   const regen = () => start(async () => { if (!confirm("Buat kode baru? Kode lama dan sesi masuk sebelumnya tidak akan berlaku lagi.")) return; const r = await regenerateCodeAction(a.id); if (r.ok) onChange(r.data); });
   return (
@@ -60,8 +67,14 @@ function AccountCard({ a, slots, settings, open, onToggle, onChange }: { a: Busi
             <Field label="Jam pengiriman favorit"><select className="input" value={form.preferred_slot_id ?? ""} onChange={(e) => setForm({ ...form, preferred_slot_id: e.target.value || null })}><option value="">—</option>{bizSlots.map((s) => <option key={s.id} value={s.id}>{jamRange(s.start_time, s.end_time)} {s.label}</option>)}</select></Field>
             <label className="flex items-end gap-2 pb-3 text-sm"><input type="checkbox" checked={form.allow_cod} onChange={(e) => setForm({ ...form, allow_cod: e.target.checked })} className="accent-ocean-900" /> Boleh COD</label>
           </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="NPWP (untuk faktur pajak)" hint="15 atau 16 angka, boleh dikosongkan"><input className="input" inputMode="numeric" value={form.npwp} onChange={(e) => setForm({ ...form, npwp: e.target.value })} /></Field>
+            <Field label="Nama sesuai NPWP"><input className="input" value={form.tax_name} onChange={(e) => setForm({ ...form, tax_name: e.target.value })} placeholder="PT …" /></Field>
+            <Field label="Alamat sesuai NPWP"><input className="input" value={form.tax_address} onChange={(e) => setForm({ ...form, tax_address: e.target.value })} /></Field>
+          </div>
           <Field label="Catatan internal"><textarea className="input" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Preferensi ukuran, hari pemesanan, kontak dapur…" /></Field>
           <p className="mt-1 text-xs text-mute">Jenjang tempo dari rencana bisnis: bayar di muka → 3 hari setelah 10 pesanan lancar → mingguan setelah 30 pesanan. Mendaftar {formatDateTime(a.applied_at)}.</p>
+          {err && <p className="mt-2 text-sm text-gold-ink" role="alert">{err}</p>}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {a.status === "pending" ? (
               <button onClick={approve} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Setujui dan buat kode akses</button>

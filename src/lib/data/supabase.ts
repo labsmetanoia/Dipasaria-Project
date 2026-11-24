@@ -3,6 +3,8 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  Quotation,
+  Refund,
   Campaign,
   Rating,
   FunnelRow,
@@ -35,6 +37,7 @@ import type { Repo, Result, SalesRow } from "./repo";
 import { addDays, normalizePhone, nowJakarta } from "../format";
 import { newId } from "../ids";
 import { campaignError } from "../campaigns";
+import { cleanNpwp, quoteCode, quoteError } from "../sales";
 
 let client: SupabaseClient | null = null;
 function sb(): SupabaseClient {
@@ -227,6 +230,9 @@ function mapAccount(r: Row): BusinessAccount {
     applied_at: r.applied_at as string,
     approved_at: (r.approved_at as string | null) ?? null,
     credit_limit: numOrNull(r.credit_limit),
+    npwp: (r.npwp as string | null) ?? null,
+    tax_name: (r.tax_name as string | null) ?? null,
+    tax_address: (r.tax_address as string | null) ?? null,
   };
 }
 
@@ -295,6 +301,8 @@ export const supabaseRepo: Repo = {
       max_days_ahead: num(r.max_days_ahead),
       payment_window_minutes: num(r.payment_window_minutes),
       terms_grace_days: r.terms_grace_days === undefined || r.terms_grace_days === null ? 3 : num(r.terms_grace_days),
+      npwp: (r.npwp as string | null) ?? null,
+      legal_name: (r.legal_name as string | null) ?? null,
     };
   },
   async getCategories() {
@@ -744,6 +752,11 @@ export const supabaseRepo: Repo = {
     if (error) throw error;
     return (data as Row[]).map(mapPayment);
   },
+  async listAccountGatewayPayments(accountId) {
+    const { data, error } = await sb().from("payments").select("*").eq("account_id", accountId).order("created_at", { ascending: false }).limit(50);
+    if (error) throw error;
+    return (data as Row[]).map(mapPayment);
+  },
   async getPayment(id) {
     const { data, error } = await sb().from("payments").select("*").eq("id", id).maybeSingle();
     if (error) throw error;
@@ -992,6 +1005,67 @@ export const supabaseRepo: Repo = {
     if (error) throw error;
   },
 
+  async recordRefund(orderId, r) {
+    const { data, error } = await sb().rpc("record_refund", { p_order_id: orderId, p_amount: r.amount, p_on: r.refunded_on, p_method: r.method, p_reference: r.reference, p_proof: r.proof, p_note: r.note, p_claim_id: r.claim_id ?? null });
+    return error ? fail(msg(error)) : ok(String(data));
+  },
+  async listRefunds(filter = {}) {
+    let q = sb().from("refunds").select("*, orders(code, customer_name)").order("refunded_on", { ascending: false }).order("created_at", { ascending: false }).limit(500);
+    if (filter.orderId) q = q.eq("order_id", filter.orderId);
+    if (filter.from) q = q.gte("refunded_on", filter.from);
+    if (filter.to) q = q.lte("refunded_on", filter.to);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data as Row[]).map(mapRefund);
+  },
+
+  async listQuotes() {
+    const { data, error } = await sb().from("quotes").select("*").order("created_at", { ascending: false }).limit(300);
+    if (error) throw error;
+    return (data as Row[]).map(mapQuotation);
+  },
+  async getQuote(id) {
+    const { data, error } = await sb().from("quotes").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data ? mapQuotation(data as Row) : null;
+  },
+  async saveQuote(q) {
+    const today = nowJakarta().date;
+    const products = await this.getProducts();
+    const err = quoteError(q, products, today);
+    if (err) return fail(err);
+    const row = {
+      account_id: q.account_id, business_name: q.business_name.trim(), contact_name: q.contact_name.trim(), phone: q.phone ? normalizePhone(q.phone) : "",
+      address: q.address.trim(), business_type: q.business_type, npwp: cleanNpwp(q.npwp), tax_name: q.tax_name?.trim() || null, tax_address: q.tax_address?.trim() || null,
+      lines: q.lines.map((l) => ({ variant_id: l.variant_id, price: l.price, note: String(l.note ?? "").trim() })),
+      valid_until: q.valid_until, price_from: q.price_from, price_to: q.price_to, note: q.note.trim(),
+    };
+    if (q.id) {
+      const { data, error } = await sb().from("quotes").update(row).eq("id", q.id).neq("status", "accepted").select("*").maybeSingle();
+      if (error) return fail(msg(error));
+      return data ? ok(mapQuotation(data as Row)) : fail("Penawaran yang sudah diterima tidak dapat diubah.");
+    }
+    for (let i = 0; i < 5; i++) {
+      const { data, error } = await sb().from("quotes").insert({ ...row, id: newId("qt"), code: quoteCode(today) }).select("*").single();
+      if (!error) return ok(mapQuotation(data as Row));
+      if ((error as { code?: string }).code !== "23505") return fail(msg(error));
+    }
+    return fail("Nomor penawaran tidak dapat dibuat. Coba lagi.");
+  },
+  async setQuoteStatus(id, status) {
+    const cur = await this.getQuote(id);
+    if (!cur) return fail("Penawaran tidak ditemukan.");
+    if (cur.status === "accepted") return fail("Penawaran yang sudah diterima tidak dapat diubah.");
+    if (status === "sent" && cur.valid_until < nowJakarta().date) return fail("Batas penerimaan sudah lewat. Ubah tanggalnya dulu.");
+    const { data, error } = await sb().from("quotes").update({ status }).eq("id", id).neq("status", "accepted").select("*").maybeSingle();
+    if (error) return fail(msg(error));
+    return data ? ok(mapQuotation(data as Row)) : fail("Penawaran yang sudah diterima tidak dapat diubah.");
+  },
+  async acceptQuote(id, name) {
+    const { data, error } = await sb().rpc("accept_quote", { p_id: id, p_name: name });
+    return error ? fail(msg(error)) : ok(String(data));
+  },
+
   async createRating(code, phone, r, windowDays) {
     const { data, error } = await sb().rpc("create_rating", { p_code: code, p_phone: phone, p_stars: r.stars, p_comment: r.comment, p_items: r.items.map((i) => ({ item_id: i.item_id, stars: String(i.stars) })), p_window_days: windowDays });
     return error ? fail(msg(error)) : ok(String(data));
@@ -1054,10 +1128,35 @@ function mapWa(r: Row): WaMessage {
 
 function mapPayment(r: Row): Payment {
   return {
-    id: String(r.id), order_id: String(r.order_id), provider: r.provider as Payment["provider"], method: "qris",
+    id: String(r.id), order_id: (r.order_id as string | null) ?? null, account_id: (r.account_id as string | null) ?? null,
+    provider: r.provider as Payment["provider"], method: r.method === "va" ? "va" : "qris",
+    va_bank: (r.va_bank as string | null) ?? null, va_number: (r.va_number as string | null) ?? null,
     amount: num(r.amount), amount_paid: numOrNull(r.amount_paid), status: r.status as Payment["status"],
     qr_string: (r.qr_string as string | null) ?? null, qr_url: (r.qr_url as string | null) ?? null,
     expires_at: (r.expires_at as string | null) ?? null, created_at: String(r.created_at), paid_at: (r.paid_at as string | null) ?? null,
+  };
+}
+
+function mapRefund(r: Row): Refund {
+  const o = r.orders as Row | null | undefined;
+  return {
+    id: String(r.id), order_id: String(r.order_id), claim_id: (r.claim_id as string | null) ?? null, amount: num(r.amount),
+    refunded_on: String(r.refunded_on).slice(0, 10), method: r.method as Refund["method"], reference: String(r.reference ?? ""),
+    proof: (r.proof as string | null) ?? null, note: String(r.note ?? ""), created_at: String(r.created_at),
+    ...(o ? { order_code: String(o.code), customer_name: String(o.customer_name) } : {}),
+  };
+}
+
+function mapQuotation(r: Row): Quotation {
+  const d = (x: unknown) => (x ? String(x).slice(0, 10) : null);
+  return {
+    id: String(r.id), code: String(r.code), account_id: (r.account_id as string | null) ?? null, business_name: String(r.business_name),
+    contact_name: String(r.contact_name ?? ""), phone: String(r.phone ?? ""), address: String(r.address ?? ""), business_type: String(r.business_type ?? ""),
+    npwp: (r.npwp as string | null) ?? null, tax_name: (r.tax_name as string | null) ?? null, tax_address: (r.tax_address as string | null) ?? null,
+    lines: ((r.lines as Row[] | null) ?? []).map((l) => ({ variant_id: String(l.variant_id), price: num(l.price), note: String(l.note ?? "") })),
+    valid_until: d(r.valid_until)!, price_from: d(r.price_from)!, price_to: d(r.price_to), note: String(r.note ?? ""),
+    status: r.status as Quotation["status"], accepted_at: (r.accepted_at as string | null) ?? null, accepted_name: (r.accepted_name as string | null) ?? null,
+    created_at: String(r.created_at),
   };
 }
 

@@ -224,6 +224,39 @@ const check = (cond, name) => { if (cond) { oks++; console.log("ok: " + name); }
   const row = sum.plan.find((r) => r.variant_id === "v_ty_udang");
   check(sum.orders === 3 && row.byDate[preDay].paid === 2 && row.byDate[addDays(nowJ.date, 12)].unpaid === 1 && sum.plan.find((r) => r.variant_id === "v_ty_bakar_s").paid === 2, "the buying plan splits paid (and tempo) quantities from unpaid ones, per delivery day");
 
+
+  // ---------- virtual accounts, refunds, tax details, quotations ----------
+  const Sa = await jiti.import("../src/lib/sales.ts");
+  check(Sa.formatNpwp("012345678901000") === "01.234.567.8-901.000" && Sa.formatNpwp("0123 4567 8901 2345") === "0123 4567 8901 2345" && Sa.npwpError("12.345") === "NPWP harus 15 atau 16 angka." && Sa.npwpError("") === null, "NPWP: 15 or 16 digits, printed in its usual format");
+  check(Sa.quoteState({ status: "sent", valid_until: "2026-12-01" }, "2026-12-02") === "expired" && Sa.quoteState({ status: "sent", valid_until: "2026-12-01" }, "2026-12-01") === "sent", "a sent quotation expires after its acceptance day");
+  const vaDay = availableDates(await repo.getSettings(), nowJakarta())[0];
+  const vaOrder = (await repo.placeOrder({ lines: [{ product_id: "p_dada", variant_id: "v_dada", qty: 4, prep_option_id: null }], customer_name: "Ibu VA", phone: "081377770097", address: "Jl. Uji VA", area_id: "a_selatan", delivery_date: vaDay, slot_id: "s_pagi", payment_method: "transfer" }, null)).data;
+  await repo.createPayment({ id: "VA-T1", order_id: vaOrder.id, account_id: null, provider: "mock", method: "va", amount: vaOrder.total_final, qr_string: null, qr_url: null, va_bank: "bca", va_number: "8808000000000001", expires_at: new Date(Date.now() + 3600e3).toISOString() });
+  check(await repo.recordGatewayPayment("VA-T1", "paid", vaOrder.total_final, {}) === "paid" && (await repo.getOrder(vaOrder.id)).history.at(-1).note === "Virtual account otomatis", "a virtual-account transfer pays the order");
+  const vaAcc = (await repo.listAccounts()).find((a) => a.payment_terms !== "prepaid" && a.status === "approved");
+  const before = (await repo.listReceivables({ accountId: vaAcc.id })).payments.length;
+  await repo.createPayment({ id: "VA-T2", order_id: null, account_id: vaAcc.id, provider: "mock", method: "va", amount: 250000, qr_string: null, qr_url: null, va_bank: "bni", va_number: "9888000000000002", expires_at: new Date(Date.now() + 3600e3).toISOString() });
+  const vaOut = await repo.recordGatewayPayment("VA-T2", "paid", 250000, {});
+  const accPays = (await repo.listReceivables({ accountId: vaAcc.id })).payments;
+  check(vaOut === "paid" && accPays.length === before + 1 && accPays.some((p) => p.method === "va" && p.amount === 250000 && p.reference === "VA-T2") && await repo.recordGatewayPayment("VA-T2", "paid", 250000, {}) === "noop", "a restaurant's virtual-account payment is recorded once against its invoices");
+  await repo.updateOrderStatus(vaOrder.id, "cancelled", "uji");
+  check((await repo.getOrder(vaOrder.id)).payment_status === "refund_due", "a paid order that is cancelled waits for a refund");
+  check(/melebihi dana/.test((await repo.recordRefund(vaOrder.id, { amount: vaOrder.total_final + 1, refunded_on: nowJakarta().date, method: "transfer", reference: "", proof: null, note: "", claim_id: null })).error || ""), "a refund cannot exceed what was received");
+  check(/1 pesanan menunggu pengembalian dana: /.test((await (await jiti.import("../src/lib/brief.ts")).buildBrief(repo, vaDay)).text), "the brief lists orders waiting for a refund");
+  const rf = await repo.recordRefund(vaOrder.id, { amount: vaOrder.total_final, refunded_on: nowJakarta().date, method: "transfer", reference: "BCA 9", proof: "data:image/jpeg;base64,AAAA", note: "", claim_id: null });
+  check(rf.ok && (await repo.getOrder(vaOrder.id)).payment_status === "void" && (await repo.listRefunds({ orderId: vaOrder.id }))[0].order_code === vaOrder.code, "recording the refund closes the order and lists it with its code");
+  const qToday = nowJakarta().date;
+  const qBase = { account_id: null, business_name: "Hotel Uji Rules", contact_name: "Bu Rules", phone: "0813 7777 0098", address: "Jl. Uji", business_type: "Katering", npwp: "01.234.567.8-901.000", tax_name: "PT Uji", tax_address: null, lines: [{ variant_id: "v_salmon", price: 87000, note: "" }], valid_until: addDays(qToday, 7), price_from: qToday, price_to: null, note: "" };
+  check(/sebelum hari ini/.test((await repo.saveQuote({ ...qBase, valid_until: addDays(qToday, -1) })).error || "") && /dua kali/.test((await repo.saveQuote({ ...qBase, lines: [...qBase.lines, ...qBase.lines] })).error || ""), "a quotation needs a future acceptance day and one line per size");
+  const qt = (await repo.saveQuote(qBase)).data;
+  check(qt.status === "draft" && /^PN-\d{4}-[A-Z0-9]{4}$/.test(qt.code) && qt.npwp === "012345678901000" && qt.phone === "6281377770098", "a new quotation is a draft with its own number");
+  check(/tidak berlaku lagi/.test((await repo.acceptQuote(qt.id, "Bu Rules")).error || ""), "a draft cannot be accepted");
+  await repo.setQuoteStatus(qt.id, "sent");
+  const accId = (await repo.acceptQuote(qt.id, "Bu Rules")).data;
+  const newAcc = await repo.getAccount(accId);
+  check(newAcc.status === "pending" && newAcc.npwp === "012345678901000" && (await repo.listContractPrices(accId)).some((c) => c.variant_id === "v_salmon" && c.price === 87000 && c.starts_on === qToday), "accepting gives a prospect a pending account with the quoted contract prices");
+  check((await repo.saveQuote({ ...qBase, id: qt.id })).error === "Penawaran yang sudah diterima tidak dapat diubah." && /sudah diterima/.test((await repo.acceptQuote(qt.id, "Bu Rules")).error || ""), "an accepted quotation cannot be changed or accepted twice");
+
   // ---------- morning brief ----------
   const B = await jiti.import("../src/lib/brief.ts");
   const briefDate = giftDate;

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getRepo } from "@/lib/data";
 import { adminLogin, adminLogout, isAdmin } from "@/lib/auth";
-import type { BusinessAccount, Campaign, DeliveryArea, DeliverySlot, Order, OrderStatus, PaymentStatus, PrepOption, Product, Promo, Settings, Variant } from "@/lib/types";
+import type { BusinessAccount, Campaign, Quotation, Refund, DeliveryArea, DeliverySlot, Order, OrderStatus, PaymentStatus, PrepOption, Product, Promo, Settings, Variant } from "@/lib/types";
 import { runStandingOrders, type RunOutcome } from "@/lib/standing";
 import type { StandingOrder } from "@/lib/types";
 import { expireIfDue } from "@/lib/expiry";
@@ -13,6 +13,8 @@ import { notify, deliver, waApiEnabled, notifyRestock } from "@/lib/notify/servi
 import type { Purchase } from "@/lib/types";
 import { rupiah } from "@/lib/format";
 import { after } from "next/server";
+import { cleanNpwp, npwpError } from "@/lib/sales";
+import { quoteUrl } from "@/lib/quoteLink";
 import { buildBrief } from "@/lib/brief";
 import { alert } from "@/lib/monitor";
 
@@ -100,6 +102,12 @@ export async function approveAccountAction(id: string, patch: { discount_pct: nu
 
 export async function updateAccountAction(id: string, patch: Partial<BusinessAccount>) {
   await guard();
+  if (patch.npwp !== undefined) {
+    const e = npwpError(patch.npwp);
+    if (e) return wrap<BusinessAccount>({ ok: false, error: e });
+    patch = { ...patch, npwp: cleanNpwp(patch.npwp) };
+  }
+  for (const k of ["tax_name", "tax_address"] as const) if (patch[k] !== undefined) patch = { ...patch, [k]: String(patch[k] ?? "").trim().slice(0, 200) || null };
   const r = await (await getRepo()).updateAccount(id, patch);
   revalidatePath("/admin/pelanggan");
   return wrap(r);
@@ -207,6 +215,12 @@ export async function updateSettingsAction(patch: Partial<Settings>) {
     if (!Number.isFinite(m) || m < 0 || m > 10080) return wrap({ ok: false as const, error: "Batas waktu pembayaran harus 0–10.080 menit (0 = tidak dibatalkan otomatis)." });
     patch = { ...patch, payment_window_minutes: m };
   }
+  if (patch.npwp !== undefined) {
+    const e = npwpError(patch.npwp);
+    if (e) return wrap({ ok: false as const, error: e });
+    patch = { ...patch, npwp: cleanNpwp(patch.npwp) };
+  }
+  if (patch.legal_name !== undefined) patch = { ...patch, legal_name: String(patch.legal_name ?? "").trim().slice(0, 120) || null };
   if (patch.terms_grace_days !== undefined) {
     const g = Math.round(Number(patch.terms_grace_days));
     if (!Number.isFinite(g) || g < 0 || g > 60) return wrap({ ok: false as const, error: "Toleransi jatuh tempo harus 0–60 hari." });
@@ -398,4 +412,29 @@ export async function saveCampaignAction(c: Omit<Campaign, "id" | "created_at"> 
   const r = await (await getRepo()).saveCampaign(clean);
   revalidatePath("/", "layout");
   return wrap(r);
+}
+
+// ---- refunds ----
+export async function recordRefundAction(orderId: string, r: { amount: number; refunded_on: string; method: Refund["method"]; reference: string; note: string; proof: string | null; claim_id: string | null }) {
+  await guard();
+  const res = await (await getRepo()).recordRefund(orderId, { ...r, amount: Math.round(Number(r.amount)), reference: String(r.reference ?? ""), note: String(r.note ?? ""), proof: r.proof || null, claim_id: r.claim_id || null });
+  revalidatePath(`/admin/pesanan/${orderId}`);
+  return wrap(res);
+}
+
+// ---- quotations (restaurant sales kit) ----
+export async function saveQuoteAction(q: Omit<Quotation, "id" | "code" | "status" | "accepted_at" | "accepted_name" | "created_at"> & { id?: string }) {
+  await guard();
+  const r = await (await getRepo()).saveQuote({ ...q, lines: (q.lines ?? []).map((l) => ({ variant_id: String(l.variant_id), price: Math.round(Number(l.price)), note: String(l.note ?? "").slice(0, 120) })) });
+  revalidatePath("/admin/penawaran");
+  return wrap(r);
+}
+
+/** "sent" returns the signed link to share; "draft" takes a quotation back for editing; "declined" closes it. */
+export async function setQuoteStatusAction(id: string, status: "draft" | "sent" | "declined") {
+  await guard();
+  if (!["draft", "sent", "declined"].includes(status)) return wrap<{ quote: Quotation; link: string }>({ ok: false, error: "Status tidak valid." });
+  const r = await (await getRepo()).setQuoteStatus(id, status);
+  revalidatePath("/admin/penawaran");
+  return wrap(r.ok ? { ok: true as const, data: { quote: r.data, link: quoteUrl(id) } } : r);
 }

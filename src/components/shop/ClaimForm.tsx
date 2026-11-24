@@ -2,6 +2,7 @@
 // Freshness guarantee: report a problem with photos within the window after delivery.
 // Photos are shrunk in the browser (max 1280 px, JPEG) so a report uploads quickly on a phone connection.
 import { useState, useTransition } from "react";
+import { shrinkImage as shrink } from "@/lib/shrinkImage";
 import { Camera, CheckCircle2, Loader2, ShieldCheck, X } from "lucide-react";
 import type { ClaimReason, Order } from "@/lib/types";
 import { createClaimAction } from "@/actions/care";
@@ -16,22 +17,6 @@ const REASONS: Record<ClaimReason, { id: string; en: string }> = {
   missing: { id: "Tidak ada dalam kiriman", en: "Missing from the delivery" },
   other: { id: "Lainnya", en: "Other" },
 };
-
-async function shrink(file: File): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
-    const c = document.createElement("canvas");
-    c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-    c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-    let q = 0.72, out = c.toDataURL("image/jpeg", q);
-    while (out.length > 700_000 && q > 0.35) { q -= 0.12; out = c.toDataURL("image/jpeg", q); }
-    return out;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
 
 export function ClaimForm({ order, until }: { order: Order; until: string }) {
   const { locale } = useT();

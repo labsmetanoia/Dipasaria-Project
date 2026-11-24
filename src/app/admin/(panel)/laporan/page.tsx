@@ -17,7 +17,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
   const [rows, purchases, claims, funnel, products] = await Promise.all([repo.salesReport(from, to), repo.listPurchases({ from, to }), repo.listClaims({ limit: 500 }), repo.funnelReport(from, to), repo.getProducts({ includeInactive: true })]);
   // customers: ratings in the period; retention over a fixed 180 days (it needs a longer view than one report period)
   const RETENTION_DAYS = 180;
-  const [ratings, ratingSummary, facts, customers, settings] = await Promise.all([repo.listRatings({ since: from, limit: 500 }), repo.productRatings(), repo.listOrderFacts(addDays(today, -RETENTION_DAYS)), repo.listCustomers(5000), repo.getSettings()]);
+  const [ratings, ratingSummary, facts, customers, settings, refundRows] = await Promise.all([repo.listRatings({ since: from, limit: 500 }), repo.productRatings(), repo.listOrderFacts(addDays(today, -RETENTION_DAYS)), repo.listCustomers(5000), repo.getSettings(), repo.listRefunds({ from, to })]);
   const ratingsInRange = ratings.filter((r) => nowJakarta(new Date(r.created_at)).date <= to);
   const retention = buildRetention(facts, today);
   const paidByDate = new Map<string, number>();
@@ -51,8 +51,19 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         </div>
         <div className="card p-5 text-sm">
           <h2 className="text-ocean-900">Garansi kesegaran</h2>
-          <p className="mt-2">{inRange.length} laporan · {inRange.filter((c) => c.status === "open").length} menunggu · dana dikembalikan {rupiah(refunds)}</p>
+          <p className="mt-2">{inRange.length} laporan · {inRange.filter((c) => c.status === "open").length} menunggu · pengembalian disetujui {rupiah(refunds)}</p>
           <p className="text-xs text-mute">Rincian dan keputusan di menu Garansi.</p>
+        </div>
+        <div className="card p-5 text-sm md:col-span-2" data-refund-report>
+          <h2 className="text-ocean-900">Pengembalian dana tercatat</h2>
+          <p className="text-xs text-mute">Dana yang benar-benar dikirim kembali ke pelanggan pada rentang ini, dengan bukti. Dicatat di halaman pesanan.</p>
+          {refundRows.length === 0 ? <p className="mt-3 text-mute">Belum ada pengembalian dana tercatat.</p> : (
+            <table className="mt-3 w-full">
+              <thead className="text-left text-xs text-mute"><tr><th className="py-1">Tanggal</th><th>Pesanan</th><th>Cara</th><th className="text-right">Jumlah</th><th className="text-right">Bukti</th></tr></thead>
+              <tbody className="divide-y divide-line">{refundRows.map((r) => <tr key={r.id}><td className="py-1.5">{formatDate(r.refunded_on, "short")}</td><td><a href={`/admin/pesanan/${r.order_id}`} className="font-semibold text-gold-ink">{r.order_code}</a> <span className="text-mute">{r.customer_name}</span></td><td>{r.method === "transfer" ? "Transfer" : r.method === "cash" ? "Tunai" : r.method === "qris" ? "QRIS" : r.method === "va" ? "VA" : "Lainnya"}{r.reference ? ` · ${r.reference}` : ""}</td><td className="text-right">{rupiah(r.amount)}</td><td className="text-right">{r.proof ? "ada" : <span className="text-gold-ink">belum</span>}</td></tr>)}</tbody>
+              <tfoot><tr className="border-t border-line font-bold"><td className="py-1.5" colSpan={3}>Total</td><td className="text-right">{rupiah(refundRows.reduce((t, r) => t + r.amount, 0))}</td><td /></tr></tfoot>
+            </table>
+          )}
         </div>
       </div>
     </div>

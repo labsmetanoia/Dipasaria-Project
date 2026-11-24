@@ -38,6 +38,8 @@ export function SettingsAdmin({ settings: initial, areas: a0, slots: s0 }: { set
           <Field label="URL gambar QRIS statis" hint="Unggah gambar QRIS dari bank ke Supabase Storage atau layanan penyimpanan gambar, lalu tempelkan tautannya di sini."><input className="input" value={s.qris_image_url ?? ""} onChange={(e) => set("qris_image_url", e.target.value || null)} /></Field>
           <Field label="Instagram"><input className="input" value={s.instagram} onChange={(e) => set("instagram", e.target.value)} /></Field>
           <Field label="Alamat singkat"><input className="input" value={s.address_line} onChange={(e) => set("address_line", e.target.value)} /></Field>
+          <Field label="Nama usaha sesuai NPWP" hint="Dicetak di faktur, rekening tagihan, dan penawaran"><input className="input" value={s.legal_name ?? ""} onChange={(e) => set("legal_name", e.target.value || null)} placeholder="PT …" /></Field>
+          <Field label="NPWP usaha (opsional)" hint="15 atau 16 angka"><input className="input" inputMode="numeric" value={s.npwp ?? ""} onChange={(e) => set("npwp", e.target.value || null)} /></Field>
         </div>
         <Field label="Pengumuman di toko (opsional)"><input className="input" value={s.announcement ?? ""} onChange={(e) => set("announcement", e.target.value || null)} placeholder="Contoh: Libur Lebaran 30 Maret–2 April; pemesanan dibuka kembali 3 April." /></Field>
       </div>

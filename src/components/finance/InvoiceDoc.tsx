@@ -4,6 +4,19 @@ import { amountOf } from "@/lib/receivables";
 import { formatDate, qtyUnit, rupiah } from "@/lib/format";
 import { PAYMENT_LABEL } from "@/lib/config";
 import { Logo } from "@/components/Logo";
+import { formatNpwp } from "@/lib/sales";
+
+/** The seller's registered name and NPWP under the logo, when set in Pengaturan. */
+export function SellerTax({ settings }: { settings: Settings }) {
+  if (!settings.legal_name && !settings.npwp) return null;
+  return <p className="text-xs text-mute">{settings.legal_name}{settings.legal_name && settings.npwp ? " · " : ""}{settings.npwp ? `NPWP ${formatNpwp(settings.npwp)}` : ""}</p>;
+}
+
+/** The buyer's tax-invoice details, when the account has an NPWP. */
+export function BuyerTax({ account }: { account: BusinessAccount | null }) {
+  if (!account?.npwp) return null;
+  return <div className="mt-1 text-xs"><p>NPWP {formatNpwp(account.npwp)}</p>{account.tax_name && <p>{account.tax_name}</p>}{account.tax_address && <p className="text-mute">{account.tax_address}</p>}</div>;
+}
 
 export function InvoiceDoc({ order: o, account, settings, settled }: { order: Order; account: BusinessAccount | null; settings: Settings; settled: number }) {
   const total = amountOf(o);
@@ -13,7 +26,7 @@ export function InvoiceDoc({ order: o, account, settings, settled }: { order: Or
   return (
     <article className="mx-auto max-w-3xl bg-white p-5 text-sm text-ink print:max-w-none print:p-0 sm:p-8">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
-        <div><Logo size="sm" /><p className="mt-2 text-xs text-mute">{settings.address_line} · WhatsApp +{settings.whatsapp_number}</p></div>
+        <div><Logo size="sm" /><p className="mt-2 text-xs text-mute">{settings.address_line} · WhatsApp +{settings.whatsapp_number}</p><SellerTax settings={settings} /></div>
         <div className="sm:text-right">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold-ink">{estimate ? "Faktur sementara" : "Faktur"}</p>
           <h1 className="mt-1 text-[1.6rem] leading-none">{o.code}</h1>
@@ -21,7 +34,7 @@ export function InvoiceDoc({ order: o, account, settings, settled }: { order: Or
         </div>
       </header>
       <div className="mt-4 grid gap-4 text-xs sm:grid-cols-2">
-        <div><p className="text-mute">Ditagihkan kepada</p><p className="font-semibold">{account?.business_name ?? o.customer_name}</p><p>{o.address}</p><p>+{o.phone}</p></div>
+        <div><p className="text-mute">Ditagihkan kepada</p><p className="font-semibold">{account?.business_name ?? o.customer_name}</p><p>{o.address}</p><p>+{o.phone}</p><BuyerTax account={account} /></div>
         <div className="sm:text-right"><p className="text-mute">Pembayaran</p><p className="font-semibold">{PAYMENT_LABEL[o.payment_method] ?? o.payment_method}</p><p className={paid ? "font-semibold text-success-600" : ""}>{paid ? "Lunas" : o.status === "cancelled" ? "Dibatalkan" : settled > 0 ? `Dibayar sebagian ${rupiah(settled)}` : "Belum dibayar"}</p></div>
       </div>
       <div className="overflow-x-auto"><table className="mt-5 w-full text-xs">

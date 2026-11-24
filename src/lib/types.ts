@@ -38,6 +38,9 @@ export interface Settings {
   wa_events: WaKind[];
   /** Days a tempo invoice may be past due before new tempo orders are refused. */
   terms_grace_days: number;
+  /** the seller's tax number and registered name, printed on invoices, statements and quotations (optional) */
+  npwp: string | null;
+  legal_name: string | null;
 }
 
 export interface Category {
@@ -188,6 +191,10 @@ export interface BusinessAccount {
   approved_at: string | null;
   /** Most the account may owe on tempo (open invoices, including undelivered orders); null = no limit. */
   credit_limit: number | null;
+  /** Tax-invoice details: NPWP (15 or 16 digits) and the name and address registered with it. */
+  npwp?: string | null;
+  tax_name?: string | null;
+  tax_address?: string | null;
   /** Agreed prices (loaded with the account for pricing; current and future ones only). */
   contract_prices?: ContractPrice[];
 }
@@ -218,7 +225,7 @@ export interface OrderItem {
 
 export interface StatusEvent {
   /** "unpaid": a tempo invoice reopened after a payment was removed */
-  status: OrderStatus | "paid" | "weighed" | "unpaid";
+  status: OrderStatus | "paid" | "weighed" | "unpaid" | "refunded";
   at: string;
   note?: string;
 }
@@ -367,6 +374,7 @@ export interface AccountApplication {
   area_id: string | null;
   business_type: string;
   notes: string;
+  npwp?: string | null;
 }
 
 // ---------- Standing orders (restaurant recurring orders) ----------
@@ -438,9 +446,14 @@ export interface JobRun { job: string; last_at: string; result: string }
 /** One QR code issued through the payment gateway for an order (id = the gateway's order_id). */
 export interface Payment {
   id: string;
-  order_id: string;
+  /** an order's payment, or a restaurant paying its open invoices from the statement (exactly one is set) */
+  order_id: string | null;
+  account_id: string | null;
   provider: "midtrans" | "mock";
-  method: "qris";
+  method: "qris" | "va";
+  /** virtual account: the bank and the account number to transfer to */
+  va_bank: string | null;
+  va_number: string | null;
   amount: number;
   amount_paid: number | null;
   status: "pending" | "paid" | "expired" | "failed" | "cancelled";
@@ -545,7 +558,7 @@ export interface ContractPrice {
   created_at: string;
 }
 
-export type AccountPaymentMethod = "transfer" | "cash" | "qris" | "giro" | "other";
+export type AccountPaymentMethod = "transfer" | "cash" | "qris" | "giro" | "va" | "other";
 
 /** Money received from a restaurant against its tempo invoices. */
 export interface AccountPayment {
@@ -597,5 +610,53 @@ export interface Purchase {
   total_cost: number;
   supplier: string;
   note: string;
+  created_at: string;
+}
+
+export type RefundMethod = "transfer" | "cash" | "qris" | "va" | "other";
+
+/** Money given back to a customer for an order, with the proof. */
+export interface Refund {
+  id: string;
+  order_id: string;
+  claim_id: string | null;
+  amount: number;
+  refunded_on: string; // YYYY-MM-DD
+  method: RefundMethod;
+  reference: string;
+  /** photo of the transfer receipt (JPEG data URL, compressed in the browser) */
+  proof: string | null;
+  note: string;
+  created_at: string;
+  /** for lists */
+  order_code?: string;
+  customer_name?: string;
+}
+
+export interface QuotationLine { variant_id: string; price: number; note: string }
+
+/** A price quotation for a restaurant, hotel or caterer, accepted from a signed link. */
+export interface Quotation {
+  id: string;
+  code: string;
+  account_id: string | null;
+  business_name: string;
+  contact_name: string;
+  phone: string;
+  address: string;
+  business_type: string;
+  npwp: string | null;
+  tax_name: string | null;
+  tax_address: string | null;
+  lines: QuotationLine[];
+  /** last day it can be accepted */
+  valid_until: string;
+  /** contract prices run from this day (or acceptance, if later) to price_to (null = until changed) */
+  price_from: string;
+  price_to: string | null;
+  note: string;
+  status: "draft" | "sent" | "accepted" | "declined";
+  accepted_at: string | null;
+  accepted_name: string | null;
   created_at: string;
 }

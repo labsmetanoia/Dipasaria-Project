@@ -9,7 +9,7 @@ const APP = "http://localhost:3003";
 const KEY = "SB-Mid-server-TESTKEY";
 const fails = []; const check = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fails.push(m); };
 
-const charges = []; const state = new Map(); let statusCalls = 0;
+const charges = []; const state = new Map(); const vaIssued = new Map(); let statusCalls = 0;
 const jkt = (ms) => new Date(ms + 7 * 3600e3).toISOString().slice(0, 19).replace("T", " ");
 const srv = http.createServer((req, res) => {
   let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => {
@@ -17,6 +17,12 @@ const srv = http.createServer((req, res) => {
     if (req.method === "POST" && req.url === "/v2/charge") {
       const body = JSON.parse(b); charges.push({ body, auth: req.headers.authorization, override: req.headers["x-override-notification"] });
       state.set(body.transaction_details.order_id, { transaction_status: "pending", gross_amount: `${body.transaction_details.gross_amount}.00` });
+      if (body.payment_type === "bank_transfer") {
+        const va = "9" + String(charges.length).padStart(3, "0") + crypto.createHash("md5").update(body.transaction_details.order_id).digest("hex").replace(/\D/g, "").slice(0, 10).padEnd(10, "7");
+        vaIssued.set(body.transaction_details.order_id, va);
+        return send({ status_code: "201", status_message: "Success, Bank Transfer transaction is created", order_id: body.transaction_details.order_id, gross_amount: `${body.transaction_details.gross_amount}.00`,
+          payment_type: "bank_transfer", transaction_status: "pending", va_numbers: [{ bank: body.bank_transfer.bank, va_number: va }], expiry_time: jkt(Date.now() + body.custom_expiry.expiry_duration * 60e3) });
+      }
       return send({ status_code: "201", status_message: "Success, QRIS transaction is created", transaction_id: crypto.randomUUID(), order_id: body.transaction_details.order_id,
         gross_amount: `${body.transaction_details.gross_amount}.00`, payment_type: "qris", transaction_status: "pending", fraud_status: "accept",
         qr_string: "00020101021226620014COM.GO-JEK.WWW011893600914" + body.transaction_details.order_id.replace(/\W/g, "") + "5204581253033605802ID6304TEST",
@@ -116,11 +122,65 @@ async function order(b, name, phone) {
   await ad.getByRole("button", { name: "Masuk" }).click(); await ad.waitForURL(/\/admin$/);
   await ad.goto(APP + "/admin/pesanan?all=1&q=" + encodeURIComponent("Uji Midtrans C"), { waitUntil: "networkidle" });
   await ad.getByText("Uji Midtrans C").first().click();
-  await ad.waitForSelector("text=QRIS otomatis");
+  await ad.waitForSelector("text=Pembayaran otomatis");
   check((await ad.getByText(/\[QRIS\] Diterima/).count()) + (await ad.locator("textarea").filter({ hasText: "[QRIS] Diterima" }).count()) >= 1, "admin sees the amount-mismatch note on the order");
   await ad.screenshot({ path: require("path").join(__dirname, "../docs/screenshots/") + "48-admin-qris-mismatch-desktop.png", fullPage: true });
   await ad.goto(APP + "/admin/sistem", { waitUntil: "networkidle" });
   check((await ad.getByText(/Midtrans \(sandbox\): QR sesuai nominal/).count()) === 1, "system page shows Midtrans sandbox as the QRIS gateway");
+
+  // 7. Virtual account: a transfer order opens a VA at the chosen bank, confirmed the same way as QRIS
+  const vctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const vp = await vctx.newPage();
+  await vp.goto(APP + "/belanja/produk/kotak-seafood-weekend", { waitUntil: "networkidle" });
+  await vp.getByRole("button", { name: "Tambah ke keranjang" }).click();
+  await vp.goto(APP + "/checkout", { waitUntil: "networkidle" });
+  await vp.waitForSelector('h2:has-text("Penerima")');
+  await vp.getByLabel("Nama penerima", { exact: true }).fill("Uji Midtrans VA");
+  await vp.getByLabel("Nomor WhatsApp").fill("0813 4444 0004");
+  await vp.getByLabel("Wilayah").selectOption({ index: 3 });
+  await vp.getByLabel("Alamat lengkap").fill("Jl. Uji VA No. 1, Jakarta Selatan");
+  await vp.getByRole("button", { name: "Lanjut" }).click();
+  await vp.getByRole("button", { name: "Lanjut" }).click();
+  await vp.getByLabel("Transfer bank").check();
+  await vp.getByRole("button", { name: "Buat pesanan" }).click();
+  await vp.waitForURL(/\/pesanan\/DP-/, { timeout: 15000 });
+  const vCode = vp.url().match(/DP-[A-Z0-9-]+/)[0];
+  check((await vp.locator("[data-va]").getByRole("button").allInnerTexts()).join(",") === "BCA,BNI,BRI", "a transfer order offers BCA, BNI and BRI virtual accounts by default");
+  await vp.locator("[data-va]").getByRole("button", { name: "BNI" }).click();
+  await vp.locator("[data-va-number]").waitFor({ timeout: 15000 });
+  const vc = charges.at(-1);
+  check(vc.body.payment_type === "bank_transfer" && vc.body.bank_transfer?.bank === "bni" && new RegExp(`^${vCode}-V1[A-Z0-9]{3}$`).test(vc.body.transaction_details.order_id), "the VA charge is a bank_transfer at BNI with the order code as its id: " + vc.body.transaction_details.order_id);
+  check(vc.body.custom_expiry?.unit === "minute" && vc.body.custom_expiry.expiry_duration <= 24 * 60, "the VA closes within a day (or before the order's payment deadline): " + vc.body.custom_expiry?.expiry_duration + " min");
+  const vId = vc.body.transaction_details.order_id;
+  check((await vp.locator("[data-va-number]").innerText()).trim() === vaIssued.get(vId), "the customer sees the number Midtrans issued");
+  await vp.reload({ waitUntil: "networkidle" });
+  await vp.locator("[data-va]").getByRole("button", { name: "BNI" }).click();
+  await vp.locator("[data-va-number]").waitFor({ timeout: 15000 });
+  check(charges.filter((x) => x.body.transaction_details.order_id.startsWith(vCode)).length === 1, "choosing the same bank again reuses the open virtual account");
+  state.get(vId).transaction_status = "settlement";
+  const vpaid = await notify({ order_id: vId, status_code: "200", gross_amount: state.get(vId).gross_amount, transaction_status: "settlement" });
+  check(vpaid.json.outcome === "paid", "a settled VA transfer marks the order paid");
+  await vp.waitForSelector("text=Pembayaran diterima", { timeout: 15000 });
+  await vctx.close();
+  // a restaurant pays its open invoices from the statement link
+  await ad.goto(APP + "/admin/piutang/ba_minang", { waitUntil: "networkidle" });
+  await ad.getByRole("button", { name: /Kirim ringkasan tagihan/ }).click();
+  await ad.waitForSelector("text=Buka WhatsApp untuk mengirim", { timeout: 15000 });
+  const stHref = decodeURIComponent(await ad.getByRole("link", { name: "Buka WhatsApp untuk mengirim" }).getAttribute("href"));
+  const stUrl = stHref.match(/https?:\/\/[^\s]+\/tagihan\/[A-Za-z0-9_.-]+/)[0].replace(/^https?:\/\/[^/]+/, APP);
+  const sctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const sp = await sctx.newPage();
+  await sp.goto(stUrl, { waitUntil: "networkidle" });
+  await sp.locator("[data-statement-pay]").getByRole("button", { name: /dengan virtual account/ }).click();
+  await sp.locator("[data-statement-pay]").getByRole("button", { name: "BRI" }).click();
+  await sp.locator("[data-va-number]").waitFor({ timeout: 15000 });
+  const sc = charges.at(-1); const sId = sc.body.transaction_details.order_id;
+  check(sc.body.bank_transfer?.bank === "bri" && /^TG-/.test(sId) && sc.body.transaction_details.gross_amount > 0, "the statement opens a BRI virtual account for the chosen amount: " + sId);
+  state.get(sId).transaction_status = "settlement";
+  const spaid = await notify({ order_id: sId, status_code: "200", gross_amount: state.get(sId).gross_amount, transaction_status: "settlement" });
+  check(spaid.json.outcome === "paid", "the settled transfer is recorded as the restaurant's payment");
+  await sp.waitForSelector("text=dicocokkan ke faktur terlama", { timeout: 15000 });
+  await sctx.close();
 
   await b.close(); srv.close();
   console.log(fails.length ? `\n${fails.length} FAILURES` : "\nALL MIDTRANS CHECKS PASSED");

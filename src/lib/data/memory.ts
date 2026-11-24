@@ -3,6 +3,8 @@
 
 import type {
   Campaign,
+  Quotation,
+  Refund,
   Rating,
   FunnelRow,
   AccountPayment,
@@ -40,6 +42,7 @@ import { addDays, isValidPhone, jam, jamRange, normalizePhone, nowJakarta } from
 import { newId, orderCode, randomCode, sessionToken } from "../ids";
 import { TEXT_LIMITS, paymentChangeError, safeMapsUrl, statusChangeError, weighError } from "../orderRules";
 import { amountOf, buildLedger, dueDateFor, termsBlock } from "../receivables";
+import { cleanNpwp, npwpError, quoteCode, quoteError } from "../sales";
 import { PREORDER_COD_ERROR, campaignError, cartCampaign, preorderDateError, preorderPaymentError } from "../campaigns";
 
 interface Store {
@@ -58,6 +61,8 @@ interface Store {
   allocations: PaymentAllocation[];
   contracts: ContractPrice[];
   campaigns: Campaign[];
+  refunds: Refund[];
+  quotes: Quotation[];
 }
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -79,6 +84,8 @@ function buildStore(): Store {
     allocations: [],
     contracts: [],
     campaigns: clone(seedCampaigns),
+    refunds: [],
+    quotes: [],
   };
   seedDemoOrders(store);
   seedReceivables(store);
@@ -563,7 +570,10 @@ export const memoryRepo: Repo = {
     if (!isValidPhone(input.phone)) return fail("Nomor WhatsApp tidak valid.");
     const phone = normalizePhone(input.phone);
     if (store.accounts.some((a) => a.phone === phone)) return fail("Nomor ini sudah terdaftar. Hubungi kami melalui WhatsApp untuk mendapatkan kode akses.");
+    const npwpErr = npwpError(input.npwp);
+    if (npwpErr) return fail(npwpErr);
     const acc: BusinessAccount = {
+      npwp: cleanNpwp(input.npwp), tax_name: null, tax_address: null,
       id: newId("ba"),
       business_name: input.business_name.trim(),
       contact_name: input.contact_name.trim(),
@@ -1047,6 +1057,9 @@ export const memoryRepo: Repo = {
   async listPayments(orderId) {
     return clone(payments.filter((p) => p.order_id === orderId).sort((a, b) => b.created_at.localeCompare(a.created_at)));
   },
+  async listAccountGatewayPayments(accountId) {
+    return clone(payments.filter((p) => p.account_id === accountId).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+  },
   async getPayment(id) {
     const p = payments.find((x) => x.id === id);
     return p ? clone(p) : null;
@@ -1056,9 +1069,19 @@ export const memoryRepo: Repo = {
     if (!pay) throw new Error("Pembayaran tidak ditemukan.");
     if (pay.status === "paid" || status === "pending") return "noop";
     if (status !== "paid") { if (pay.status === "pending") pay.status = status; return "updated"; }
+    // a restaurant paying its open invoices from the statement: an account payment, matched oldest first (as in SQL)
+    if (pay.account_id) {
+      const store = getStore();
+      const amt = Math.round(amount ?? pay.amount);
+      Object.assign(pay, { status: "paid", paid_at: new Date().toISOString(), amount_paid: amt });
+      store.accPayments.push({ id: newId("ap"), account_id: pay.account_id, amount: amt, paid_on: nowJakarta().date, method: pay.method, reference: pay.id, note: pay.method === "va" ? `Virtual account ${String(pay.va_bank ?? "").toUpperCase()} otomatis` : "QRIS otomatis", created_at: new Date().toISOString() });
+      allocateCredit(store, pay.account_id);
+      return "paid";
+    }
     Object.assign(pay, { status: "paid", paid_at: new Date().toISOString(), amount_paid: amount });
     const o = getStore().orders.find((x) => x.id === pay.order_id)!;
-    const note = (s: string) => { o.internal_note = [o.internal_note, `[QRIS] ${s}`].filter(Boolean).join("\n"); };
+    const tag = pay.method === "va" ? "[VA]" : "[QRIS]";
+    const note = (s: string) => { o.internal_note = [o.internal_note, `${tag} ${s}`].filter(Boolean).join("\n"); };
     const paid = amount ?? 0;
     if (o.status === "cancelled") { o.payment_status = "refund_due"; note(`${rp(paid)} diterima (${id}) setelah pesanan dibatalkan. Kembalikan dana ke pelanggan.`); return "late"; }
     if (o.payment_status === "paid") { note(`Pembayaran ganda ${rp(paid)} (${id}). Kembalikan kelebihan dana.`); return "duplicate"; }
@@ -1068,7 +1091,7 @@ export const memoryRepo: Repo = {
       return "mismatch";
     }
     o.payment_status = "paid"; o.pay_by = null;
-    o.history.push({ status: "paid", at: new Date().toISOString(), note: "QRIS otomatis" });
+    o.history.push({ status: "paid", at: new Date().toISOString(), note: pay.method === "va" ? "Virtual account otomatis" : "QRIS otomatis" });
     return "paid";
   },
 
@@ -1285,7 +1308,7 @@ export const memoryRepo: Repo = {
     const today = nowJakarta().date;
     if (!Number.isFinite(p.amount) || p.amount <= 0 || p.amount > 1_000_000_000 || p.amount !== Math.round(p.amount)) return fail("Jumlah pembayaran tidak valid.");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(p.paid_on) || p.paid_on > today || p.paid_on < addDays(today, -366)) return fail("Tanggal pembayaran tidak valid.");
-    if (!["transfer", "cash", "qris", "giro", "other"].includes(p.method)) return fail("Cara pembayaran tidak valid.");
+    if (!["transfer", "cash", "qris", "giro", "va", "other"].includes(p.method)) return fail("Cara pembayaran tidak valid.");
     const id = newId("ap");
     store.accPayments.push({ id, account_id: accountId, amount: p.amount, paid_on: p.paid_on, method: p.method, reference: p.reference.trim().slice(0, 80), note: p.note.trim().slice(0, 200), created_at: new Date().toISOString() });
     allocateCredit(store, accountId);
@@ -1321,6 +1344,101 @@ export const memoryRepo: Repo = {
   async deleteContractPrice(id) {
     const store = getStore();
     store.contracts = store.contracts.filter((c) => c.id !== id);
+  },
+
+  async recordRefund(orderId, r) {
+    const store = getStore();
+    const o = store.orders.find((x) => x.id === orderId);
+    if (!o) return fail("Pesanan tidak ditemukan.");
+    const today = nowJakarta().date;
+    if (!Number.isFinite(r.amount) || r.amount <= 0 || r.amount !== Math.round(r.amount)) return fail("Jumlah pengembalian tidak valid.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(r.refunded_on) || r.refunded_on > today || r.refunded_on < addDays(today, -366)) return fail("Tanggal pengembalian tidak valid.");
+    if (!["transfer", "cash", "qris", "va", "other"].includes(r.method)) return fail("Cara pengembalian tidak valid.");
+    if (r.proof && (r.proof.length > 800_000 || !/^data:image\/(jpeg|png|webp);base64,/.test(r.proof))) return fail("Bukti pengembalian harus berupa foto.");
+    if (r.claim_id && !claims.some((c) => c.id === r.claim_id && c.order_id === orderId)) return fail("Laporan garansi tidak cocok dengan pesanan ini.");
+    // never more than was received for the order (as in SQL record_refund)
+    let received = payments.filter((p) => p.order_id === orderId && p.status === "paid").reduce((t, p) => t + (p.amount_paid ?? 0), 0);
+    if (o.payment_status === "paid" || o.payment_status === "refund_due" || o.cod_collected != null) received = Math.max(received, o.total_final ?? o.total_est, o.cod_collected ?? 0);
+    const done = store.refunds.filter((x) => x.order_id === orderId).reduce((t, x) => t + x.amount, 0);
+    if (done + r.amount > received) return fail(`Pengembalian melebihi dana yang diterima untuk pesanan ini (sisa Rp${Math.max(0, received - done).toLocaleString("id-ID")}).`);
+    const id = newId("rf");
+    store.refunds.push({ id, order_id: orderId, claim_id: r.claim_id ?? null, amount: r.amount, refunded_on: r.refunded_on, method: r.method, reference: r.reference.trim().slice(0, 80), proof: r.proof ?? null, note: r.note.trim().slice(0, 300), created_at: new Date().toISOString() });
+    if (o.payment_status === "refund_due") {
+      o.payment_status = "void";
+      o.history.push({ status: "refunded", at: new Date().toISOString(), note: `Dana dikembalikan Rp${r.amount.toLocaleString("id-ID")}` });
+    }
+    return ok(id);
+  },
+  async listRefunds(filter = {}) {
+    const store = getStore();
+    return clone(store.refunds
+      .filter((r) => (!filter.orderId || r.order_id === filter.orderId) && (!filter.from || r.refunded_on >= filter.from) && (!filter.to || r.refunded_on <= filter.to))
+      .map((r) => { const o = store.orders.find((x) => x.id === r.order_id); return { ...r, order_code: o?.code, customer_name: o?.customer_name }; })
+      .sort((a, b) => b.refunded_on.localeCompare(a.refunded_on) || b.created_at.localeCompare(a.created_at)));
+  },
+
+  async listQuotes() {
+    return clone([...getStore().quotes].sort((a, b) => b.created_at.localeCompare(a.created_at)));
+  },
+  async getQuote(id) {
+    const q = getStore().quotes.find((x) => x.id === id);
+    return q ? clone(q) : null;
+  },
+  async saveQuote(q) {
+    const store = getStore();
+    const today = nowJakarta().date;
+    const ex = q.id ? store.quotes.find((x) => x.id === q.id) : undefined;
+    if (q.id && !ex) return fail("Penawaran tidak ditemukan.");
+    if (ex && ex.status === "accepted") return fail("Penawaran yang sudah diterima tidak dapat diubah.");
+    if (q.account_id && !store.accounts.some((a) => a.id === q.account_id)) return fail("Akun tidak ditemukan.");
+    const err = quoteError(q, store.products.filter((p) => p.is_active), today);
+    if (err) return fail(err);
+    const clean = { ...q, phone: q.phone ? normalizePhone(q.phone) : "", npwp: cleanNpwp(q.npwp), lines: q.lines.map((l) => ({ variant_id: l.variant_id, price: l.price, note: String(l.note ?? "").trim() })) };
+    if (ex) { Object.assign(ex, clean, { id: ex.id }); return ok(clone(ex)); }
+    let code = quoteCode(today);
+    while (store.quotes.some((x) => x.code === code)) code = quoteCode(today);
+    const row: Quotation = { ...clean, id: newId("qt"), code, status: "draft", accepted_at: null, accepted_name: null, created_at: new Date().toISOString() };
+    store.quotes.push(row);
+    return ok(clone(row));
+  },
+  async setQuoteStatus(id, status) {
+    const q = getStore().quotes.find((x) => x.id === id);
+    if (!q) return fail("Penawaran tidak ditemukan.");
+    if (q.status === "accepted") return fail("Penawaran yang sudah diterima tidak dapat diubah.");
+    if (status === "sent" && q.valid_until < nowJakarta().date) return fail("Batas penerimaan sudah lewat. Ubah tanggalnya dulu.");
+    q.status = status;
+    return ok(clone(q));
+  },
+  async acceptQuote(id, name) {
+    const store = getStore();
+    const q = store.quotes.find((x) => x.id === id);
+    const today = nowJakarta().date;
+    if (!q) return fail("Penawaran tidak ditemukan.");
+    if (q.status === "accepted") return fail("Penawaran ini sudah diterima.");
+    if (q.status !== "sent") return fail("Penawaran ini tidak berlaku lagi. Hubungi kami untuk penawaran baru.");
+    if (today > q.valid_until) return fail("Masa berlaku penawaran ini sudah lewat. Hubungi kami untuk penawaran baru.");
+    if (String(name ?? "").trim().length < 2 || String(name).length > 80) return fail("Tulis nama Anda (2–80 karakter).");
+    if (!q.lines.length) return fail("Penawaran ini belum berisi produk.");
+    if (q.lines.some((l) => !store.products.some((p) => p.variants.some((v) => v.id === l.variant_id)) || !(l.price > 0))) return fail("Salah satu produk pada penawaran sudah tidak tersedia. Hubungi kami.");
+    let acc = q.account_id ? store.accounts.find((a) => a.id === q.account_id) : undefined;
+    if (!acc) {
+      const phone = normalizePhone(q.phone);
+      if (!/^62\d{8,13}$/.test(phone)) return fail("Nomor WhatsApp pada penawaran tidak valid. Hubungi kami.");
+      acc = store.accounts.find((a) => a.phone === phone);
+      if (!acc) {
+        acc = { id: newId("ba"), business_name: q.business_name, contact_name: q.contact_name.trim() || name.trim(), phone, address: q.address, area_id: null, business_type: q.business_type, discount_pct: 0, credit_limit: null, payment_terms: "prepaid", allow_cod: false, status: "pending", access_code: null, preferred_slot_id: null, notes: `Dari penawaran ${q.code}, diterima oleh ${name.trim()}`, applied_at: new Date().toISOString(), approved_at: null, npwp: q.npwp, tax_name: q.tax_name, tax_address: q.tax_address };
+        store.accounts.push(acc);
+      }
+    }
+    acc.npwp ??= q.npwp; acc.tax_name ??= q.tax_name; acc.tax_address ??= q.tax_address;
+    const from = q.price_from > today ? q.price_from : today;
+    for (const l of q.lines) {
+      const ex = store.contracts.find((c) => c.account_id === acc!.id && c.variant_id === l.variant_id && c.starts_on === from);
+      if (ex) Object.assign(ex, { price: Math.round(l.price), ends_on: q.price_to, note: `Penawaran ${q.code}` });
+      else store.contracts.push({ id: newId("cp"), account_id: acc.id, variant_id: l.variant_id, price: Math.round(l.price), starts_on: from, ends_on: q.price_to, note: `Penawaran ${q.code}`, created_at: new Date().toISOString() });
+    }
+    Object.assign(q, { status: "accepted", accepted_at: new Date().toISOString(), accepted_name: name.trim(), account_id: acc.id });
+    return ok(acc.id);
   },
 
   async createRating(code, phone, r, windowDays) {

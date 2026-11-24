@@ -5,6 +5,7 @@ import type { BusinessAccount, Settings } from "@/lib/types";
 import type { Ledger, Statement } from "@/lib/receivables";
 import { formatDate, rupiah } from "@/lib/format";
 import { Logo } from "@/components/Logo";
+import { BuyerTax, SellerTax } from "./InvoiceDoc";
 
 const TERMS: Record<BusinessAccount["payment_terms"], string> = { prepaid: "Bayar di muka", days3: "Tempo 3 hari", weekly: "Tempo 7 hari" };
 
@@ -21,8 +22,8 @@ export function StatementDoc({ account, settings, ledger, statement, today, invo
   return (
     <article className="statement mx-auto max-w-3xl bg-white p-5 text-sm text-ink print:max-w-none print:p-0 sm:p-8">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
-        <div><Logo size="sm" /><p className="mt-2 text-xs text-mute">{settings.address_line} · WhatsApp +{settings.whatsapp_number}</p></div>
-        <div className="sm:text-right"><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold-ink">Rekening koran</p><h1 className="mt-1 text-[1.6rem] leading-none">{account.business_name}</h1><p className="mt-1 text-xs text-mute">{formatDate(s.from, "short")} – {formatDate(s.to, "short")} {s.to.slice(0, 4)} · dicetak {formatDate(today, "short")}</p></div>
+        <div><Logo size="sm" /><p className="mt-2 text-xs text-mute">{settings.address_line} · WhatsApp +{settings.whatsapp_number}</p><SellerTax settings={settings} /></div>
+        <div className="sm:text-right"><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold-ink">Rekening koran</p><h1 className="mt-1 text-[1.6rem] leading-none">{account.business_name}</h1><p className="mt-1 text-xs text-mute">{formatDate(s.from, "short")} – {formatDate(s.to, "short")} {s.to.slice(0, 4)} · dicetak {formatDate(today, "short")}</p><BuyerTax account={account} /></div>
       </header>
 
       <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">

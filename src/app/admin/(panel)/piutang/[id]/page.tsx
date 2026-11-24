@@ -38,6 +38,7 @@ export default async function AccountReceivablesPage({ params }: { params: Promi
         </div>
         <div className="flex flex-wrap items-start gap-2">
           <Link href={`/admin/piutang/${account.id}/rekening?from=${monthStart}&to=${today}`} className="btn-secondary"><Printer className="h-4 w-4" /> Rekening koran</Link>
+          <Link href={`/admin/penawaran/baru?akun=${account.id}`} className="btn-secondary">Buat penawaran</Link>
           <SendStatementButton accountId={account.id} />
         </div>
       </div>

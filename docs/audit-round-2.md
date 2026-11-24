@@ -760,3 +760,88 @@ The seed adds **Malam Tahun Baru**: a grill box in two sizes (Rp549.000 and Rp98
 3. For Chinese New Year (early February 2027) and Lebaran (around the second week of March 2027), create a campaign three to four weeks ahead, add its products, and choose them from each product's **Pre-order musiman** field. Please check the exact holiday dates against the official calendar.
 4. Announce it on Instagram and the WhatsApp status, linking the campaign page.
 
+## 16. Implemented after approval: restaurant sales kit, virtual accounts and refund records
+
+Items R2 and O1 of `docs/strategic-assessment.md` ("weeks 5–6"). Both serve restaurants, the segment with the most volume, and build on receivables.
+
+### Quotations (R2)
+
+**Purpose:** hotels, caterers and restaurant groups buy on a written quotation. Sending one today means a spreadsheet and a PDF by hand, then typing the agreed prices in again.
+
+**What it does:**
+- **Penawaran harga** in the back-office:
+  - write a quotation for an existing account (from its page in Piutang, "Buat penawaran") or for a prospect;
+  - pick catalogue sizes; each price starts at the wholesale price (or the account's current price);
+  - each line shows the margin against cost, highlighted under 8%;
+  - set the acceptance deadline (at most 90 days), the price period and a note.
+- **Tandai terkirim dan buat tautan** gives a signed link and a ready WhatsApp message. The link opens without signing in and cannot be forged or pointed at another quotation.
+- The customer sees the quotation as a document: the seller's and buyer's NPWP, wholesale price struck through beside the quoted price, the price period, and the ordering and payment terms. They can print it to PDF and accept it with their name and a confirmation tick.
+- **Accepting** turns every line into a contract price for the account, from the later of today and the start of the price period, until its end (or until changed).
+  - A prospect gets a business account waiting for approval in **Pelanggan**, with the quotation's details and NPWP.
+  - If the phone number already has an account, that account is used.
+  - The owner gets a message in the alert chat.
+- **The database enforces the rules** (`accept_quote`): only a sent quotation, before its deadline, once, with products that still exist. An accepted quotation cannot be edited. A draft or declined quotation's link shows nothing to accept.
+
+### Tax-invoice details (R2, with N16)
+
+- Each restaurant has an NPWP (15 or 16 digits; punctuation ignored) and the name and address registered with it. They can be entered by the restaurant when signing up (optional) or by the owner in **Pelanggan**.
+- The business's own NPWP and registered name are set in **Pengaturan**.
+- Both are printed on invoices (faktur), statements (rekening koran) and quotations. Nothing calculates VAT. Whether VAT applies depends on the product (fresh and processed goods are treated differently) and on the business being registered as a PKP, which is also needed to issue a formal tax invoice (e-Faktur). Please confirm with your accountant; the fields make the documents ready for that conversation.
+
+### Virtual accounts (O1)
+
+**Purpose:** no more matching bank transfers by hand. For a large restaurant invoice a virtual account costs a flat fee (about Rp4.000, to confirm in the Midtrans agreement) where QRIS costs 0,7% (Rp14.000 on Rp2.000.000).
+
+**What it does:**
+- A **transfer** order whose final amount is known shows **Bayar dengan transfer ke virtual account**. The customer picks BCA, BNI or BRI and gets an account number for the exact amount, with instructions for m-banking, ATM and transfers from other banks. The page confirms the payment by itself, like QRIS; there is no "I have paid" step.
+- The virtual account stays open for a day, never past the order's payment deadline. Choosing the same bank again reuses it; another bank closes the first, so an order can never be paid twice through the gateway.
+- **Restaurants on tempo** can pay from the statement link: they choose overdue invoices, everything delivered, or everything including orders not yet delivered (or another amount, from Rp10.000). The money is recorded as an account payment with the virtual-account reference and matched to the oldest invoices, exactly like a payment recorded by hand.
+- Paid after cancellation, paid twice, or a different amount: noted on the order and sent to the alert chat, as for QRIS. The order history says "Virtual account otomatis".
+- Banks: `MIDTRANS_VA_BANKS` (default `bca,bni,bri`; `permata` and `cimb` also work). Each must be activated in the Midtrans dashboard. Mandiri uses a different flow (bill key) and is not offered.
+- Without a Midtrans key, transfer orders keep the manual bank details and "I have paid". In demo mode the demo gateway shows the whole flow with "Simulasikan transfer (demo)".
+
+### Refund records (O1)
+
+- On the order page, **Pengembalian dana** records the amount, date, method, bank reference, an optional note and a photo of the receipt. The photo is compressed in the browser, as for guarantee photos. It can be linked to a guarantee report decided as a refund.
+- Refunds on an order can never add up to more than was received for it: gateway payments, or the total if it was marked paid by hand, or cash collected.
+- An order waiting for a refund ("Perlu pengembalian dana") closes ("Dibatalkan") when the refund is recorded. Its history says "Dana dikembalikan".
+- **Laporan** lists the period's refunds with their proof. The morning brief lists orders still waiting for a refund under "Perlu perhatian".
+
+### Fixes found while testing
+
+- The order page in the back-office kept showing the old payment status after a refund was recorded below it. It now takes the refreshed order.
+- The refund form did not pick up the amount to refund when the order was cancelled on the same page. It now does.
+
+### Tests
+
+- **SQL suite, sections 29–31:**
+  - a virtual-account payment pays an order;
+  - an account payment is recorded once, matched to invoices, with repeated notifications ignored;
+  - payments belong to an order or an account, with a known method;
+  - refunds: limits, date, method and proof format, closing a refund-due order;
+  - NPWP validation and storage;
+  - quotations: a prospect gets a pending account with contract prices; the same phone reuses its account; a later price period; drafts, expired and accepted quotations are refused.
+- **Rules test: 92 checks** (13 new), the same rules on the demo data layer, plus NPWP formatting and quotation states.
+- **Main browser suite: 153 of 153** (14 new checks):
+  - a transfer order paid by virtual account;
+  - cancelling it and recording the refund with a photo;
+  - a restaurant paying from its statement link;
+  - a quotation with a malformed NPWP refused, then saved, sent, opened, a tampered link refused, accepted, and the prospect's account waiting for approval.
+- **Midtrans suite: 28 of 28** (8 new), against a local stand-in of the Midtrans API:
+  - the bank_transfer charge (bank, order id, expiry);
+  - the number shown is the one Midtrans issued;
+  - the same bank is reused;
+  - settlement pays the order;
+  - a restaurant's statement payment through Midtrans.
+- **Upgrade path:** checked on a copy of the previous schema with migration 017, `schema.sql` (twice) and `seed.sql`.
+- **Screenshots:** `docs/screenshots/76-virtual-account-mobile.png` to `80-quote-mobile.png`.
+
+### Owner setup
+
+1. Run `supabase/migrations/017_sales_kit_and_virtual_accounts.sql`, then `supabase/schema.sql`, then `supabase/seed.sql`.
+2. In the Midtrans dashboard, activate bank transfer (virtual account) for BCA, BNI and BRI. BCA usually needs its own activation step. Confirm the fee per transaction in your agreement. Set `MIDTRANS_VA_BANKS` only if you want other banks.
+3. Test in the sandbox: place a transfer order, open a BNI virtual account, pay it with Midtrans' simulator, and check that the order turns "Lunas" by itself.
+4. In **Pengaturan**, enter your registered business name and NPWP if you want them on documents.
+5. Ask your restaurants for their NPWP (Pelanggan) when they need tax-ready invoices.
+6. For the first hotel or caterer prospect, write a quotation in **Penawaran harga** and send the link.
+

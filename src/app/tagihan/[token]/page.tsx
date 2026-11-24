@@ -7,6 +7,8 @@ import { buildLedger, buildStatement } from "@/lib/receivables";
 import { verifyStatementToken } from "@/lib/statementLink";
 import { StatementDoc } from "@/components/finance/StatementDoc";
 import { PrintButton } from "@/components/admin/PrintButton";
+import { StatementPay } from "@/components/finance/StatementPay";
+import { availableVaBanks, MIN_ACCOUNT_VA } from "@/lib/payments/service";
 
 export const metadata: Metadata = { title: "Tagihan", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -21,9 +23,14 @@ export default async function PublicStatementPage({ params }: { params: Promise<
   const today = nowJakarta().date;
   const [data, settings] = await Promise.all([repo.listReceivables({ accountId }), repo.getSettings()]);
   const ledger = buildLedger(account, data.orders, data.payments, data.allocations, today);
+  const banks = availableVaBanks();
+  const all = Math.max(0, Math.round(ledger.balance));
   return (
     <main className="min-h-screen bg-sand-50 px-4 py-6 print:bg-white print:p-0">
       <div className="no-print mx-auto mb-3 flex max-w-3xl justify-end"><PrintButton /></div>
+      {banks.length > 0 && all >= MIN_ACCOUNT_VA && (
+        <StatementPay token={token} banks={banks} min={MIN_ACCOUNT_VA} all={all} overdue={Math.min(all, Math.round(ledger.overdue))} delivered={Math.max(0, Math.min(all, Math.round(ledger.balance - ledger.upcoming)))} />
+      )}
       <StatementDoc account={account} settings={settings} ledger={ledger} statement={buildStatement(ledger, addDays(today, -60), today)} today={today} invoiceHref={(_, code) => `/tagihan/${token}/${code}`} />
     </main>
   );

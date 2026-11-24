@@ -1,6 +1,8 @@
 // Midtrans Core API, QRIS (dynamic QR). Server key from MIDTRANS_SERVER_KEY; sandbox keys start with "SB-",
 // or set MIDTRANS_ENV=sandbox|production explicitly.
 //  - Charge:  POST /v2/charge  { payment_type: "qris", transaction_details, qris: { acquirer }, custom_expiry }
+//             POST /v2/charge  { payment_type: "bank_transfer", bank_transfer: { bank }, ... }  (virtual account;
+//             the number comes back in va_numbers[0].va_number, or permata_va_number for Permata)
 //  - Status:  GET  /v2/{order_id}/status   (the source of truth: webhooks are only a trigger to look)
 //  - Cancel:  POST /v2/{order_id}/cancel
 //  - Webhook signature: SHA512(order_id + status_code + gross_amount + server_key), fields exactly as received.
@@ -51,6 +53,8 @@ type MidtransBody = {
   expiry_time?: string;
   actions?: Array<{ name: string; url: string }>;
   order_id?: string;
+  va_numbers?: Array<{ bank: string; va_number: string }>;
+  permata_va_number?: string;
 };
 
 async function call(path: string, init: RequestInit = {}): Promise<MidtransBody> {
@@ -119,6 +123,24 @@ export const midtrans: Gateway = {
       qr_url: body.actions?.find((a) => a.name === "generate-qr-code")?.url ?? null,
       expires_at: parseJakarta(body.expiry_time) ?? expiresAt.toISOString(),
     };
+  },
+  async createVa({ id, amount, expiresAt, bank, name, phone }) {
+    const minutes = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 60_000));
+    const body = await call("/v2/charge", {
+      method: "POST",
+      body: JSON.stringify({
+        payment_type: "bank_transfer",
+        transaction_details: { order_id: id, gross_amount: Math.round(amount) },
+        bank_transfer: { bank },
+        customer_details: { first_name: name.slice(0, 50), phone: `+${phone}` },
+        custom_expiry: { expiry_duration: minutes, unit: "minute" },
+      }),
+    });
+    const number = body.va_numbers?.[0]?.va_number ?? body.permata_va_number;
+    if (body.status_code !== "201" || !number) {
+      throw new Error(`Midtrans menolak pembuatan virtual account: ${body.status_code ?? "?"} ${body.status_message ?? ""}`.trim());
+    }
+    return { bank, va_number: number, expires_at: parseJakarta(body.expiry_time) ?? expiresAt.toISOString() };
   },
   async getStatus(id): Promise<GatewayStatus | null> {
     const body = await call(`/v2/${encodeURIComponent(id)}/status`);

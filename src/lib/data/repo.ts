@@ -1,5 +1,7 @@
 import type {
   Campaign,
+  Quotation,
+  Refund,
   Rating,
   ProductRating,
   OrderFact,
@@ -161,6 +163,8 @@ export interface Repo {
   // QRIS gateway payments
   createPayment(p: Omit<Payment, "created_at" | "paid_at" | "amount_paid" | "status">): Promise<Payment>;
   listPayments(orderId: string): Promise<Payment[]>;
+  /** Gateway payments a restaurant started from its statement link, newest first. */
+  listAccountGatewayPayments(accountId: string): Promise<Payment[]>;
   getPayment(id: string): Promise<Payment | null>;
   /** Record a result the server has verified with the gateway; marks the order paid when the amount matches. */
   recordGatewayPayment(id: string, status: Payment["status"], amount: number | null, raw: unknown): Promise<GatewayOutcome>;
@@ -231,6 +235,20 @@ export interface Repo {
   listContractPrices(accountId?: string): Promise<ContractPrice[]>;
   addContractPrice(c: Pick<ContractPrice, "account_id" | "variant_id" | "price" | "starts_on" | "ends_on" | "note">): Promise<Result<ContractPrice>>;
   deleteContractPrice(id: string): Promise<void>;
+
+  // Refunds (rules in SQL record_refund)
+  recordRefund(orderId: string, r: Pick<Refund, "amount" | "refunded_on" | "method" | "reference" | "proof" | "note" | "claim_id">): Promise<Result<string>>;
+  /** Newest first, with the order's code and customer. */
+  listRefunds(filter?: { orderId?: string; from?: string; to?: string }): Promise<Refund[]>;
+
+  // Quotations (acceptance rules in SQL accept_quote)
+  listQuotes(): Promise<Quotation[]>;
+  getQuote(id: string): Promise<Quotation | null>;
+  /** Create (no id) or update a quotation that is not accepted yet; validated by quoteError. */
+  saveQuote(q: Omit<Quotation, "id" | "code" | "status" | "accepted_at" | "accepted_name" | "created_at"> & { id?: string }): Promise<Result<Quotation>>;
+  setQuoteStatus(id: string, status: "draft" | "sent" | "declined"): Promise<Result<Quotation>>;
+  /** Accept from the signed link: contract prices are created (and a pending account for a prospect). Returns the account id. */
+  acceptQuote(id: string, name: string): Promise<Result<string>>;
 
   // Ratings after delivery
   /** One rating per delivered order, by its customer (code + phone); `items` are stars per order line. */

@@ -89,6 +89,9 @@ export async function buildBrief(repo: Repo, date: string, now: Date = new Date(
     attention.push(`${failed.length} pesanan rutin/kotak gagal dibuat: ${failed.slice(0, 3).map((r) => `${label(r.standing_order_id)} (${formatDate(r.delivery_date, "short")}): ${(r.error ?? "").slice(0, 90)}`).join("; ")}`);
   }
   if (claims.length) attention.push(`${claims.length} laporan garansi menunggu keputusan`);
+  // money received for cancelled orders, not yet given back (closed by recording the refund on the order)
+  const refundDue = (await repo.listOrders({ status: "cancelled", limit: 500 })).filter((o) => o.payment_status === "refund_due");
+  if (refundDue.length) attention.push(`${refundDue.length} pesanan menunggu pengembalian dana: ${refundDue.slice(0, 3).map((o) => o.code).join(", ")}`);
   const low = ratings.filter((r) => r.stars <= 2 && r.created_at >= new Date(now.getTime() - 86400_000).toISOString());
   if (low.length) attention.push(`${low.length} penilaian rendah dalam 24 jam: ${low.slice(0, 2).map((r) => `${r.order_code ?? ""} ${r.stars}★${r.comment ? ` “${r.comment.slice(0, 60)}”` : ""}`).join("; ")}`);
   const overdue = accounts.map((a) => ({ a, l: buildLedger(a, receivables.orders, receivables.payments, receivables.allocations, date) })).filter((x) => x.l.overdue > 0);

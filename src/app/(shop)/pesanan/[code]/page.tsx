@@ -3,7 +3,7 @@ import { expireIfDue } from "@/lib/expiry";
 import { getT } from "@/lib/i18n/server";
 import { OrderTracking } from "@/components/shop/OrderTracking";
 import { OrderLookup } from "@/components/shop/OrderLookup";
-import { qrisAutoEnabled } from "@/lib/payments/service";
+import { availableVaBanks, qrisAutoEnabled } from "@/lib/payments/service";
 import { CLAIM_WINDOW_HOURS, RATING_WINDOW_DAYS } from "@/lib/config";
 import { boxSkippable } from "@/lib/standing";
 import { availableDates } from "@/lib/pricing";
@@ -30,5 +30,5 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const rating = given ? { stars: given.stars, comment: given.comment } : order.status === "completed" && Date.now() < deliveredAt + RATING_WINDOW_DAYS * 86400_000 ? ("open" as const) : null;
   // an order created from a household's weekly box can be skipped by the customer until the cut-off for its delivery day
   const box = order.segment === "retail" && order.client_ref?.startsWith("so:") ? { skippable: boxSkippable(order, availableDates(settings, nowJakarta())) } : null;
-  return <div className="container-x max-w-3xl py-8 md:py-12"><OrderTracking order={order} settings={settings} isNew={baru === "1"} qrisAuto={qrisAutoEnabled()} claims={claims} claimUntil={claimUntil} box={box} rating={rating} /></div>;
+  return <div className="container-x max-w-3xl py-8 md:py-12"><OrderTracking order={order} settings={settings} isNew={baru === "1"} qrisAuto={qrisAutoEnabled()} vaBanks={availableVaBanks()} claims={claims} claimUntil={claimUntil} box={box} rating={rating} /></div>;
 }

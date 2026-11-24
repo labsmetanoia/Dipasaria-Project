@@ -40,6 +40,8 @@ export const seedSettings: Settings = {
   wa_events: ["received", "invoice", "paid", "delivering", "reminder", "cancelled", "standing", "delivered", "claim", "restock"],
   terms_grace_days: 3,
   about_image_url: null,
+  npwp: null,
+  legal_name: null,
 };
 
 export const seedCategories: Category[] = [

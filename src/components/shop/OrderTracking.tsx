@@ -14,6 +14,7 @@ import { PaymentBadge } from "@/components/ui";
 import { ReorderButton } from "./ReorderPanel";
 import { Emblem } from "@/components/Logo";
 import { QrisPay } from "./QrisPay";
+import { VaPay } from "./VaPay";
 import { ClaimForm } from "./ClaimForm";
 import { RatingForm } from "./RatingForm";
 import { ShieldCheck } from "lucide-react";
@@ -22,7 +23,7 @@ const STEPS: Order["status"][] = ["new", "confirmed", "packing", "delivering", "
 
 export type ClaimSummary = { id: string; status: "open" | "replace" | "refund" | "declined"; resolution_note: string; refund_amount: number | null; created_at: string };
 
-export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claims = [], claimUntil = null, box = null, rating = null }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean; claims?: ClaimSummary[]; claimUntil?: string | null; /** the rating already given, "open" while the order can still be rated, null otherwise */ rating?: { stars: number; comment: string } | "open" | null; /** this order came from a weekly box; skippable while unpaid and before the cut-off */ box?: { skippable: boolean } | null }) {
+export function OrderTracking({ order: initial, settings, isNew, qrisAuto, vaBanks = [], claims = [], claimUntil = null, box = null, rating = null }: { order: Order; settings: Settings; isNew?: boolean; qrisAuto?: boolean; /** banks a virtual account can be opened at (empty without a gateway) */ vaBanks?: Array<{ id: string; label: string }>; claims?: ClaimSummary[]; claimUntil?: string | null; /** the rating already given, "open" while the order can still be rated, null otherwise */ rating?: { stars: number; comment: string } | "open" | null; /** this order came from a weekly box; skippable while unpaid and before the cut-off */ box?: { skippable: boolean } | null }) {
  const { t, locale } = useT();
  const [order, setOrder] = useState(initial);
  const [pending, start] = useTransition();
@@ -35,6 +36,10 @@ export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claim
  const [qrisDone, setQrisDone] = useState<"paid" | "checking" | null>(null);
  // QRIS orders with a gateway: a dynamic QR for the exact amount, confirmed automatically (no "I have paid" step)
  const gatewayQris = Boolean(qrisAuto) && order.payment_method === "qris" && (order.payment_status === "unpaid" || qrisDone !== null);
+ // transfer orders with a gateway: a virtual account for the exact amount, also confirmed automatically
+ const gatewayVa = vaBanks.length > 0 && order.payment_method === "transfer" && (order.payment_status === "unpaid" || qrisDone !== null);
+ const auto = gatewayQris || gatewayVa;
+ const paidAuto = (s: "paid" | "checking") => { setQrisDone(s); setOrder((o) => ({ ...o, payment_status: s === "paid" ? "paid" : "awaiting_confirmation", pay_by: null })); };
  const en = locale === "en";
  const skippedByCustomer = order.history.some((h) => h.status === "cancelled" && h.note?.startsWith("Dilewati pelanggan"));
  const skipWeek = () => { if (confirm(en ? "Skip this week's box? Next time's box stays as planned." : "Lewati kotak minggu ini? Kotak berikutnya tetap berjalan.")) start(async () => { const r = await skipBoxOrderAction(order.code, order.phone); if (r.ok) setOrder(r.data); else setMsg(r.error); }); };
@@ -101,8 +106,12 @@ export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claim
         <div className="card p-5">
           <h2 className="font-bold text-ocean-950">{fmt(t.tracking.paymentOf, { amount: rupiah(total) })}</h2>
           {order.pay_by && order.payment_status === "unpaid" && <p className="mt-2 bg-warn-50 px-3 py-2 text-sm font-medium text-warn-600">{fmt(t.tracking.payBy, { time: formatDateTime(order.pay_by, locale) })}</p>}
-          {gatewayQris ? (
-            <QrisPay code={order.code} phone={order.phone} onDone={(s) => { setQrisDone(s); setOrder((o) => ({ ...o, payment_status: s === "paid" ? "paid" : "awaiting_confirmation", pay_by: null })); }} fallback={
+          {gatewayVa ? (
+            <VaPay banks={vaBanks} target={{ kind: "order", code: order.code, phone: order.phone }} onDone={paidAuto} fallback={
+              <div className="bg-sand-100 px-4 py-3 text-sm"><p>{fmt(t.tracking.transferTo, { amount: rupiah(total) })}</p><p className="mt-1 text-xl font-bold text-ocean-950">{settings.bank_name} {settings.bank_account}</p><p className="text-mute">{fmt(t.tracking.onBehalf, { holder: settings.bank_holder })}</p></div>
+            } />
+          ) : gatewayQris ? (
+            <QrisPay code={order.code} phone={order.phone} onDone={paidAuto} fallback={
               <div className="bg-sand-100 px-4 py-3 text-sm"><p>{fmt(t.tracking.transferTo, { amount: rupiah(total) })}</p><p className="mt-1 text-xl font-bold text-ocean-950">{settings.bank_name} {settings.bank_account}</p><p className="text-mute">{fmt(t.tracking.onBehalf, { holder: settings.bank_holder })}</p></div>
             } />
           ) : order.payment_method === "qris" ? (
@@ -115,8 +124,8 @@ export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claim
             <div className="mt-3 bg-sand-100 px-4 py-3 text-sm"><p>{fmt(t.tracking.transferTo, { amount: rupiah(total) })}</p><p className="mt-1 text-xl font-bold text-ocean-950">{settings.bank_name} {settings.bank_account}</p><p className="text-mute">{fmt(t.tracking.onBehalf, { holder: settings.bank_holder })}</p></div>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
-            {order.payment_status === "unpaid" && !gatewayQris && <button onClick={markPaid} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.tracking.paid}</button>}
-            {!gatewayQris && <a href={waLink(settings.whatsapp_number, msgCustomerPaid(order, settings))} target="_blank" rel="noreferrer" className="btn-secondary"><MessageCircle className="h-4 w-4" /> {t.tracking.sendProof}</a>}
+            {order.payment_status === "unpaid" && !auto && <button onClick={markPaid} disabled={pending} className="btn-primary">{pending ? <Loader2 className="h-4 w-4 animate-spin" /> : t.tracking.paid}</button>}
+            {!auto && <a href={waLink(settings.whatsapp_number, msgCustomerPaid(order, settings))} target="_blank" rel="noreferrer" className="btn-secondary"><MessageCircle className="h-4 w-4" /> {t.tracking.sendProof}</a>}
           </div>
           {msg && <p className="mt-2 text-sm text-tide-700">{msg}</p>}
         </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2, MessageCircle, Scale, XCircle, ExternalLink, Save } from "lucide-react";
 import type { Order, Payment, Settings, WaMessage } from "@/lib/types";
@@ -16,6 +16,8 @@ const PAY_LABEL: Record<Payment["status"], string> = { pending: "menunggu", paid
 
 export function OrderAdmin({ order: initial, settings, accountTerms, payments = [], wa = [], waApi = false, claimsOpen = 0, rating = null }: { order: Order; settings: Settings; accountTerms?: string; payments?: Payment[]; wa?: WaMessage[]; waApi?: boolean; claimsOpen?: number; rating?: { stars: number; comment: string } | null }) {
   const [order, setOrder] = useState(initial);
+  // a refresh after a change elsewhere on the page (refund recorded, payment synced) brings the new order in
+  useEffect(() => { setOrder(initial); }, [initial]);
   const [weights, setWeights] = useState<Record<string, string>>(() => Object.fromEntries(order.items.filter((i) => i.is_catch_weight).map((i) => [i.id, i.qty_final === null ? "" : String(i.qty_final).replace(".", ",")])));
   const [note, setNote] = useState(order.internal_note);
   const [err, setErr] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export function OrderAdmin({ order: initial, settings, accountTerms, payments = 
           </div>
         </div>
         <ol className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-mute">
-          {order.history.map((h, i) => <li key={i}><b className="text-ink/70">{h.status === "paid" ? "Lunas" : h.status === "weighed" ? "Ditimbang" : h.status === "unpaid" ? "Belum lunas lagi" : STATUS_LABEL[h.status]}</b> {formatDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</li>)}
+          {order.history.map((h, i) => <li key={i}><b className="text-ink/70">{h.status === "paid" ? "Lunas" : h.status === "weighed" ? "Ditimbang" : h.status === "unpaid" ? "Belum lunas lagi" : h.status === "refunded" ? "Dana dikembalikan" : STATUS_LABEL[h.status]}</b> {formatDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</li>)}
         </ol>
       </div>
 
@@ -153,15 +155,15 @@ export function OrderAdmin({ order: initial, settings, accountTerms, payments = 
             )}
             {payments.length > 0 && (
               <div className="mt-3 border-t border-line pt-3">
-                <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wider text-mute">QRIS otomatis</p>{payments.some((p) => p.status === "pending") && <button disabled={pending} onClick={() => { run(() => syncPaymentsAction(order.id)); router.refresh(); }} className="text-xs font-semibold text-gold-ink">Cek status pembayaran</button>}</div>
+                <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase tracking-wider text-mute">Pembayaran otomatis</p>{payments.some((p) => p.status === "pending") && <button disabled={pending} onClick={() => { run(() => syncPaymentsAction(order.id)); router.refresh(); }} className="text-xs font-semibold text-gold-ink">Cek status pembayaran</button>}</div>
                 <ul className="mt-1.5 space-y-1 text-xs">
                   {payments.map((p) => (
-                    <li key={p.id} className="flex flex-wrap justify-between gap-2"><span className="font-mono">{p.id}</span><span>{rupiah(p.amount_paid ?? p.amount)} · <b className={p.status === "paid" ? "text-success-600" : p.status === "pending" ? "text-warn-600" : "text-mute"}>{PAY_LABEL[p.status]}</b>{p.paid_at ? ` ${formatDateTime(p.paid_at)}` : ""}{p.provider === "mock" ? " · demo" : ""}</span></li>
+                    <li key={p.id} className="flex flex-wrap justify-between gap-2"><span className="font-mono">{p.id}<span className="ml-1 font-sans text-mute">{p.method === "va" ? `VA ${String(p.va_bank ?? "").toUpperCase()}` : "QRIS"}</span></span><span>{rupiah(p.amount_paid ?? p.amount)} · <b className={p.status === "paid" ? "text-success-600" : p.status === "pending" ? "text-warn-600" : "text-mute"}>{PAY_LABEL[p.status]}</b>{p.paid_at ? ` ${formatDateTime(p.paid_at)}` : ""}{p.provider === "mock" ? " · demo" : ""}</span></li>
                   ))}
                 </ul>
               </div>
             )}
-            <p className="mt-2 text-xs text-mute">{payments.some((p) => p.status === "paid") ? "Pembayaran QRIS dikonfirmasi otomatis oleh gateway: tidak perlu dicek manual." : "Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar."}</p>
+            <p className="mt-2 text-xs text-mute">{payments.some((p) => p.status === "paid") ? "Pembayaran QRIS atau virtual account dikonfirmasi otomatis oleh gateway: tidak perlu dicek manual." : "Tandai lunas hanya setelah dana terlihat di aplikasi bank atau QRIS merchant, bukan berdasarkan tangkapan layar."}</p>
           </div>
           <div className="card p-4">
             <h2 className="text-ocean-900">Pesan WhatsApp otomatis</h2>

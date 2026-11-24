@@ -573,5 +573,59 @@ begin
   delete from campaigns where id = 'cm_t2';
   if (select campaign_id from products where id = 'p_ty_bakar') is not null then raise exception 'deleting a campaign should unlink its products'; end if;
 
+  -- 29. Virtual accounts: order payments and a restaurant paying its open invoices from the statement link
+  oid := place_order(jsonb_build_object('customer_name', 'Ibu VA', 'phone', '081277770090', 'address', 'Jl. Uji VA 1', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'transfer', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 3))));
+  insert into payments (id, order_id, provider, method, amount, va_bank, va_number) select 'PAY-VA1', id, 'mock', 'va', total_final, 'bca', '880812345678' from orders where id = oid;
+  if record_gateway_payment('PAY-VA1', 'paid', (select total_final from orders where id = oid), '{}'::jsonb) <> 'paid' then raise exception 'VA payment should pay the order'; end if;
+  if (select history->-1->>'note' from orders where id = oid) <> 'Virtual account otomatis' then raise exception 'VA payment note in history'; end if;
+  perform _expect_error($q$insert into payments (id, provider, amount) values ('PAY-NONE', 'mock', 1000)$q$, 'payments_owner_check');
+  perform _expect_error($q$insert into payments (id, order_id, provider, method, amount) select 'PAY-BAD', id, 'mock', 'cash', 1000 from orders limit 1$q$, 'payments_method_check');
+  insert into business_accounts (id, business_name, contact_name, phone, address, area_id, payment_terms, status)
+    values ('ba_va', 'Uji VA', 'Pak VA', '6281299990009', 'Jl. Uji VA 2', 'a_selatan', 'days3', 'approved');
+  oid2 := place_order(jsonb_build_object('customer_name', 'Uji VA', 'phone', '081299990009', 'address', 'Jl. Uji VA 2', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'terms', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 10))), 'ba_va');
+  insert into payments (id, account_id, provider, method, amount, va_bank, va_number) values ('PAY-VA2', 'ba_va', 'mock', 'va', 500000, 'bni', '988812345678');
+  if record_gateway_payment('PAY-VA2', 'paid', 500000, '{}'::jsonb) <> 'paid' then raise exception 'account VA payment'; end if;
+  if (select method || '/' || amount || '/' || reference from account_payments where account_id = 'ba_va') <> 'va/500000/PAY-VA2' then raise exception 'account VA payment recorded: %', (select method || '/' || amount || '/' || reference from account_payments where account_id = 'ba_va'); end if;
+  if (select sum(amount) from payment_allocations where order_id = oid2) <> 500000 then raise exception 'account VA payment matched to the invoice'; end if;
+  insert into payments (id, account_id, provider, method, amount, va_bank, va_number) values ('PAY-VA3', 'ba_va', 'mock', 'va', (select total_final from orders where id = oid2) - 500000, 'bni', '988812345679');
+  perform record_gateway_payment('PAY-VA3', 'paid', null, '{}'::jsonb);
+  if (select payment_status from orders where id = oid2) <> 'paid' then raise exception 'two account payments settle the invoice'; end if;
+  if record_gateway_payment('PAY-VA3', 'paid', 1, '{}'::jsonb) <> 'noop' or (select count(*) from account_payments where account_id = 'ba_va') <> 2 then raise exception 'a repeated notification records nothing'; end if;
+
+  -- 30. Refunds: never more than received; recording one closes an order waiting for a refund
+  perform set_order_status(oid, 'cancelled', 'Uji refund');
+  if (select payment_status from orders where id = oid) <> 'refund_due' then raise exception 'a paid order cancelled waits for a refund'; end if;
+  perform _expect_error(format($q$select record_refund('%s', 999999999, jakarta_now()::date, 'transfer', '', null, '')$q$, oid), 'melebihi dana');
+  perform _expect_error(format($q$select record_refund('%s', 1000, jakarta_now()::date + 1, 'transfer', '', null, '')$q$, oid), 'Tanggal pengembalian');
+  perform _expect_error(format($q$select record_refund('%s', 1000, jakarta_now()::date, 'transfer', '', 'javascript:alert(1)', '')$q$, oid), 'berupa foto');
+  perform _expect_error(format($q$select record_refund('%s', 1000, jakarta_now()::date, 'cheque', '', null, '')$q$, oid), 'Cara pengembalian');
+  cid := record_refund(oid, (select total_final from orders where id = oid)::numeric, jakarta_now()::date, 'transfer', 'BCA 123', 'data:image/jpeg;base64,AAAA', 'Dikembalikan penuh');
+  if (select payment_status from orders where id = oid) <> 'void' or (select history->-1->>'status' from orders where id = oid) <> 'refunded' then raise exception 'a refund closes the order'; end if;
+  if (select reference || '/' || method from refunds where id = cid) <> 'BCA 123/transfer' then raise exception 'refund stored'; end if;
+  perform _expect_error(format($q$select record_refund('%s', 1, jakarta_now()::date, 'cash', '', null, '')$q$, oid), 'melebihi dana');
+
+  -- 31. Tax-invoice details and quotations
+  perform _expect_error($q$select apply_account('{"business_name":"Hotel Uji","contact_name":"Bu Uji","phone":"081299990011","npwp":"12.345"}'::jsonb)$q$, 'NPWP harus');
+  pid := apply_account('{"business_name":"Hotel Uji","contact_name":"Bu Uji","phone":"081299990011","npwp":"01.234.567.8-901.000","tax_name":"PT Hotel Uji"}'::jsonb);
+  if (select npwp || '/' || tax_name from business_accounts where id = pid) <> '012345678901000/PT Hotel Uji' then raise exception 'NPWP stored as digits'; end if;
+  insert into quotes (id, code, business_name, contact_name, phone, npwp, lines, valid_until, price_from, status)
+    values ('qt_t1', 'PN-T1', 'Katering Uji', 'Pak Katering', '081299990012', '0123456789012345', '[{"variant_id":"v_salmon","price":88000,"note":""},{"variant_id":"v_dada","price":41000,"note":"fillet"}]'::jsonb, jakarta_now()::date + 7, jakarta_now()::date, 'sent');
+  perform _expect_error($q$select accept_quote('qt_t1', 'X')$q$, 'Tulis nama');
+  pid2 := accept_quote('qt_t1', 'Pak Katering');
+  if (select status || '/' || npwp from business_accounts where id = pid2) <> 'pending/0123456789012345' then raise exception 'a prospect gets a pending account with its NPWP'; end if;
+  if (select price from contract_prices where account_id = pid2 and variant_id = 'v_salmon' and starts_on = jakarta_now()::date) <> 88000 then raise exception 'accepted lines become contract prices'; end if;
+  if (select status || '/' || accepted_name || '/' || account_id from quotes where id = 'qt_t1') <> 'accepted/Pak Katering/' || pid2 then raise exception 'quote marked accepted'; end if;
+  perform _expect_error($q$select accept_quote('qt_t1', 'Pak Katering')$q$, 'sudah diterima');
+  insert into quotes (id, code, business_name, phone, lines, valid_until, price_from, price_to, status)
+    values ('qt_t2', 'PN-T2', 'Katering Uji', '6281299990012', '[{"variant_id":"v_salmon","price":86000,"note":""}]'::jsonb, jakarta_now()::date + 7, jakarta_now()::date + 3, jakarta_now()::date + 30, 'sent'),
+           ('qt_t3', 'PN-T3', 'Draf Uji', '081299990013', '[{"variant_id":"v_salmon","price":1}]'::jsonb, jakarta_now()::date + 7, jakarta_now()::date, null, 'draft'),
+           ('qt_t4', 'PN-T4', 'Lewat Uji', '081299990014', '[{"variant_id":"v_salmon","price":1}]'::jsonb, jakarta_now()::date - 1, jakarta_now()::date - 5, null, 'sent');
+  if accept_quote('qt_t2', 'Pak Katering') <> pid2 then raise exception 'the same phone uses the existing account'; end if;
+  if (select price || '/' || ends_on from contract_prices where account_id = pid2 and starts_on = jakarta_now()::date + 3) <> '86000/' || (jakarta_now()::date + 30)::text then raise exception 'a later price period starts on its own date'; end if;
+  perform _expect_error($q$select accept_quote('qt_t3', 'Pak Draf')$q$, 'tidak berlaku lagi');
+  perform _expect_error($q$select accept_quote('qt_t4', 'Pak Lewat')$q$, 'sudah lewat');
+
   raise notice 'all assertions passed';
 end $$;

@@ -8,7 +8,7 @@ import { addDays, nowJakarta } from "./format";
 export const TERMS_DAYS = { days3: 3, weekly: 7 } as const;
 
 export const PAYMENT_METHOD_LABEL: Record<AccountPaymentMethod, string> = {
-  transfer: "Transfer bank", cash: "Tunai", qris: "QRIS", giro: "Giro / cek", other: "Lainnya",
+  transfer: "Transfer bank", cash: "Tunai", qris: "QRIS", giro: "Giro / cek", va: "Virtual account", other: "Lainnya",
 };
 
 /** Due date of a tempo invoice: delivery date + 3 days (days3) or 7 days (weekly). */
