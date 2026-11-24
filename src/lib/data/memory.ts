@@ -405,6 +405,13 @@ export const memoryRepo: Repo = {
     if (used >= slot.capacity) return fail("Kuota jam pengiriman ini sudah penuh. Silakan pilih jam lain.");
     const pm = input.payment_method;
     if (!["qris", "transfer", "cod", "terms"].includes(pm)) return fail("Metode pembayaran tidak valid.");
+    // a gift is paid by the sender: the recipient must never be asked for money at the door (as in SQL place_order)
+    const gift = input.gift ?? null;
+    if (gift) {
+      if (pm === "cod") return fail("Hadiah dibayar oleh pengirim: pilih QRIS atau transfer.");
+      if (!isValidPhone(String(gift.recipient_phone ?? ""))) return fail("Nomor WhatsApp penerima hadiah tidak valid.");
+      if (String(gift.message ?? "").length > 300 || String(gift.from ?? "").length > 60) return fail("Pesan kartu maksimal 300 karakter dan nama pengirim maksimal 60 karakter.");
+    }
     if (pm === "cod" && !(segment === "business" && account?.allow_cod)) return fail("Bayar di tempat (COD) hanya tersedia untuk akun bisnis yang telah disetujui.");
     if (pm === "terms" && !(segment === "business" && account && account.payment_terms !== "prepaid")) return fail("Pembayaran tempo hanya tersedia untuk akun bisnis dengan fasilitas tempo.");
     if (pm === "terms" && account) {
@@ -483,6 +490,9 @@ export const memoryRepo: Repo = {
       delivery_note: null,
       cod_collected: null,
       due_date: pm === "terms" && account ? dueDateFor(input.delivery_date, account.payment_terms) : null,
+      gift_message: gift ? String(gift.message ?? "").trim() : null,
+      gift_from: gift ? String(gift.from ?? "").trim() || null : null,
+      recipient_phone: gift ? normalizePhone(gift.recipient_phone) : null,
       customer_note: input.customer_note?.trim() ?? "",
       internal_note: "",
       created_at: created,
@@ -953,6 +963,12 @@ export const memoryRepo: Repo = {
     jobs.set("expire_unpaid", { job: "expire_unpaid", last_at: new Date().toISOString(), result: `${due.length} dibatalkan` });
     return due.length;
   },
+  async setWeeklyContents(productId, text, textEn) {
+    const p = getStore().products.find((x) => x.id === productId && x.curated);
+    if (!p) return fail("Produk ini bukan kotak pilihan pedagang.");
+    Object.assign(p, { weekly_contents: text, weekly_contents_en: textEn, weekly_contents_at: new Date().toISOString() });
+    return ok(undefined);
+  },
   async setOrderPayBy(id, payBy) {
     const o = getStore().orders.find((x) => x.id === id);
     if (!o) return fail("Pesanan tidak ditemukan.");
@@ -1304,7 +1320,7 @@ export const memoryRepo: Repo = {
   },
   async listOrderFacts(since) {
     return getStore().orders.filter((o) => o.status !== "cancelled" && o.delivery_date >= since)
-      .map((o) => ({ code: o.code, segment: o.segment, account_id: o.account_id, phone: o.phone, customer_name: o.customer_name, delivery_date: o.delivery_date, total: o.total_final ?? o.total_est }));
+      .map((o) => ({ code: o.code, segment: o.segment, account_id: o.account_id, phone: o.phone, customer_name: o.gift_message != null ? (o.gift_from || `+${o.phone}`) : o.customer_name, delivery_date: o.delivery_date, total: o.total_final ?? o.total_est }));
   },
 
   async trackEvent(event, productId = "") {

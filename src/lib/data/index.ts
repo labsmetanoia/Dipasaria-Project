@@ -32,7 +32,7 @@ const CATALOGUE_TAG = "catalogue";
 const CATALOGUE_TTL_SECONDS = 60;
 const INVALIDATING = new Set<keyof Repo>([
   "placeOrder", "updateOrderStatus", "expireUnpaidOrders", "upsertProduct", "updateVariant", "createVariant", "setProductAvailability",
-  "upsertPrepOption", "deletePrepOption", "updateSettings", "upsertArea", "upsertSlot", "createRating",
+  "upsertPrepOption", "deletePrepOption", "updateSettings", "upsertArea", "upsertSlot", "createRating", "setWeeklyContents",
 ]);
 // Kept on globalThis: Next.js may load this module once per route bundle. `boot` keeps demo data (which lives in
 // memory) from being read out of a cache entry written by an earlier run of the server.

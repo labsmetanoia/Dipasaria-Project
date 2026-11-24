@@ -384,6 +384,18 @@ const productSeeds: ProductSeed[] = [
     available_today: true, is_featured: true, icon: "box",
     variants: [v("1 kotak (3 produk)", "box", 299000, 275000, 234000, { id: "v_box_seafood", stock_qty: 10, label_en: "1 box (3 items)" })],
   },
+  {
+    id: "p_box_pilihan", slug: "kotak-pilihan-pedagang", category_id: "c_paket", name: "Kotak Pilihan Pedagang", name_en: "Trader's Pick Box",
+    scientific_name: null, aliases: ["paket", "kotak pilihan", "pilihan minggu ini", "trader's pick", "langganan"],
+    description: "Isinya kami pilih sendiri di lelang Muara Baru setiap minggu: dua sampai empat jenis ikan dan seafood yang paling bagus minggu itu, disiangi dan siap masak. Isi minggu ini tertulis di halaman ini; paling cocok dijadikan kotak mingguan.",
+    description_en: "We choose the contents ourselves at the Muara Baru auction every week: two to four kinds of fish and seafood at their best that week, cleaned and ready to cook. This week's contents are listed on this page; best taken as a weekly box.",
+    origin: "Lelang Muara Baru, dipilih setiap minggu", origin_en: "Muara Baru auction, chosen every week", storage_class: "chilled", storage_note: CHILLED, is_catch_weight: false,
+    available_today: true, is_featured: false, icon: "box", curated: true,
+    variants: [
+      v("Kecil, ±1,5 kg untuk 2–3 orang", "box", 199000, 199000, 160000, { id: "v_box_pilihan_s", stock_qty: 15, label_en: "Small, ±1.5 kg for 2–3 people" }),
+      v("Besar, ±3 kg untuk 4–6 orang", "box", 379000, 379000, 305000, { id: "v_box_pilihan_l", stock_qty: 10, label_en: "Large, ±3 kg for 4–6 people" }),
+    ],
+  },
 ];
 
 // ---- Catalogue expansion (round 8): merged into each category after its existing products ----
@@ -610,6 +622,7 @@ const PHOTO_SLUGS = new Set([
   "cumi-segar", "otak-otak", "kakap-putih", "tenggiri-utuh", "ikan-kuwe", "selar", "udang-windu", "kepiting-bakau", "kerang-hijau",
   "sotong", "cumi-ring-beku", "fillet-kakap-beku", "ayam-utuh-beku", "paha-fillet-ayam", "siomay", "kentang-goreng-beku",
   "telur-ayam-kampung", "telur-bebek", "telur-puyuh", "saus-tiram", "minyak-wijen", "garam-laut", "jeruk-nipis", "paket-ikan-bakar",
+  "kotak-pilihan-pedagang",
 ]);
 
 export const seedProducts: Product[] = orderedSeeds.map((p, pi) => ({

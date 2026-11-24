@@ -323,7 +323,7 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   await ep.waitForTimeout(2000);
   await ep.close();
   await a.goto(BASE + "/admin", { waitUntil: "networkidle" });
-  check((await a.getByText(/jenis error belum ditangani/).count()) === 1, "dashboard flags unresolved errors");
+  check((await a.locator('a[href="/admin/sistem"]', { hasText: /jenis error belum ditangani/ }).count()) === 1, "dashboard flags unresolved errors");
   await a.goto(BASE + "/admin/sistem", { waitUntil: "networkidle" });
   check((await a.getByText("Uji E2E: error browser").count()) >= 1, "browser error recorded on the system page");
   check((await a.getByText("Perlu tindakan").count()) >= 1, "system page flags the placeholder bank account");
@@ -507,7 +507,7 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   check(true, "customer reports a problem with a photo within the guarantee window");
   // admin decides; customer sees the decision
   await a.goto(BASE + "/admin", { waitUntil: "networkidle" });
-  check((await a.getByText(/laporan garansi menunggu keputusan/).count()) === 1, "dashboard flags the open guarantee report");
+  check((await a.locator('a[href="/admin/garansi"]', { hasText: /laporan garansi menunggu keputusan/ }).count()) === 1, "dashboard flags the open guarantee report");
   check((await a.getByText(/1 penilaian rendah \(1–2 bintang\)/).count()) === 1, "dashboard flags the low rating");
   await a.goto(BASE + "/admin/garansi", { waitUntil: "networkidle" });
   const claimCard = a.locator("div.card", { hasText: vCode }).first();
@@ -761,6 +761,53 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   await a.goto(BASE + "/admin/laporan", { waitUntil: "networkidle" });
   await funnel.scrollIntoViewIfNeeded();
   await a.screenshot({ path: `${OUT}/68-admin-funnel-desktop.png`, fullPage: true });
+
+  // 8i) Morning brief, trader's-pick box, gift order
+  await a.goto(BASE + "/admin", { waitUntil: "networkidle" });
+  const briefBox = a.locator("details", { hasText: "Ringkasan pagi" });
+  await briefBox.evaluate((d) => { d.open = true; });
+  const briefText = await briefBox.locator("pre").innerText();
+  check(briefText.startsWith("Ringkasan pagi · ") && /Perlu perhatian|Tidak ada yang perlu ditindaklanjuti/.test(briefText) && (await briefBox.getByText(/ALERT_WEBHOOK_URL\) belum diatur/).count()) === 1, "the dashboard shows the morning brief, and says the chat is not set up yet");
+  // trader's pick: the owner writes this week's contents after the auction; customers see them
+  await a.goto(BASE + "/admin/belanja-subuh", { waitUntil: "networkidle" });
+  await a.getByLabel("Isi minggu ini (dilihat pelanggan)").fill("Kakap merah 1 ekor (±700 g, disiangi), udang windu 500 g, cumi 400 g");
+  await a.getByRole("button", { name: "Simpan isi minggu ini" }).click();
+  await a.waitForSelector("text=Tersimpan. Pelanggan melihat isi ini sekarang.", { timeout: 10000 });
+  const gm = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, extraHTTPHeaders: { "x-real-ip": "10.20.30.40" } });
+  const g = await gm.newPage();
+  g.on("pageerror", (e) => fails.push("pageerror(gift): " + e.message));
+  await g.goto(BASE + "/belanja/produk/kotak-pilihan-pedagang", { waitUntil: "networkidle" });
+  check((await g.getByText("Isi minggu ini", { exact: false }).count()) >= 1 && (await g.getByText(/udang windu 500 g, cumi 400 g/).count()) === 1 && (await g.getByRole("link", { name: "Langganan kotak ini tiap minggu" }).count()) === 1, "the trader's-pick box shows this week's contents and can be subscribed to");
+  await g.screenshot({ path: `${OUT}/70-traders-pick-mobile.png`, fullPage: true });
+  // gift: paid by the sender, delivered to someone else with a card and no prices
+  await g.getByRole("button", { name: "Tambah ke keranjang" }).click();
+  await g.goto(BASE + "/checkout", { waitUntil: "networkidle" });
+  await g.waitForSelector("h2:has-text(\"Penerima\")");
+  await g.getByLabel(/Kirim sebagai hadiah/).check();
+  await g.getByLabel("Nama penerima hadiah").fill("Ibu Sri Hadiah");
+  await g.getByLabel("Nomor WhatsApp Anda (untuk kabar pesanan)").fill("0813 7777 0099");
+  await g.getByLabel("Nomor WhatsApp penerima (hanya untuk kurir)").fill("0813 5555 0100");
+  await g.getByLabel("Dari (nama di kartu)").fill("Rina sekeluarga");
+  await g.getByLabel("Pesan di kartu ucapan (opsional)").fill("Selamat ulang tahun, Ibu!");
+  await g.getByLabel("Wilayah").selectOption({ index: 3 });
+  await g.getByLabel("Alamat lengkap").fill("Jl. Bangka Raya No. 12, Jakarta Selatan");
+  await g.screenshot({ path: `${OUT}/71-checkout-gift-mobile.png`, fullPage: true });
+  await g.getByRole("button", { name: "Lanjut" }).click();
+  await g.locator('input[name="slot"]:not([disabled])').first().check();
+  await g.getByRole("button", { name: "Lanjut" }).click();
+  await g.getByRole("button", { name: "Buat pesanan" }).click();
+  await g.waitForURL(/\/pesanan\/DP-/, { timeout: 15000 });
+  const giftCode = g.url().match(/DP-[A-Z0-9-]+/)[0];
+  check(g.url().includes("hp=6281377770099") && (await g.getByText("🎁 Hadiah untuk Ibu Sri Hadiah").count()) === 1 && (await g.getByText(/Kartu: “Selamat ulang tahun, Ibu!” — Rina sekeluarga/).count()) === 1, "the gift order goes to the buyer's number and shows the recipient and card");
+  await gm.close();
+  const gd = giftCode.match(/DP-(\d{2})(\d{2})(\d{2})/); const giftDate = `20${gd[1]}-${gd[2]}-${gd[3]}`;
+  await a.goto(BASE + "/admin/rute?date=" + giftDate, { waitUntil: "networkidle" });
+  const giftCard = a.locator("div.card", { hasText: giftCode }).first();
+  check((await giftCard.getByText(/Hadiah · jangan sertakan nota atau harga/).count()) === 1 && (await giftCard.getByText("Penerima +6281355550100").count()) === 1 && (await giftCard.getByText(/Kartu: “Selamat ulang tahun, Ibu!” — Rina sekeluarga/).count()) === 1 && (await giftCard.getByText(/isi: Kakap merah 1 ekor/).count()) === 1, "the route sheet marks the gift, gives the courier the recipient's number, the card text and the box contents");
+  await giftCard.scrollIntoViewIfNeeded();
+  await a.screenshot({ path: `${OUT}/72-route-gift-desktop.png` });
+  await a.goto(BASE + "/admin/whatsapp", { waitUntil: "networkidle" });
+  check((await a.getByText(/Halo Rina sekeluarga, pesanan Dipasaria/).count()) >= 1, "WhatsApp greets the gift's sender, not the recipient");
 
   // 9) Rate limit: a script guessing logins from one device is stopped (on top of the per-phone lockout)
   const rl = await browser.newContext();

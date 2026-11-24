@@ -58,6 +58,7 @@ Note: Pexels' licence does not grant rights to identifiable people or brands sho
 | `public/images/site/market-woman.jpg` | [1838591](https://www.pexels.com/photo/1838591/) | see Pexels page |
 | `public/images/site/chef-butcher.jpg` | [8792849](https://www.pexels.com/photo/8792849/) | see Pexels page |
 | `public/images/site/fish-display.jpg` | [29969426](https://www.pexels.com/photo/29969426/) | Mehmet Turgut Kirkgoz |
+| `public/images/products/kotak-pilihan-pedagang.jpg` | [29969426](https://www.pexels.com/photo/29969426/) | Mehmet Turgut Kirkgoz |
 
 ## Added in round 8 (catalogue expansion)
 

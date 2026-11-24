@@ -19,6 +19,7 @@ import { rupiah } from "@/lib/format";
 import { NOINDEX, breadcrumbLd, pageMeta, productDescription, productLd, productTitle } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 import { Stars } from "@/components/shop/RatingForm";
+import { WeeklyContents } from "@/components/shop/WeeklyContents";
 import { RATING_MIN_SHOWN } from "@/lib/config";
 import { TrackView } from "@/components/Track";
 import { recipesForProduct } from "@/lib/content/recipes";
@@ -80,6 +81,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <h1 className="mt-3 text-[2.6rem] sm:text-[3.4rem]">{name}</h1>
             {rated && <p className="mt-2 flex items-center gap-2 font-sans text-[13px]"><Stars value={rated.average} /><b>{rated.average.toFixed(1).replace(".", en ? "." : ",")}</b><span className="text-mute">{en ? `from ${rated.count} customers who received it` : `dari ${rated.count} pelanggan yang menerimanya`}</span></p>}
             <p className="mt-1 font-sans text-[13px] text-mute">{en ? product.name : product.name_en}{product.scientific_name && <i> · {product.scientific_name}</i>}</p>
+            <WeeklyContents product={product} en={en} />
             <div className="mt-6"><ProductSheet product={product} account={account} /></div>
             {pairs.length > 0 && (
               <div className="mt-8">

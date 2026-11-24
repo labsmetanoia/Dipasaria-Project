@@ -112,6 +112,10 @@ function mapProduct(r: Row): Product {
     available_today: Boolean(r.available_today),
     is_active: Boolean(r.is_active),
     is_featured: Boolean(r.is_featured),
+    curated: Boolean(r.curated),
+    weekly_contents: (r.weekly_contents as string | null) ?? "",
+    weekly_contents_en: (r.weekly_contents_en as string | null) ?? null,
+    weekly_contents_at: (r.weekly_contents_at as string | null) ?? null,
     image_url: (r.image_url as string | null) ?? null,
     icon: (r.icon as string) ?? "fish",
     sort: num(r.sort),
@@ -178,6 +182,9 @@ function mapOrder(r: Row): Order {
     cod_collected: numOrNull(r.cod_collected),
     due_date: r.due_date ? String(r.due_date).slice(0, 10) : null,
     client_ref: (r.client_ref as string | null) ?? null,
+    gift_message: (r.gift_message as string | null) ?? null,
+    gift_from: (r.gift_from as string | null) ?? null,
+    recipient_phone: (r.recipient_phone as string | null) ?? null,
     promo_code: (r.promo_code as string | null) ?? null,
     customer_note: (r.customer_note as string) ?? "",
     internal_note: (r.internal_note as string) ?? "",
@@ -332,7 +339,10 @@ export const supabaseRepo: Repo = {
     return (count ?? 0) > 0;
   },
   async placeOrder(input, account) {
-    const { data, error } = await sb().rpc("place_order", { p: input, p_account_id: account?.id ?? null });
+    // the SQL function reads flat fields: is_gift, recipient_phone, gift_message, gift_from
+    const { gift, ...rest } = input;
+    const p = gift ? { ...rest, is_gift: "true", recipient_phone: gift.recipient_phone, gift_message: gift.message, gift_from: gift.from } : rest;
+    const { data, error } = await sb().rpc("place_order", { p, p_account_id: account?.id ?? null });
     if (error) return fail(msg(error));
     const order = await fetchOrder(data as string);
     return order ? ok(order) : fail("Pesanan tidak ditemukan setelah dibuat.");
@@ -649,6 +659,10 @@ export const supabaseRepo: Repo = {
     const { data, error } = await sb().rpc("expire_unpaid_orders");
     if (error) throw error;
     return num(data);
+  },
+  async setWeeklyContents(productId, text, textEn) {
+    const { error } = await sb().from("products").update({ weekly_contents: text, weekly_contents_en: textEn, weekly_contents_at: new Date().toISOString() }).eq("id", productId).eq("curated", true);
+    return error ? fail(msg(error)) : ok(undefined);
   },
   async setOrderPayBy(id, payBy) {
     const { error } = await sb().from("orders").update({ pay_by: payBy }).eq("id", id);
@@ -968,9 +982,10 @@ export const supabaseRepo: Repo = {
     return Object.fromEntries(((data as Row[]) ?? []).map((r) => [String(r.product_id), { average: num(r.average), count: num(r.n) }]));
   },
   async listOrderFacts(since) {
-    const { data, error } = await sb().from("orders").select("code, segment, account_id, phone, customer_name, delivery_date, total_final, total_est").neq("status", "cancelled").gte("delivery_date", since).order("delivery_date").limit(20000);
+    const { data, error } = await sb().from("orders").select("code, segment, account_id, phone, customer_name, gift_message, gift_from, delivery_date, total_final, total_est").neq("status", "cancelled").gte("delivery_date", since).order("delivery_date").limit(20000);
     if (error) throw error;
-    return (data as Row[]).map((r) => ({ code: String(r.code), segment: r.segment as Order["segment"], account_id: (r.account_id as string | null) ?? null, phone: String(r.phone), customer_name: String(r.customer_name), delivery_date: String(r.delivery_date).slice(0, 10), total: num(r.total_final ?? r.total_est) }));
+    // a gift carries the recipient's name; the customer is the buyer (named by "from", when given)
+    return (data as Row[]).map((r) => ({ code: String(r.code), segment: r.segment as Order["segment"], account_id: (r.account_id as string | null) ?? null, phone: String(r.phone), customer_name: String(r.gift_message !== null && r.gift_message !== undefined ? (r.gift_from || `+${r.phone}`) : r.customer_name), delivery_date: String(r.delivery_date).slice(0, 10), total: num(r.total_final ?? r.total_est) }));
   },
 
   async trackEvent(event, productId = "") {

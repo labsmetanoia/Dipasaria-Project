@@ -26,8 +26,8 @@ sql += `insert into settings (id, ${sc.join(", ")}) values (1, ${sc.map((k) => q
 
 sql += insert("categories", ["id", "slug", "name", "name_en", "description", "description_en", "sort", "icon", "image_url", "is_seafood"], seedCategories.map((c) => [c.id, c.slug, c.name, c.name_en, c.description, c.description_en, c.sort, c.icon, c.image_url, c.is_seafood])) + "\n";
 
-const pc = ["id", "slug", "category_id", "name", "name_en", "scientific_name", "aliases", "description", "description_en", "origin", "origin_en", "storage_class", "storage_note", "storage_note_en", "is_catch_weight", "available_today", "is_active", "is_featured", "image_url", "icon", "sort"] as const;
-sql += insert("products", [...pc], seedProducts.map((p) => pc.map((k) => p[k]))) + "\n";
+const pc = ["id", "slug", "category_id", "name", "name_en", "scientific_name", "aliases", "description", "description_en", "origin", "origin_en", "storage_class", "storage_note", "storage_note_en", "is_catch_weight", "available_today", "is_active", "is_featured", "image_url", "icon", "sort", "curated"] as const;
+sql += insert("products", [...pc], seedProducts.map((p) => pc.map((k) => (k === "curated" ? p.curated ?? false : p[k])))) + "\n";
 
 const vc = ["id", "product_id", "label", "label_en", "unit", "min_qty", "step_qty", "price_retail", "price_business", "cost", "stock_qty", "business_only", "is_active", "sort"] as const;
 sql += insert("variants", [...vc], seedProducts.flatMap((p) => p.variants.map((v) => vc.map((k) => v[k])))) + "\n";

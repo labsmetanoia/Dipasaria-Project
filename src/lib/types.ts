@@ -103,6 +103,11 @@ export interface Product {
   image_url: string | null;
   icon: string;
   sort: number;
+  /** trader's-pick box: contents chosen by the owner each week after the auction */
+  curated?: boolean;
+  weekly_contents?: string;
+  weekly_contents_en?: string | null;
+  weekly_contents_at?: string | null;
   variants: Variant[];
   prep_options: PrepOption[];
 }
@@ -238,6 +243,10 @@ export interface Order {
   cod_collected?: number | null;
   /** Tempo invoices: delivery date + the account's terms, fixed when the order is placed. */
   due_date?: string | null;
+  /** Gift orders: not null (possibly empty) for every gift; the recipient's phone is for the courier. */
+  gift_message?: string | null;
+  gift_from?: string | null;
+  recipient_phone?: string | null;
   customer_note: string;
   internal_note: string;
   created_at: string;
@@ -271,6 +280,8 @@ export interface PlaceOrderInput {
   /** consent to automatic order updates on WhatsApp */
   wa_opt_in?: boolean;
   substitution?: Substitution;
+  /** send to someone else: `customer_name` and `address` are the recipient's; `phone` stays the buyer's */
+  gift?: { recipient_phone: string; message: string; from: string } | null;
 }
 
 export interface Quote {

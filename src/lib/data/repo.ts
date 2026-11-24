@@ -137,6 +137,8 @@ export interface Repo {
   hitRateLimit(key: string, windowSeconds: number, max: number): Promise<boolean>;
   /** Cancel household orders not paid by their pay_by time (stock, slot and promo use are returned). Returns how many. */
   expireUnpaidOrders(): Promise<number>;
+  /** This week's contents of a trader's-pick box (only for products marked curated). */
+  setWeeklyContents(productId: string, text: string, textEn: string | null): Promise<Result<void>>;
   /** Back-office: move or remove an order's automatic-cancellation deadline. */
   setOrderPayBy(id: string, payBy: string | null): Promise<Result<Order>>;
   /** Record an error, grouped by source + message + path. Returns its occurrence count (1 = new). */

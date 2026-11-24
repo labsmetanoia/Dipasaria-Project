@@ -6,8 +6,10 @@ import { DateSelector } from "@/components/admin/DateSelector";
 import { PrintButton } from "@/components/admin/PrintButton";
 import { CheckRow } from "@/components/admin/Checklist";
 import { Empty } from "@/components/ui";
-import { formatDate, rupiah } from "@/lib/format";
+import { formatDate, nowJakarta, rupiah } from "@/lib/format";
 import { PurchaseLog } from "@/components/admin/PurchaseLog";
+import { dayCost } from "@/lib/daycost";
+import { WeeklyContentsEditor } from "@/components/admin/WeeklyContentsEditor";
 import { STORAGE_LABEL, UNIT_LABEL } from "@/lib/config";
 import type { StorageClass } from "@/lib/types";
 
@@ -23,33 +25,30 @@ export default async function BuyingListPage({ searchParams }: { searchParams: P
   const { date: dp } = await searchParams;
   const date = pickDate(dp);
   const repo = await getRepo();
-  const [lines, settings, purchases, orders, summary] = await Promise.all([repo.buyingList(date), repo.getSettings(), repo.listPurchases({ date }), repo.listOrders({ date }), repo.dailySummary(date)]);
-  // Actual cost: what was paid for products in the buying log, the estimate for everything else.
-  const live = orders.filter((o) => o.status !== "cancelled");
-  const loggedIds = new Set(purchases.filter((p) => p.kind === "purchase").map((p) => p.product_id));
-  const items = live.flatMap((o) => o.items);
-  const estLogged = items.filter((i) => loggedIds.has(i.product_id)).reduce((s, i) => s + i.unit_cost * (i.qty_final ?? i.qty_ordered), 0);
-  const paid = purchases.filter((p) => p.kind === "purchase").reduce((s, p) => s + p.total_cost, 0);
-  const actualCost = summary.est_cost - estLogged + paid;
-  // product sales after discounts (delivery fees pay for delivery, not for fish)
-  const net = live.reduce((s, o) => s + (o.subtotal_final ?? o.subtotal_est) - o.discount, 0);
+  const [lines, settings, purchases, orders, summary, products] = await Promise.all([repo.buyingList(date), repo.getSettings(), repo.listPurchases({ date }), repo.listOrders({ date }), repo.dailySummary(date), repo.getProducts()]);
+  // trader's-pick boxes: the owner writes this week's contents here, after seeing the auction
+  const curated = products.filter((p) => p.curated);
+  const contents = new Map(curated.map((p) => [p.id, (p.weekly_contents ?? "").trim()]));
+  // real margin and shrinkage (shared with the morning brief)
+  const { net, paid, actualCost, shrink } = dayCost(orders, purchases, summary, (pid) => lines.find((l) => l.product_id === pid)?.product_name ?? pid);
   // one buying-log form per product (size variants of the same fish are bought together)
   const logShown = new Set<string>();
   const firstRowOf = (pid: string, unit: string) => (logShown.has(pid + unit) ? false : (logShown.add(pid + unit), true));
-  const shrink = [...loggedIds].map((pid) => {
-    const bought = purchases.filter((p) => p.product_id === pid && p.kind === "purchase").reduce((s, p) => s + p.qty, 0);
-    const unit = purchases.find((p) => p.product_id === pid)?.unit;
-    const sold = items.filter((i) => i.product_id === pid && i.unit === unit).reduce((s, i) => s + (i.qty_final ?? i.qty_ordered), 0);
-    const left = purchases.filter((p) => p.product_id === pid && p.kind === "leftover").reduce((s, p) => s + p.qty, 0);
-    const name = lines.find((l) => l.product_id === pid)?.product_name ?? pid;
-    return { pid, name, unit, bought, sold, left, lossPct: bought > 0 ? Math.max(0, (bought - sold - left) / bought) * 100 : 0 };
-  });
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><p className="eyebrow">Belanja subuh</p><h1 className="text-2xl text-ocean-900">Daftar belanja · {formatDate(date, "weekday")}</h1><p className="text-xs text-mute">Cadangan ikan segar {settings.catch_weight_buffer_pct}% untuk memilih ekor yang pas dan susut pembersihan.</p></div>
         <div className="flex gap-2"><DateSelector date={date} /><PrintButton /></div>
       </div>
+      {curated.length > 0 && (
+        <section className="card space-y-4 p-4 text-sm">
+          <div><h2 className="text-ocean-900">Kotak pilihan pedagang</h2><p className="text-xs text-mute">Tulis isi minggu ini setelah melihat lelang. Pelanggan melihatnya di halaman produk dan di kotak mingguan mereka; pengemas melihatnya di lembar rute.</p></div>
+          {curated.map((p) => {
+            const ordered = lines.filter((l) => l.product_id === p.id).map((l) => `${l.qty} × ${l.variant_label.split(",")[0]}`).join(", ") || "belum ada pesanan untuk tanggal ini";
+            return <WeeklyContentsEditor key={p.id} productId={p.id} name={p.name} ordered={ordered} text={p.weekly_contents ?? ""} textEn={p.weekly_contents_en ?? ""} updated={p.weekly_contents_at ? formatDate(nowJakarta(new Date(p.weekly_contents_at)).date, "weekday") : null} />;
+          })}
+        </section>
+      )}
       {lines.length === 0 ? <Empty title="Belum ada pesanan untuk tanggal ini" /> : GROUPS.map((g) => {
         const rows = lines.filter((l) => l.storage_class === g.key);
         if (!rows.length) return null;
@@ -64,6 +63,7 @@ export default async function BuyingListPage({ searchParams }: { searchParams: P
                     <div><p className="font-semibold">{l.product_name} <span className="font-normal text-mute">{l.variant_label}</span></p>{l.scientific_name && <p className="text-xs italic text-mute">{l.scientific_name}</p>}</div>
                     <p className="font-display text-xl font-semibold text-ocean-900">{l.qty_with_buffer} <span className="text-sm font-normal text-mute">{UNIT_LABEL[l.unit]}</span>{l.qty_with_buffer !== l.qty && <span className="ml-2 text-xs font-normal text-mute">(dipesan {l.qty}, {l.order_count} pesanan)</span>}</p>
                   </div>
+                  {contents.get(l.product_id) && <p className="mt-1 text-xs text-tide-700">Isi: {contents.get(l.product_id)}</p>}
                   {l.prep_notes.length > 0 && <ul className="mt-1 space-y-0.5 text-xs text-warn-600">{l.prep_notes.map((n, i) => <li key={i}>✂ {n}</li>)}</ul>}
                 </CheckRow>
               ))}

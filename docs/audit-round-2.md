@@ -616,3 +616,72 @@ What the measurements do and do not show: pages are lighter (the table above), b
 1. Run `supabase/migrations/014_ratings.sql`, then `supabase/schema.sql` again.
 2. Update the text of the `dipasaria_pesanan_sampai` template at Meta from `docs/whatsapp-templates.md` (or create it with the new text).
 3. Nothing else: both report sections fill in as orders are delivered.
+
+---
+
+## 14. Implemented after approval: morning brief, gift orders and the trader's-pick box
+
+Items O2 and R3 of `docs/strategic-assessment.md`, which complete its "weeks 1–2" block.
+
+### Morning brief (O2)
+
+**Purpose:** the day's exceptions in one message, read on the way to the auction, instead of opening five screens.
+
+**What it does:** at 02.00 WIB a message goes to the alert chat already used for errors (Telegram, Slack or Discord through `ALERT_WEBHOOK_URL`). It contains:
+- today's deliveries: number of orders, value, households and restaurants; how many need weighing; QRIS and transfer money still unpaid; cash-on-delivery to collect; how many are gifts;
+- the buying list, fresh fish first, the ten largest lines, with a link to the full list;
+- **Perlu perhatian:** standing orders and weekly boxes that failed, guarantee reports waiting, low ratings from the last 24 hours, receivables past due by restaurant, WhatsApp messages waiting to be sent by hand, unresolved errors. When there is nothing, it says so;
+- yesterday's sales, real gross margin (actual purchase cost from the buying log) and shrinkage, with the product that lost most.
+
+The dashboard shows the same text under **Ringkasan pagi**, opened automatically when something needs attention, with **Kirim ke chat sekarang**. The margin and shrinkage arithmetic moved into `src/lib/daycost.ts`, shared with **Belanja subuh**, so both always agree.
+
+**Running cost:** none. It is one scheduled call (`/api/cron/morning-brief`, in `vercel.json`) and one chat message.
+
+### Gift orders (part of R3)
+
+**Purpose:** a new occasion to buy. Sending fish or a box to parents, family or a client is common around holidays.
+
+**What it does:**
+- At checkout, a household ticks **Kirim sebagai hadiah**. The name and address become the recipient's. The buyer's WhatsApp number receives all order updates. The recipient's number is asked for the courier only. A card message (up to 300 characters) and a sender's name are optional.
+- The sender always pays: cash on delivery is refused for gifts, in the database as well as in the form.
+- The route sheet marks the drop "Hadiah · jangan sertakan nota atau harga", shows the card text to write, and gives the courier the recipient's number. The back-office order page and the customer's order page show the gift too.
+- WhatsApp messages greet the sender (by the name on the card, or "Bapak/Ibu"), never the recipient. The buyer's account name and saved delivery details on the device are not overwritten with the recipient's.
+
+### Trader's-pick box (part of R3)
+
+**Purpose:** a subscription only a trader at the auction can offer. The owner chooses the best of the week; the customer trusts the choice.
+
+**What it does:**
+- **Kotak Pilihan Pedagang** is a value box in two sizes (about 1,5 kg for 2–3 people, Rp199.000; about 3 kg for 4–6 people, Rp379.000). The prices, costs and starting stock are placeholders to adjust in **Produk dan stok**.
+- On **Belanja subuh**, the owner writes **Isi minggu ini** after seeing the auction, optionally in English too. Customers see it on the product page and in their weekly box. The packer sees it on the route sheet under each box, and the buying list shows it under the box line.
+- It works with everything already built: the cart, the weekly box (each size is offered as a starting point), gifts and ratings.
+- Any other product can become a trader's-pick box by setting `curated = true` on it in the database. There is no screen for that yet; it is rare enough.
+
+### Tests
+
+- **SQL suite, section 27:**
+  - the gift fields are stored, and a gift without a card is still a gift;
+  - an ordinary order is not a gift;
+  - an invalid recipient number is refused, as are a card over 300 characters and cash on delivery;
+  - weekly contents are stored on the product.
+- **Rules test: 60 checks** (13 new):
+  - gifts on the demo data layer;
+  - the WhatsApp greeting for a gift;
+  - retention naming the buyer;
+  - the trader's-pick product and its contents;
+  - the morning brief's sections, overdue receivables, its length limit, and a day without deliveries.
+- **Main browser suite: 128 of 128** (5 new checks). It covers:
+  - the brief on the dashboard;
+  - the owner setting the box contents and the customer seeing them;
+  - a guest gift checkout from product page to order page;
+  - the route sheet with gift, recipient number, card and box contents;
+  - the WhatsApp greeting.
+- **Upgrade path:** checked on a copy of the previous schema with migrations 014 and 015, `schema.sql` and `seed.sql`.
+- **Screenshots:** `docs/screenshots/70-traders-pick-mobile.png` to `72-route-gift-desktop.png`.
+
+### Owner setup
+
+1. Run `supabase/migrations/015_gifts_and_curated_boxes.sql`, then `supabase/schema.sql`, then `supabase/seed.sql`. The seed only adds the new box; your prices and stock are not touched.
+2. Set `ALERT_WEBHOOK_URL` if you have not yet (README, "Protection and monitoring"); the brief then arrives at 02.00. Vercel's schedule is fixed in UTC, so 02.00 WIB is written as 19.00 UTC.
+3. Set the trader's-pick box prices, cost and stock in **Produk dan stok**, replace its photo when you have your own, and write the first week's contents on **Belanja subuh**.
+4. For the holidays, mention gifts in the WhatsApp status and on Instagram. A gift-only promo code is not built; a normal promo code works for gifts too.

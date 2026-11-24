@@ -61,7 +61,8 @@ export async function placeOrderAction(input: PlaceOrderInput, opts?: { turnstil
         if (opts?.saveAddress && !known.some((a) => a.address.trim().toLowerCase() === r.data.address.trim().toLowerCase())) {
           await repo.saveAddress(customer.id, { label: String(opts.saveAddress.label ?? "").slice(0, 30) || (known.length ? "Alamat lain" : "Rumah"), recipient: r.data.customer_name, address: r.data.address, area_id: r.data.area_id, maps_url: r.data.maps_url, is_default: known.length === 0 });
         }
-        if (!customer.name) await repo.updateCustomer(customer.id, { name: r.data.customer_name });
+        // a gift carries the recipient's name, not the buyer's
+        if (!customer.name && r.data.gift_message == null) await repo.updateCustomer(customer.id, { name: r.data.customer_name });
       } catch (e) {
         await reportError("action", e, { path: "/checkout (save address)" });
       }

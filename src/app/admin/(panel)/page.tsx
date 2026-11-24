@@ -8,6 +8,8 @@ import { DateSelector } from "@/components/admin/DateSelector";
 import { Stat, StatusBadge, PaymentBadge } from "@/components/ui";
 import { addDays, nowJakarta, rupiah } from "@/lib/format";
 import { buildLedger } from "@/lib/receivables";
+import { buildBrief } from "@/lib/brief";
+import { BriefCard } from "@/components/admin/BriefCard";
 import { STATUS_LABEL } from "@/lib/config";
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
@@ -21,6 +23,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   const today = nowJakarta().date;
   const overdueAccounts = receivables ? accounts.map((a) => buildLedger(a, receivables.orders, receivables.payments, receivables.allocations, today)).filter((l) => l.overdue > 0) : [];
   const overdueTotal = overdueAccounts.reduce((s, l) => s + l.overdue, 0);
+  const brief = await buildBrief(repo, date);
   const lowRatings = (await repo.listRatings({ since: addDays(today, -7), limit: 200 }).catch(() => [])).filter((r) => r.stars <= 2);
   const pendingAccounts = accounts.filter((a) => a.status === "pending");
   const toConfirm = orders.filter((o) => o.status === "new");
@@ -35,6 +38,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         <DateSelector date={date} />
       </div>
       {openClaims.length > 0 && <Link href="/admin/garansi" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{openClaims.length} laporan garansi menunggu keputusan →</Link>}
+      <BriefCard date={date} text={brief.text} attention={brief.attention} configured={Boolean(process.env.ALERT_WEBHOOK_URL)} />
       {lowRatings.length > 0 && <Link href="/admin/laporan#penilaian-pelanggan" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{lowRatings.length} penilaian rendah (1–2 bintang) dalam 7 hari terakhir →</Link>}
       {overdueTotal > 0 && <Link href="/admin/piutang" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">Piutang lewat jatuh tempo {rupiah(overdueTotal)} dari {overdueAccounts.length} restoran →</Link>}
       {errors.length > 0 && <Link href="/admin/sistem" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{errors.length} jenis error belum ditangani ({errors.reduce((s, e) => s + e.count, 0)} kejadian). Lihat Sistem →</Link>}

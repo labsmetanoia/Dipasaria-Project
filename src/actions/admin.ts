@@ -13,6 +13,8 @@ import { notify, deliver, waApiEnabled, notifyRestock } from "@/lib/notify/servi
 import type { Purchase } from "@/lib/types";
 import { rupiah } from "@/lib/format";
 import { after } from "next/server";
+import { buildBrief } from "@/lib/brief";
+import { alert } from "@/lib/monitor";
 
 export type ActionResult<T = void> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -339,6 +341,30 @@ export async function runExpiryNowAction(): Promise<ActionResult<number>> {
   const n = await expireIfDue("force");
   revalidatePath("/admin", "layout");
   return { ok: true, data: n };
+}
+
+// ---------- Trader's-pick boxes ----------
+
+export async function setWeeklyContentsAction(productId: string, text: string, textEn: string): Promise<ActionResult> {
+  await guard();
+  const id = String(text ?? "").trim().slice(0, 400);
+  const en = String(textEn ?? "").trim().slice(0, 400) || null;
+  const r = await (await getRepo()).setWeeklyContents(String(productId), id, en);
+  revalidatePath("/admin/belanja-subuh");
+  revalidatePath("/belanja", "layout");
+  return wrap(r);
+}
+
+// ---------- Morning brief ----------
+
+/** Send the morning brief for a delivery date to the alert chat now (the same text the 02.00 job sends). */
+export async function sendBriefAction(date: string): Promise<ActionResult<{ sent: boolean }>> {
+  await guard();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return { ok: false, error: "Tanggal tidak valid." };
+  if (!process.env.ALERT_WEBHOOK_URL) return { ok: false, error: "Chat peringatan belum diatur: isi ALERT_WEBHOOK_URL (lihat README, bagian Protection and monitoring)." };
+  const brief = await buildBrief(await getRepo(), date);
+  await alert(brief.text);
+  return { ok: true, data: { sent: true } };
 }
 
 // ---------- Standing orders ----------

@@ -123,6 +123,12 @@ export function OrderTracking({ order: initial, settings, isNew, qrisAuto, claim
       )}
       {!finalKnown && order.status !== "cancelled" && <div className=" bg-tide-50 px-5 py-4 text-sm text-tide-700">{t.tracking.catchPending}</div>}
       {order.delivered_at && <div className="card flex items-start gap-3 p-5 text-sm"><CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-success-600" /><p>{locale === "en" ? "Delivered" : "Diterima"} {formatDateTime(order.delivered_at, locale)} WIB{order.delivery_note ? ` · ${order.delivery_note}` : ""}</p></div>}
+      {order.gift_message != null && (
+        <div className="card p-5 text-sm">
+          <p className="font-semibold">🎁 {locale === "en" ? `A gift for ${order.customer_name}` : `Hadiah untuk ${order.customer_name}`}</p>
+          <p className="mt-1 text-mute">{order.gift_message ? `${locale === "en" ? "Card" : "Kartu"}: “${order.gift_message}”${order.gift_from ? ` — ${order.gift_from}` : ""}` : locale === "en" ? "No card message." : "Tanpa pesan kartu."} {locale === "en" ? "The parcel carries no prices; updates come to your WhatsApp." : "Paket tidak berisi nota harga; kabar pesanan dikirim ke WhatsApp Anda."}</p>
+        </div>
+      )}
       {rating && <RatingForm order={order} existing={rating === "open" ? null : rating} claimOpen={Boolean(claimUntil)} />}
       {claims.map((c) => (
         <div key={c.id} className="card flex items-start gap-3 p-5 text-sm">

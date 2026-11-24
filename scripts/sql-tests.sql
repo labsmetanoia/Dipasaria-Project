@@ -496,5 +496,28 @@ begin
   if exists (select 1 from rating_items where rating_id = cid) then raise exception 'rating items should go with the rating'; end if;
   perform _expect_error(format($q$select create_rating('%s', '081277770070', 5, '', '[]'::jsonb, 14)$q$, v_code), 'Batas waktu penilaian');
 
+  -- 27. Gift orders: the recipient's phone is for the courier, the card text is kept, the sender always pays
+  oid := place_order(jsonb_build_object('customer_name', 'Ibu Penerima', 'phone', '081277770071', 'address', 'Jl. Uji Hadiah 1', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 3)),
+    'is_gift', 'true', 'recipient_phone', '0813 1111 2222', 'gift_message', 'Selamat ulang tahun, Bu!', 'gift_from', 'Rina'));
+  if (select recipient_phone || '/' || gift_message || '/' || gift_from || '/' || phone from orders where id = oid) <> '6281311112222/Selamat ulang tahun, Bu!/Rina/6281277770071' then raise exception 'gift fields: %', (select recipient_phone || '/' || gift_message || '/' || gift_from from orders where id = oid); end if;
+  oid2 := place_order(jsonb_build_object('customer_name', 'Bapak Penerima', 'phone', '081277770072', 'address', 'Jl. Uji Hadiah 2', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'transfer', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 3)),
+    'is_gift', 'true', 'recipient_phone', '081311113333'));
+  if (select gift_message from orders where id = oid2) is distinct from '' or (select gift_from from orders where id = oid2) is not null then raise exception 'a gift without card text is still a gift'; end if;
+  if (select gift_message from orders where id = (select id from orders where phone = '6281277770050' limit 1)) is not null then raise exception 'ordinary orders are not gifts'; end if;
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770073', 'address', 'Jl. Uji 73', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 3)),
+    'is_gift', 'true', 'recipient_phone', '12'))$q$, 'penerima hadiah tidak valid');
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081277770073', 'address', 'Jl. Uji 73', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_sore', 'payment_method', 'qris', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 3)),
+    'is_gift', 'true', 'recipient_phone', '081311114444', 'gift_message', repeat('x', 301)))$q$, 'maksimal 300');
+  perform _expect_error($q$select place_order(jsonb_build_object('customer_name', 'X', 'phone', '081200000001', 'address', 'Jl. Uji 74', 'area_id', 'a_selatan',
+    'delivery_date', _date(), 'slot_id', 's_dapur', 'payment_method', 'cod', 'lines', jsonb_build_array(jsonb_build_object('variant_id', 'v_salmon', 'qty', 10)),
+    'is_gift', 'true', 'recipient_phone', '081311115555'), 'ba_bahari')$q$, 'Hadiah dibayar oleh pengirim');
+  -- trader's-pick box contents live on the product
+  update products set curated = true, weekly_contents = 'Kakap 1 ekor, udang 500 g' where id = 'p_salmon';
+  if (select weekly_contents from products where id = 'p_salmon' and curated) <> 'Kakap 1 ekor, udang 500 g' then raise exception 'weekly contents'; end if;
+
   raise notice 'all assertions passed';
 end $$;

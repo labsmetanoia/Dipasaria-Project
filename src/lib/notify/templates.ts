@@ -87,6 +87,8 @@ function payInstruction(o: Order, s: Settings, gatewayQris: boolean): string {
   }
 }
 
+/** Who the message greets: the buyer. A gift order carries the recipient's name, so the sender's name (or a polite form) is used. */
+const who = (o: Order) => (o.gift_message != null ? o.gift_from || "Bapak/Ibu" : o.customer_name);
 const when = (o: Order) => `${formatDate(o.delivery_date, "long")}, ${o.slot_label}`;
 const amount = (o: Order) => rupiah(o.total_final ?? o.total_est);
 
@@ -109,17 +111,17 @@ export interface BuildContext { settings: Settings; gatewayQris: boolean; reason
 export function buildParams(kind: WaKind, o: Order, ctx: BuildContext): string[] {
   const link = trackingUrl(o);
   const raw: Record<WaKind, string[]> = {
-    received: [o.customer_name, o.code, when(o), o.total_final === null ? `± ${rupiah(o.total_est)} (final setelah ditimbang subuh)` : amount(o), link],
-    invoice: [o.customer_name, o.code, amount(o), payInstruction(o, ctx.settings, ctx.gatewayQris), link],
-    paid: [o.customer_name, amount(o), o.code, when(o)],
-    delivering: [o.customer_name, o.code, o.slot_label, link],
-    reminder: [o.customer_name, o.code, amount(o), o.pay_by ? formatDateTime(o.pay_by) : "-", link],
-    cancelled: [o.customer_name, o.code, ctx.reason ?? "permintaan atau ketersediaan barang", `${link.split("/pesanan/")[0]}/belanja`],
-    delivered: [o.customer_name, o.code, link],
-    claim: [o.customer_name, o.code, ctx.decision ?? "-"],
+    received: [who(o), o.code, when(o), o.total_final === null ? `± ${rupiah(o.total_est)} (final setelah ditimbang subuh)` : amount(o), link],
+    invoice: [who(o), o.code, amount(o), payInstruction(o, ctx.settings, ctx.gatewayQris), link],
+    paid: [who(o), amount(o), o.code, when(o)],
+    delivering: [who(o), o.code, o.slot_label, link],
+    reminder: [who(o), o.code, amount(o), o.pay_by ? formatDateTime(o.pay_by) : "-", link],
+    cancelled: [who(o), o.code, ctx.reason ?? "permintaan atau ketersediaan barang", `${link.split("/pesanan/")[0]}/belanja`],
+    delivered: [who(o), o.code, link],
+    claim: [who(o), o.code, ctx.decision ?? "-"],
     restock: [], // not tied to an order: see restockParams
     statement: [], // per account, not per order: see statementParams
-    standing: [o.customer_name, when(o), o.code, standingNote(o, ctx.missing), link],
+    standing: [who(o), when(o), o.code, standingNote(o, ctx.missing), link],
   };
   return raw[kind].map(cleanParam);
 }

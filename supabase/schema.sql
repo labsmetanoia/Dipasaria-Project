@@ -451,6 +451,17 @@ do $$ begin
 end $$;
 create index if not exists standing_orders_customer_idx on standing_orders(customer_id);
 
+-- Trader's-pick boxes: a product whose contents the owner sets each week after seeing the auction.
+alter table products add column if not exists curated boolean not null default false;
+alter table products add column if not exists weekly_contents text not null default '';
+alter table products add column if not exists weekly_contents_en text;
+alter table products add column if not exists weekly_contents_at timestamptz;
+-- Gift orders: delivered to someone else, with a card message and no prices in the parcel. gift_message is not null
+-- for every gift (empty when there is no card text); recipient_phone is for the courier.
+alter table orders add column if not exists recipient_phone text;
+alter table orders add column if not exists gift_from text;
+alter table orders add column if not exists gift_message text;
+
 create table if not exists claims (
   id text primary key default new_id('cl'),
   order_id text not null references orders(id) on delete cascade,
@@ -665,6 +676,8 @@ declare
   rawq numeric;
   v_ref text := nullif(trim(coalesce(p->>'client_ref', '')), '');
   v_maps text := nullif(trim(coalesce(p->>'maps_url', '')), '');
+  v_gift boolean := coalesce(p->>'is_gift', '') = 'true';
+  v_rphone text;
   cprice numeric;
   ex record;
 begin
@@ -717,6 +730,15 @@ begin
   if pm not in ('qris','transfer','cod','terms') then raise exception 'Metode pembayaran tidak valid.'; end if;
   if pm = 'cod' and not (seg = 'business' and acc.allow_cod) then raise exception 'Bayar di tempat (COD) hanya tersedia untuk akun bisnis yang telah disetujui.'; end if;
   if pm = 'terms' and not (seg = 'business' and acc.payment_terms <> 'prepaid') then raise exception 'Pembayaran tempo hanya tersedia untuk akun bisnis dengan fasilitas tempo.'; end if;
+  -- a gift is paid by the sender: the recipient must never be asked for money at the door
+  if v_gift then
+    if pm = 'cod' then raise exception 'Hadiah dibayar oleh pengirim: pilih QRIS atau transfer.'; end if;
+    v_rphone := normalize_phone(p->>'recipient_phone');
+    if v_rphone !~ '^62[0-9]{8,13}$' then raise exception 'Nomor WhatsApp penerima hadiah tidak valid.'; end if;
+    if length(coalesce(p->>'gift_message', '')) > 300 or length(coalesce(p->>'gift_from', '')) > 60 then
+      raise exception 'Pesan kartu maksimal 300 karakter dan nama pengirim maksimal 60 karakter.';
+    end if;
+  end if;
 
   -- unique order code, then the header row (totals are filled in after the lines)
   loop
@@ -724,11 +746,14 @@ begin
     exit when not exists (select 1 from orders where orders.code = v_code);
   end loop;
   insert into orders (id, code, segment, account_id, customer_name, phone, address, area_id, area_name, maps_url, delivery_date,
-    slot_id, slot_label, payment_method, payment_status, status, customer_note, history, client_ref, wa_opt_in, substitution)
+    slot_id, slot_label, payment_method, payment_status, status, customer_note, history, client_ref, wa_opt_in, substitution,
+    recipient_phone, gift_from, gift_message)
   values (oid, v_code, seg, acc.id, trim(p->>'customer_name'), v_phone, trim(p->>'address'), area.id, area.name, v_maps, d,
     slot.id, slot.label || ' ' || replace(slot.start_time, ':', '.') || '–' || replace(slot.end_time, ':', '.'), pm, 'unpaid', 'new', coalesce(trim(p->>'customer_note'), ''),
     jsonb_build_array(jsonb_build_object('status', 'new', 'at', now())), v_ref, coalesce(p->>'wa_opt_in', 'true') <> 'false',
-    case when p->>'substitution' in ('similar','contact','remove') then p->>'substitution' else 'contact' end);
+    case when p->>'substitution' in ('similar','contact','remove') then p->>'substitution' else 'contact' end,
+    case when v_gift then v_rphone end, case when v_gift then nullif(trim(coalesce(p->>'gift_from', '')), '') end,
+    case when v_gift then trim(coalesce(p->>'gift_message', '')) end);
 
   -- lines
   for line in select value from jsonb_array_elements(p->'lines') order by value->>'variant_id', value->>'prep_option_id' loop

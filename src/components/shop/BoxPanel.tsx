@@ -192,6 +192,8 @@ export function BoxPanel({ initial, runs, products, slots, addresses, areas, set
                 <span className={`px-2.5 py-1 font-sans text-[10.5px] font-bold uppercase tracking-[0.14em] ${so.status === "active" ? "bg-success-50 text-success-600" : "bg-sand-200 text-ink/70"}`}>{so.status === "active" ? (en ? "Active" : "Aktif") : (en ? "Paused" : "Dijeda")}</span>
               </div>
               <p className="mt-3 font-sans text-[13px] text-ink/80">{so.lines.map(lineLabel).join(" · ")}</p>
+              {so.lines.map((l) => variantInfo.get(l.variant_id)?.product).filter((p, k, all): p is Product => Boolean(p?.curated) && all.indexOf(p) === k).map((p) => { const text = ((en && p.weekly_contents_en) || p.weekly_contents || "").trim(); return (
+                <p key={p.id} className="mt-1 font-sans text-[12.5px]"><b>{en ? "This week" : "Minggu ini"}:</b> {text || (en ? "chosen at the auction; listed on the product page." : "dipilih di lelang; isinya tertulis di halaman produk.")}</p>); })}
               <p className="mt-1 font-sans text-[12.5px] text-mute">{tt.estimate ? (en ? "Estimate per box" : "Perkiraan per kotak") : (en ? "Per box" : "Per kotak")}: <b className="text-ink">{rupiah(tt.total)}</b></p>
               {so.status === "paused" && so.paused_reason && (
                 <p className="mt-3 border-l-4 border-coral-500 bg-coral-50 px-3 py-2 font-sans text-[12.5px]">{so.paused_reason === "unpaid"

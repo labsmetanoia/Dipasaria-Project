@@ -25,6 +25,7 @@ interface Props { products: Product[]; settings: Settings; areas: DeliveryArea[]
 
 export function CheckoutForm({ products, settings, areas, slots, slotUsage, account, household = null, termsInfo = null }: Props) {
  const { t, locale } = useT();
+ const en = locale === "en";
  const router = useRouter();
  const { lines, customer, saveCustomer, clear, rememberOrder } = useCart();
  const [mounted, setMounted] = useState(false);
@@ -51,6 +52,11 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  const [payment, setPayment] = useState<PaymentMethod>("qris");
  const [note, setNote] = useState("");
  const [subst, setSubst] = useState<Substitution>("contact");
+ // gift: sent to someone else, paid by the buyer; the name and address fields become the recipient's
+ const [gift, setGift] = useState(false);
+ const [giftPhone, setGiftPhone] = useState("");
+ const [giftMsg, setGiftMsg] = useState("");
+ const [giftFrom, setGiftFrom] = useState("");
  const [promoCode, setPromoCode] = useState("");
  const [promo, setPromo] = useState<Promo | null>(null);
  const [promoMsg, setPromoMsg] = useState<string | null>(null);
@@ -111,7 +117,7 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  if (r.promo) { setPromo(r.promo); setPromoMsg(null); } else { setPromo(null); setPromoMsg(r.promo_error ?? "Kode promo tidak ditemukan."); }
     });
   };
- const step1ok = Boolean(name.trim() && isValidPhone(phone) && address.trim() && areaId);
+ const step1ok = Boolean(name.trim() && isValidPhone(phone) && address.trim() && areaId && (!gift || isValidPhone(giftPhone)));
  const step2ok = Boolean(date && slotId);
  const needHuman = turnstileOn && !account && !household;
  const canSubmit = mounted && lines.length > 0 && q.min_order_met && q.errors.length === 0 && step1ok && step2ok && !pending && (!needHuman || Boolean(tsToken)) && !(payment === "terms" && termsProblem);
@@ -121,9 +127,9 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
  submitting.current = true;
  setError(null);
  start(async () => {
- const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current, wa_opt_in: waOptIn, substitution: subst }, { turnstileToken: tsToken, saveAddress: household && addrId === "new" && saveNew ? { label: newLabel } : null });
+ const r = await placeOrderAction({ lines, customer_name: name, phone, address, area_id: areaId, maps_url: maps, delivery_date: date, slot_id: slotId, payment_method: payment, promo_code: promo?.code, customer_note: note, client_ref: clientRef.current, wa_opt_in: waOptIn, substitution: subst, gift: gift ? { recipient_phone: giftPhone, message: giftMsg, from: giftFrom } : null }, { turnstileToken: tsToken, saveAddress: household && addrId === "new" && saveNew ? { label: newLabel } : null });
  if (!r.ok) { submitting.current = false; setError(r.error); setTsReset((n) => n + 1); return; }
- if (!account) saveCustomer({ name, phone, address, area_id: areaId, maps_url: maps });
+ if (!account && !gift) saveCustomer({ name, phone, address, area_id: areaId, maps_url: maps }); // a gift address is not "my" address
  rememberOrder({ code: r.data.code, phone: r.data.phone, at: new Date().toISOString() });
  clear();
  router.push(`/pesanan/${r.data.code}?hp=${r.data.phone}&baru=1`);
@@ -154,12 +160,24 @@ export function CheckoutForm({ products, settings, areas, slots, slotUsage, acco
         {step === 0 && (
           <>
             <section className="card p-5">
-              <h2 className="text-lg text-ocean-950">{t.checkout.recipient}</h2>
+              <h2 className="text-lg text-ocean-950">{gift ? (en ? "Recipient and sender" : "Penerima dan pengirim") : t.checkout.recipient}</h2>
+              {segment === "retail" && (
+                <label className="mt-3 flex items-start gap-2 border border-line bg-sand-50 px-3 py-2.5 text-sm"><input type="checkbox" checked={gift} onChange={(e) => { setGift(e.target.checked); if (e.target.checked && payment === "cod") setPayment("qris"); }} className="mt-0.5 accent-ocean-950" />
+                  <span><b>{en ? "Send as a gift" : "Kirim sebagai hadiah"}</b><span className="block text-xs text-mute">{en ? "We deliver to someone else with your card message and no prices in the parcel. You pay; order updates come to your WhatsApp." : "Kami antar ke orang lain dengan kartu ucapan Anda dan tanpa nota harga di dalam paket. Anda yang membayar; kabar pesanan dikirim ke WhatsApp Anda."}</span></span>
+                </label>
+              )}
               {!account && !household && <p className="mt-1 text-xs text-mute">{t.checkout.loginHint} <Link href="/akun?next=/checkout" className="font-semibold text-gold-ink">{t.checkout.loginLink}</Link></p>}
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label={segment === "business" ? t.checkout.businessName : t.checkout.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></Field>
-                <Field label={t.checkout.phone} hint={t.checkout.phoneHint}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xx xxxx xxxx" autoComplete="tel" disabled={Boolean(account || household)} /></Field>
+                <Field label={gift ? (en ? "Recipient's name" : "Nama penerima hadiah") : segment === "business" ? t.checkout.businessName : t.checkout.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete={gift ? "off" : "name"} /></Field>
+                <Field label={gift ? (en ? "Your WhatsApp number (for order updates)" : "Nomor WhatsApp Anda (untuk kabar pesanan)") : t.checkout.phone} hint={gift ? undefined : t.checkout.phoneHint}><input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xx xxxx xxxx" autoComplete="tel" disabled={Boolean(account || household)} /></Field>
               </div>
+              {gift && (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <Field label={en ? "Recipient's WhatsApp (for the courier only)" : "Nomor WhatsApp penerima (hanya untuk kurir)"}><input className="input" inputMode="tel" value={giftPhone} onChange={(e) => setGiftPhone(e.target.value)} placeholder="08xx xxxx xxxx" /></Field>
+                  <Field label={en ? "From (name on the card)" : "Dari (nama di kartu)"}><input className="input" value={giftFrom} onChange={(e) => setGiftFrom(e.target.value)} maxLength={60} placeholder={en ? "e.g. Rina & family" : "mis. Rina sekeluarga"} /></Field>
+                  <div className="sm:col-span-2"><Field label={en ? "Card message (optional)" : "Pesan di kartu ucapan (opsional)"}><textarea className="input min-h-20" value={giftMsg} onChange={(e) => setGiftMsg(e.target.value)} maxLength={300} placeholder={en ? "Happy Chinese New Year, Mum and Dad!" : "Selamat Tahun Baru Imlek, Papa dan Mama!"} /></Field><p className="mt-1 text-right text-[11px] text-mute">{giftMsg.length}/300</p></div>
+                </div>
+              )}
               <label className="mt-3 flex items-start gap-2 text-sm text-ink/80"><input type="checkbox" checked={waOptIn} onChange={(e) => setWaOptIn(e.target.checked)} className="mt-0.5 accent-ocean-950" />{t.checkout.waOptIn}</label>
             </section>
             <section className="card p-5">

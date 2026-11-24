@@ -155,6 +155,39 @@ const check = (cond, name) => { if (cond) { oks++; console.log("ok: " + name); }
   check(/sudah Anda nilai/.test((await repo.createRating(rated.code, rated.phone, { stars: 1, comment: "", items: [] }, 14)).error || ""), "one rating per order");
   check((await repo.getRatingForOrder(rated.id)).stars === 4 && (await repo.listRatings({ limit: 5 }))[0].order_code === rated.code, "the rating is found by order and listed with the order code");
 
+  // ---------- gift orders on the demo data layer ----------
+  const giftDate = availableDates(await repo.getSettings(), nowJakarta())[0];
+  const giftInput = { lines: [{ product_id: "p_salmon", variant_id: "v_salmon", qty: 3, prep_option_id: null }], customer_name: "Ibu Penerima", phone: "081377770094", address: "Jl. Uji Hadiah 4, Jakarta Selatan", area_id: "a_selatan", delivery_date: giftDate, slot_id: "s_pagi", payment_method: "qris" };
+  const g1 = await repo.placeOrder({ ...giftInput, gift: { recipient_phone: "0813 1111 6666", message: "Selamat ulang tahun, Bu!", from: "Rina" } }, null);
+  check(g1.ok && g1.data.recipient_phone === "6281311116666" && g1.data.gift_message === "Selamat ulang tahun, Bu!" && g1.data.gift_from === "Rina" && g1.data.phone === "6281377770094", "a gift keeps the buyer's number for updates, the recipient's for the courier, and the card");
+  check(/penerima hadiah tidak valid/.test((await repo.placeOrder({ ...giftInput, gift: { recipient_phone: "12", message: "", from: "" } }, null)).error || ""), "a gift needs a valid recipient number");
+  const bahariAcc = (await repo.listAccounts()).find((a) => a.id === "ba_bahari");
+  check(/Hadiah dibayar oleh pengirim/.test((await repo.placeOrder({ ...giftInput, lines: [{ product_id: "p_salmon", variant_id: "v_salmon", qty: 10, prep_option_id: null }], slot_id: "s_dapur", payment_method: "cod", gift: { recipient_phone: "081311117777", message: "", from: "" } }, bahariAcc)).error || ""), "a gift is never cash on delivery");
+  const Tm = await jiti.import("../src/lib/notify/templates.ts");
+  const settingsNow = await repo.getSettings();
+  check(Tm.buildParams("received", g1.data, { settings: settingsNow, gatewayQris: false })[0] === "Rina" && Tm.buildParams("delivered", { ...g1.data, gift_from: null }, { settings: settingsNow, gatewayQris: false })[0] === "Bapak/Ibu" && Tm.buildParams("received", { ...g1.data, gift_message: null }, { settings: settingsNow, gatewayQris: false })[0] === "Ibu Penerima", "WhatsApp greets the buyer of a gift (sender's name, or a polite form), not the recipient");
+  const facts2 = await repo.listOrderFacts(giftDate);
+  check(facts2.find((f) => f.phone === "6281377770094").customer_name === "Rina", "retention names a gift's buyer, not its recipient");
+
+  // ---------- trader's-pick box ----------
+  const pick = (await repo.getProducts()).find((p) => p.curated);
+  check(pick && pick.slug === "kotak-pilihan-pedagang" && pick.variants.length === 2 && pick.category_id === "c_paket", "the trader's-pick box is a value box with two sizes");
+  check((await repo.setWeeklyContents("p_salmon", "x", null)).ok === false, "weekly contents can only be set on a trader's-pick box");
+  await repo.setWeeklyContents(pick.id, "Kakap merah 1 ekor, udang windu 500 g", "Red snapper, tiger prawns 500 g");
+  const pick2 = (await repo.getProducts()).find((p) => p.id === pick.id);
+  check(pick2.weekly_contents === "Kakap merah 1 ekor, udang windu 500 g" && pick2.weekly_contents_en === "Red snapper, tiger prawns 500 g" && Boolean(pick2.weekly_contents_at), "this week's contents are stored with the time they were set");
+
+  // ---------- morning brief ----------
+  const B = await jiti.import("../src/lib/brief.ts");
+  const briefDate = giftDate;
+  const brief = await B.buildBrief(repo, briefDate);
+  check(brief.text.startsWith("Ringkasan pagi · ") && /Pengiriman: \d+ pesanan/.test(brief.text) && /Belanja subuh \(\d+ baris, \d+ segar\):/.test(brief.text), "the brief opens with the day's deliveries and the buying list");
+  check(/hadiah \(tanpa nota harga\)/.test(brief.text), "the brief counts gifts, so nobody packs a price note");
+  check(/Piutang lewat jatuh tempo Rp/.test(brief.text) && /RM Padang Sinar Minang/.test(brief.text) && brief.attention >= 1, "the brief lists overdue receivables under 'needs attention'");
+  check(brief.text.length <= 3500 && brief.text.split("\n").filter((l) => l.startsWith("• ")).length <= 20, "the brief stays short enough for one chat message");
+  const quiet = await B.buildBrief(repo, "2030-01-01");
+  check(/Tidak ada pengiriman hari ini\./.test(quiet.text) && !/Belanja subuh/.test(quiet.text), "a day without deliveries says so and lists no buying");
+
   console.log(fails ? `\n${fails} FAILURES` : `\nALL RULES CHECKS PASSED (${oks})`);
   process.exit(fails ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

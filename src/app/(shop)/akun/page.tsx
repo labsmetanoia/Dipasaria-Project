@@ -108,7 +108,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     const boxRuns = (await Promise.all(boxes.map((b) => repo.listStandingRuns({ standingOrderId: b.id, limit: 4 })))).flat();
     // What a box can start from: the ready-made value boxes, then the customer's latest orders (the cart is added in the browser).
     const presets: BoxPreset[] = [
-      ...products.filter((p) => p.category_id === "c_paket" && p.is_active).flatMap((p) => { const v = p.variants.find((x) => x.is_active && !x.business_only); return v ? [{ key: `box:${v.id}`, label: en && p.name_en ? p.name_en : p.name, lines: [{ variant_id: v.id, qty: v.min_qty, prep_option_id: null }] }] : []; }),
+      // every household size of each value box (a box with sizes, like the trader's pick, offers each size)
+      ...products.filter((p) => p.category_id === "c_paket" && p.is_active).flatMap((p) => { const vs = p.variants.filter((x) => x.is_active && !x.business_only); return vs.map((v) => ({ key: `box:${v.id}`, label: `${en && p.name_en ? p.name_en : p.name}${vs.length > 1 ? ` · ${(en && v.label_en ? v.label_en : v.label).split(",")[0]}` : ""}`, lines: [{ variant_id: v.id, qty: v.min_qty, prep_option_id: null }] })); }),
       ...orders.filter((o) => o.status !== "cancelled").slice(0, 2).map((o) => ({ key: `order:${o.code}`, label: `${en ? "My order of" : "Pesanan saya"} ${formatDate(o.delivery_date, "short", locale)}`, lines: o.items.map((i) => ({ variant_id: i.variant_id, qty: i.qty_ordered, prep_option_id: i.prep_option_id })) })),
     ];
     return (
