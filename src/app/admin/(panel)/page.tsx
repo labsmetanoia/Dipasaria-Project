@@ -11,6 +11,7 @@ import { buildLedger } from "@/lib/receivables";
 import { buildBrief } from "@/lib/brief";
 import { BriefCard } from "@/components/admin/BriefCard";
 import { STATUS_LABEL } from "@/lib/config";
+import { RECENT_DAYS, contractAlerts } from "@/lib/dailyPrice";
 
 export default async function AdminHome({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   await requireAdmin();
@@ -23,6 +24,9 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   const today = nowJakarta().date;
   const overdueAccounts = receivables ? accounts.map((a) => buildLedger(a, receivables.orders, receivables.payments, receivables.allocations, today)).filter((l) => l.overdue > 0) : [];
   const overdueTotal = overdueAccounts.reduce((s, l) => s + l.overdue, 0);
+  // restaurant contract prices the auction has overtaken (recent purchase cost against the wholesale target)
+  const [contracts, costProducts, recentPurchases, settingsNow] = await Promise.all([repo.listContractPrices(), repo.getProducts({ includeCost: true }), repo.listPurchases({ from: addDays(today, -(RECENT_DAYS - 1)), to: today }), repo.getSettings()]);
+  const lowContracts = contractAlerts(contracts, accounts, costProducts, recentPurchases, settingsNow, today);
   const brief = await buildBrief(repo, date);
   const lowRatings = (await repo.listRatings({ since: addDays(today, -7), limit: 200 }).catch(() => [])).filter((r) => r.stars <= 2);
   const pendingAccounts = accounts.filter((a) => a.status === "pending");
@@ -37,6 +41,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
         <div><p className="eyebrow">Ringkasan harian</p><h1 className="text-2xl text-ocean-900">Pengiriman</h1></div>
         <DateSelector date={date} />
       </div>
+      {lowContracts.length > 0 && <Link href="/admin/harga" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{lowContracts.length} harga kontrak restoran di bawah target margin ({lowContracts.slice(0, 2).map((a) => `${a.account_name}: ${a.product_name}`).join(", ")}). Lihat Harga hari ini →</Link>}
       {openClaims.length > 0 && <Link href="/admin/garansi" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{openClaims.length} laporan garansi menunggu keputusan →</Link>}
       <BriefCard date={date} text={brief.text} attention={brief.attention} configured={Boolean(process.env.ALERT_WEBHOOK_URL)} />
       {lowRatings.length > 0 && <Link href="/admin/laporan#penilaian-pelanggan" className="block bg-coral-50 px-4 py-3 text-sm font-semibold text-gold-ink">{lowRatings.length} penilaian rendah (1–2 bintang) dalam 7 hari terakhir →</Link>}

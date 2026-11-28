@@ -41,6 +41,9 @@ export interface Settings {
   /** the seller's tax number and registered name, printed on invoices, statements and quotations (optional) */
   npwp: string | null;
   legal_name: string | null;
+  /** gross margin (%) the household and wholesale prices aim for; Harga hari ini suggests prices to keep them */
+  target_margin_retail: number;
+  target_margin_business: number;
 }
 
 export interface Category {

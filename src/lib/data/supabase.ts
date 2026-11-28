@@ -303,6 +303,8 @@ export const supabaseRepo: Repo = {
       terms_grace_days: r.terms_grace_days === undefined || r.terms_grace_days === null ? 3 : num(r.terms_grace_days),
       npwp: (r.npwp as string | null) ?? null,
       legal_name: (r.legal_name as string | null) ?? null,
+      target_margin_retail: r.target_margin_retail === undefined || r.target_margin_retail === null ? 20 : num(r.target_margin_retail),
+      target_margin_business: r.target_margin_business === undefined || r.target_margin_business === null ? 12 : num(r.target_margin_business),
     };
   },
   async getCategories() {

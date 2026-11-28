@@ -42,6 +42,8 @@ export const seedSettings: Settings = {
   about_image_url: null,
   npwp: null,
   legal_name: null,
+  target_margin_retail: 20,
+  target_margin_business: 12,
 };
 
 export const seedCategories: Category[] = [

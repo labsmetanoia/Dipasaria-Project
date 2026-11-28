@@ -15,6 +15,7 @@ import { rupiah } from "@/lib/format";
 import { after } from "next/server";
 import { cleanNpwp, npwpError } from "@/lib/sales";
 import { quoteUrl } from "@/lib/quoteLink";
+import { priceChangeError, type PriceChange } from "@/lib/dailyPrice";
 import { buildBrief } from "@/lib/brief";
 import { alert } from "@/lib/monitor";
 
@@ -219,6 +220,12 @@ export async function updateSettingsAction(patch: Partial<Settings>) {
     const e = npwpError(patch.npwp);
     if (e) return wrap({ ok: false as const, error: e });
     patch = { ...patch, npwp: cleanNpwp(patch.npwp) };
+  }
+  for (const k of ["target_margin_retail", "target_margin_business"] as const) {
+    if (patch[k] === undefined) continue;
+    const m = Number(patch[k]);
+    if (!Number.isFinite(m) || m < 0 || m > 80) return wrap({ ok: false as const, error: "Target margin harus 0–80%." });
+    patch = { ...patch, [k]: Math.round(m * 10) / 10 };
   }
   if (patch.legal_name !== undefined) patch = { ...patch, legal_name: String(patch.legal_name ?? "").trim().slice(0, 120) || null };
   if (patch.terms_grace_days !== undefined) {
@@ -437,4 +444,29 @@ export async function setQuoteStatusAction(id: string, status: "draft" | "sent" 
   const r = await (await getRepo()).setQuoteStatus(id, status);
   revalidatePath("/admin/penawaran");
   return wrap(r.ok ? { ok: true as const, data: { quote: r.data, link: quoteUrl(id) } } : r);
+}
+
+// ---- daily prices (Harga hari ini) ----
+/** Save the costs and prices the owner confirmed on Harga hari ini. Each size is checked; nothing is saved if one is invalid. */
+export async function applyDailyPricesAction(changes: PriceChange[]) {
+  await guard();
+  if (!Array.isArray(changes) || changes.length === 0 || changes.length > 300) return wrap<number>({ ok: false, error: "Tidak ada perubahan untuk disimpan." });
+  const repo = await getRepo();
+  const products = await repo.getProducts({ includeInactive: true, includeCost: true });
+  const clean: PriceChange[] = [];
+  for (const raw of changes) {
+    const c = { variant_id: String(raw.variant_id), cost: Math.round(Number(raw.cost)), price_retail: Math.round(Number(raw.price_retail)), price_business: Math.round(Number(raw.price_business)) };
+    const p = products.find((x) => x.variants.some((v) => v.id === c.variant_id));
+    const v = p?.variants.find((x) => x.id === c.variant_id);
+    if (!p || !v) return wrap<number>({ ok: false, error: "Salah satu produk tidak ditemukan." });
+    const e = priceChangeError(c, { business_only: v.business_only, name: `${p.name} ${v.label}` });
+    if (e) return wrap<number>({ ok: false, error: e });
+    clean.push(c);
+  }
+  for (const c of clean) {
+    const r = await repo.updateVariant(c.variant_id, { cost: c.cost, price_retail: c.price_retail, price_business: c.price_business });
+    if (!r.ok) return wrap<number>({ ok: false, error: r.error });
+  }
+  revalidatePath("/", "layout");
+  return wrap<number>({ ok: true, data: clean.length });
 }

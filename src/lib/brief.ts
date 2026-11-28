@@ -8,6 +8,7 @@ import { SITE_URL, UNIT_LABEL } from "./config";
 import { buildLedger } from "./receivables";
 import { dayCost } from "./daycost";
 import { campaignState, campaignSummary, dayRange } from "./campaigns";
+import { RECENT_DAYS, contractAlerts } from "./dailyPrice";
 
 /** Telegram accepts 4096 characters per message; the brief stays well under it. */
 const MAX_CHARS = 3500;
@@ -96,6 +97,8 @@ export async function buildBrief(repo: Repo, date: string, now: Date = new Date(
   if (low.length) attention.push(`${low.length} penilaian rendah dalam 24 jam: ${low.slice(0, 2).map((r) => `${r.order_code ?? ""} ${r.stars}★${r.comment ? ` “${r.comment.slice(0, 60)}”` : ""}`).join("; ")}`);
   const overdue = accounts.map((a) => ({ a, l: buildLedger(a, receivables.orders, receivables.payments, receivables.allocations, date) })).filter((x) => x.l.overdue > 0);
   if (overdue.length) attention.push(`Piutang lewat jatuh tempo ${juta(overdue.reduce((s, x) => s + x.l.overdue, 0))}: ${overdue.slice(0, 3).map((x) => x.a.business_name).join(", ")}`);
+  const lowContracts = contractAlerts(await repo.listContractPrices(), accounts, await repo.getProducts({ includeCost: true }), await repo.listPurchases({ from: addDays(jnow.date, -(RECENT_DAYS - 1)), to: jnow.date }), settings, jnow.date);
+  if (lowContracts.length) attention.push(`${lowContracts.length} harga kontrak di bawah target margin: ${lowContracts.slice(0, 2).map((a) => `${a.account_name} ${a.product_name} ${a.margin.toFixed(1).replace(".", ",")}%`).join("; ")}`);
   if (wa.length) attention.push(`${wa.length} pesan WhatsApp menunggu dikirim manual`);
   if (errors.length) attention.push(`${errors.length} jenis error belum ditangani (lihat Sistem)`);
   out.push("", attention.length ? "Perlu perhatian:" : "Tidak ada yang perlu ditindaklanjuti.");

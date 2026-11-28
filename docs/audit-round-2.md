@@ -845,3 +845,85 @@ Items R2 and O1 of `docs/strategic-assessment.md` ("weeks 5–6"). Both serve re
 5. Ask your restaurants for their NPWP (Pelanggan) when they need tax-ready invoices.
 6. For the first hotel or caterer prospect, write a quotation in **Penawaran harga** and send the link.
 
+## 17. Implemented after approval: daily prices from auction cost and the price card
+
+Items N1 and N5 of `docs/strategic-assessment-2.md`.
+
+### Harga hari ini (N1)
+
+**Purpose:** auction costs move every day; prices changed only when someone remembered to edit them. Quotations now lock restaurant prices for weeks. This keeps the margin target visible every morning.
+
+**What it does:**
+- **Cost per size from the buying log.** The purchases logged on Belanja subuh give this morning's cost per unit for each product.
+  - Purchases are logged per product, not per size. For a product with several sizes in the same unit, the morning's average is spread across them in the proportion of their stored costs (a larger fish usually costs more per kg). A product with one size gets the exact cost.
+  - Without a purchase today, the latest logged day is used and labelled; without any purchase, the stored cost.
+- **For each size, the screen shows:**
+  - the cost (editable);
+  - the household and wholesale prices with their margins;
+  - the price that keeps each target margin, rounded up to the next Rp1.000.
+- **Target margins** are set in **Pengaturan**: 20% for households and 12% for restaurants by default. The current placeholder prices sit at a median of about 28% and 15%; with targets at those medians, the "to check" list flagged almost the whole catalogue, which would make it easy to ignore.
+- **Filters:** "Perlu dicek" (bought this morning, or under a target), "Dibeli pagi ini", "Semua", and by category.
+- **Changing prices:**
+  - "Pakai saran" fills one row's suggested prices, higher or lower.
+  - "Naikkan yang di bawah target" only raises prices that are under target. Lowering a price is always a choice made row by row.
+  - Nothing changes until **Simpan N perubahan**.
+- **Saving** also updates each size's stored cost, so margins in reports, the buying list and quotations use the latest cost. Orders already placed keep their prices.
+- **Contract margin watch:**
+  - Restaurant contract prices in force today are compared with the last 7 days' cost per size. Those under the wholesale target are listed with restaurant, product, price, cost, margin and end date, lowest margin first.
+  - The dashboard shows a banner, and the morning brief lists them under "Perlu perhatian".
+  - Ended contracts and suspended accounts are left out.
+- **Quotations:** the editor's margin column now uses the same 7-day cost instead of the stored cost field.
+- **Demo mode** includes this morning's purchases for four fish (kakap at a higher cost than stored, so the screen has something to flag).
+
+### Price card (N5)
+
+**Purpose:** the cheapest repeat-order channel. Posting to WhatsApp Status, Instagram or a restaurant group costs nothing per recipient, unlike a broadcast.
+
+**What it does:**
+- On **Harga hari ini**, choose:
+  - the sizes for the card (this morning's purchases are preselected);
+  - household or restaurant (wholesale) prices;
+  - the format: WhatsApp Status 9:16 (1080 × 1920) or a post 4:5 (1080 × 1350);
+  - an optional note.
+- A live preview shows the card. **Unduh gambar** saves the PNG. **Bagikan** opens the phone's share sheet with the image (for WhatsApp), where the phone supports it.
+- Rows that do not fit are counted as "+N produk lain" with the shop's address. Long names are shortened rather than wrapped.
+- Pre-order products are left out of the card. Restaurant-only sizes appear only on the restaurant version.
+- **Daftar harga (PDF):** the same list as a printable page with the seller's tax details, for restaurants that want a document.
+- The image is drawn on the server with Next's built-in image renderer and the brand fonts, which are stored in `src/assets/fonts` (Barlow Condensed and Plus Jakarta Sans, SIL Open Font License, licence files included). It needs the admin login, because the restaurant version shows wholesale prices.
+
+### Fix found while testing
+
+- A browser test from section 16 searched the order list without `all=1`. After 20.00 WIB the test order is booked two days ahead and the default list did not show it. The test now searches all dates. Only the test changed.
+
+### Tests
+
+- **SQL suite, section 32:** default targets, and targets outside 0–80% refused.
+- **Rules test: 102 checks** (10 new). They cover:
+  - the morning and 7-day cost from purchases only (waste and older days left out);
+  - spreading the cost across sizes;
+  - suggested prices and margins;
+  - flagged rows;
+  - the contract in force (ended contracts and suspended accounts left out);
+  - zero prices allowed only for restaurant-only sizes;
+  - the card's line limit and "more" count, pre-orders left out, restaurant-only sizes;
+  - the demo purchases.
+- **Main browser suite: 163 of 163** (10 new checks). They cover:
+  - this morning's cost and the suggestion on the screen;
+  - the contract under target listed;
+  - "Pakai saran", saving, and the new price in the shop;
+  - the dashboard banner;
+  - the card preview in both formats, the PNG download, the card refused without login;
+  - the printable wholesale list.
+- **Every other suite passes:** SQL, backups, search (38), Midtrans (28), WhatsApp (19).
+- **Upgrade path:** checked on a copy of the previous schema with migration 018, `schema.sql` and `seed.sql`.
+- **Screenshots:** `docs/screenshots/81-admin-daily-prices-desktop.png`, `82-price-card-story.png` (the card itself), `83-price-list-desktop.png`.
+
+### Owner setup
+
+1. Run `supabase/migrations/018_daily_prices.sql`, then `supabase/schema.sql`.
+2. In **Pengaturan**, set the two target margins to what you want to earn.
+3. Each morning, log purchases on **Belanja subuh** as now, then open **Harga hari ini**:
+   - check the flagged rows and save the prices you agree with;
+   - make the card, and post it to Status and the restaurant groups.
+4. When a contract appears under target, adjust it on the restaurant's page in Piutang or send a new quotation.
+

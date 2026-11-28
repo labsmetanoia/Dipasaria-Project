@@ -2,6 +2,8 @@
 
 **Date:** 28 November 2026 · **Basis:** the platform at commit `d6ba756` on branch `claude/amazing-cori-ggmx09` · **Follows** `docs/strategic-assessment.md` (24 November), whose item numbers (D1, O4, C3 …) are kept here.
 
+> **Update, 28 November 2026:** N1 (daily pricing and contract margin watch) and N5 (daily price card) are built; see `docs/audit-round-2.md`, section 17. The default target margins are 20% (households) and 12% (restaurants), not the 12% for both suggested in N1, because the current placeholder prices sit around 28% and 15%.
+
 Effort figures are my build estimates in working days. Running costs come from public sources checked on 28 November 2026; third-party figures are marked "to confirm".
 
 ---

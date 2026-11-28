@@ -613,6 +613,9 @@ create index if not exists refunds_date_idx on refunds(refunded_on);
 alter table business_accounts add column if not exists npwp text;
 alter table business_accounts add column if not exists tax_name text;
 alter table business_accounts add column if not exists tax_address text;
+-- Daily pricing: the gross margin each price list aims for (Harga hari ini suggests prices from the morning's cost)
+alter table settings add column if not exists target_margin_retail numeric not null default 20;
+alter table settings add column if not exists target_margin_business numeric not null default 12;
 alter table settings add column if not exists npwp text;
 alter table settings add column if not exists legal_name text;
 
@@ -701,7 +704,8 @@ begin
     ('promos', 'promos_value_valid', 'check (value >= 0 and (type <> ''percent'' or value <= 100))'),
     ('business_accounts', 'accounts_discount_range', 'check (discount_pct between 0 and 100)'),
     ('settings', 'settings_cutoff_format', 'check (cutoff_time ~ ''^([01][0-9]|2[0-3]):[0-5][0-9]$'')'),
-    ('settings', 'settings_payment_window_range', 'check (payment_window_minutes between 0 and 10080)')
+    ('settings', 'settings_payment_window_range', 'check (payment_window_minutes between 0 and 10080)'),
+    ('settings', 'settings_target_margin_range', 'check (target_margin_retail between 0 and 80 and target_margin_business between 0 and 80)')
   ) as t(tbl, name, def) loop
     if not exists (select 1 from pg_constraint where conname = c.name) then
       execute format('alter table %I add constraint %I %s not valid', c.tbl, c.name, c.def);

@@ -627,5 +627,10 @@ begin
   perform _expect_error($q$select accept_quote('qt_t3', 'Pak Draf')$q$, 'tidak berlaku lagi');
   perform _expect_error($q$select accept_quote('qt_t4', 'Pak Lewat')$q$, 'sudah lewat');
 
+  -- 32. Daily prices: target margins stay in a sensible range
+  if (select target_margin_retail || '/' || target_margin_business from settings where id = 1) <> '20/12' then raise exception 'default target margins'; end if;
+  perform _expect_error($q$update settings set target_margin_retail = 90 where id = 1$q$, 'settings_target_margin_range');
+  perform _expect_error($q$update settings set target_margin_business = -1 where id = 1$q$, 'settings_target_margin_range');
+
   raise notice 'all assertions passed';
 end $$;

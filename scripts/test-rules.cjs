@@ -257,6 +257,41 @@ const check = (cond, name) => { if (cond) { oks++; console.log("ok: " + name); }
   check(newAcc.status === "pending" && newAcc.npwp === "012345678901000" && (await repo.listContractPrices(accId)).some((c) => c.variant_id === "v_salmon" && c.price === 87000 && c.starts_on === qToday), "accepting gives a prospect a pending account with the quoted contract prices");
   check((await repo.saveQuote({ ...qBase, id: qt.id })).error === "Penawaran yang sudah diterima tidak dapat diubah." && /sudah diterima/.test((await repo.acceptQuote(qt.id, "Bu Rules")).error || ""), "an accepted quotation cannot be changed or accepted twice");
 
+
+  // ---------- daily prices and the price card ----------
+  const Dp = await jiti.import("../src/lib/dailyPrice.ts");
+  const Pc = await jiti.import("../src/lib/priceCard.ts");
+  const dpToday = nowJakarta().date;
+  const buy = (date, product_id, qty, total_cost, unit = "kg", kind = "purchase") => ({ id: Math.random().toString(36), delivery_date: date, product_id, kind, qty, unit, total_cost, supplier: "", note: "", created_at: "" });
+  const kakap = { id: "p_k", name: "Kakap", category_id: "c_ikan", is_active: true, available_today: true, storage_class: "chilled", is_catch_weight: true, sort: 1, campaign_id: null,
+    variants: [{ id: "v_l", unit: "kg", cost: 78000, price_retail: 115000, price_business: 92000, business_only: false, is_active: true, sort: 1, label: "1–2 kg" }, { id: "v_s", unit: "kg", cost: 68000, price_retail: 98000, price_business: 80000, business_only: false, is_active: true, sort: 2, label: "500–800 g" }] };
+  const pcs = Dp.purchaseCosts([buy(dpToday, "p_k", 14, 1218000), buy(addDays(dpToday, -2), "p_k", 10, 820000), buy(dpToday, "p_k", 3, 0, "kg", "waste"), buy(addDays(dpToday, -9), "p_k", 5, 1000000)], dpToday);
+  const pk = pcs.get("p_k|kg");
+  check(pk.latest.perUnit === 87000 && pk.latest.date === dpToday && Math.round(pk.recent.perUnit) === 84917 && pk.recent.days === 2, "the morning's cost per kg, and the 7-day average, from purchases only (waste and older days left out)");
+  const sl = Dp.sizeCost(kakap, kakap.variants[0], pcs, dpToday), ss = Dp.sizeCost(kakap, kakap.variants[1], pcs, dpToday);
+  check(sl.cost === 92959 && ss.cost === 81041 && sl.source === "today" && Math.round((sl.cost * 14 * 0 + sl.cost + ss.cost) / 2) === 87000, "the morning's average is spread across sizes in the proportion of their stored costs");
+  check(Dp.sizeCost(kakap, kakap.variants[0], new Map(), dpToday).source === "stored", "without purchases the stored cost is used");
+  check(Dp.suggestPrice(92959, 20) === 117000 && Dp.suggestPrice(92959, 12) === 106000 && Dp.suggestPrice(0, 20) === 0 && Math.round(Dp.marginPct(115000, 92959)) === 19, "suggested prices keep the target margin, rounded up to Rp1.000");
+  const rowsDp = Dp.priceRows([kakap], [buy(dpToday, "p_k", 14, 1218000)], { target_margin_retail: 20, target_margin_business: 12 }, dpToday);
+  check(rowsDp.length === 2 && rowsDp[0].low_retail && rowsDp[0].low_business && rowsDp[0].suggest_retail === 117000, "a size whose price is under target at today's cost is flagged with its suggestion");
+  const accs = [{ id: "a1", business_name: "Resto A", status: "approved" }, { id: "a2", business_name: "Resto B", status: "suspended" }];
+  const ctr = [
+    { id: "c_old", account_id: "a1", variant_id: "v_l", price: 120000, starts_on: addDays(dpToday, -60), ends_on: null },
+    { id: "c_now", account_id: "a1", variant_id: "v_l", price: 92000, starts_on: addDays(dpToday, -5), ends_on: null },
+    { id: "c_gone", account_id: "a1", variant_id: "v_s", price: 70000, starts_on: addDays(dpToday, -30), ends_on: addDays(dpToday, -1) },
+    { id: "c_susp", account_id: "a2", variant_id: "v_l", price: 80000, starts_on: addDays(dpToday, -5), ends_on: null },
+  ];
+  const al = Dp.contractAlerts(ctr, accs, [kakap], [buy(dpToday, "p_k", 14, 1218000)], { target_margin_business: 12 }, dpToday);
+  check(al.length === 1 && al[0].contract_id === "c_now" && al[0].margin < 0, "contract watch takes the price in force today, skips ended contracts and suspended accounts");
+  check(Dp.priceChangeError({ variant_id: "x", cost: 1, price_retail: 0, price_business: 1 }, { business_only: false, name: "X" }) !== null && Dp.priceChangeError({ variant_id: "x", cost: 1, price_retail: 0, price_business: 1 }, { business_only: true, name: "X" }) === null, "a household price of zero is only allowed for restaurant-only sizes");
+  const allP2 = await repo.getProducts();
+  const cats = await repo.getCategories();
+  const cr = Pc.cardRows(allP2, cats, ["v_kakap_l", "v_kakap_s", "v_kembung", "v_udang_40", "v_telur_tray", "v_ty_udang"], "retail", 5);
+  check(cr.lines <= 5 && cr.groups[0].category === "Ikan segar" && cr.more > 0 && !cr.groups.some((g) => g.rows.some((r) => r.variant_id === "v_ty_udang")), "the card fits rows and headings in its lines, mentions the rest, and leaves pre-orders out");
+  const busOnly = allP2.flatMap((p) => p.variants).find((v) => v.business_only);
+  check(busOnly && Pc.cardRows(allP2, cats, [busOnly.id], "retail").total === 0 && Pc.cardRows(allP2, cats, [busOnly.id], "business").total === 1, "restaurant-only sizes appear on the restaurant card only");
+  check((await repo.listPurchases({ date: dpToday })).some((p) => p.note === "Contoh data demo"), "demo mode has this morning's purchases to price from");
+
   // ---------- morning brief ----------
   const B = await jiti.import("../src/lib/brief.ts");
   const briefDate = giftDate;

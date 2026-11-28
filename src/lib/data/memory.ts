@@ -297,7 +297,7 @@ function getStore(): Store {
 }
 
 // Kept on globalThis like the store: Next.js may load this module once per route bundle, and these must be shared.
-const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }>; claims: Claim[]; alerts: Array<{ product_id: string; phone: string; notified: boolean }>; purchases: Purchase[]; funnel?: FunnelRow[]; ratings?: Rating[] } };
+const g = globalThis as typeof globalThis & { __dpMem?: { loginFailures: Map<string, number[]>; rateHits: Map<string, number[]>; errorLog: Map<string, AppError>; jobs: Map<string, JobRun>; payments: Payment[]; wa: WaMessage[]; customers: Customer[]; addresses: CustomerAddress[]; csessions: Map<string, { customer_id: string; expires: number }>; codes: Map<string, { hash: string; expires: number; attempts: number; created: number }>; claims: Claim[]; alerts: Array<{ product_id: string; phone: string; notified: boolean }>; purchases: Purchase[]; funnel?: FunnelRow[]; ratings?: Rating[]; purchasesSeeded?: boolean } };
 g.__dpMem ??= { loginFailures: new Map(), rateHits: new Map(), errorLog: new Map(), jobs: new Map(), payments: [], wa: [], customers: [], addresses: [], csessions: new Map(), codes: new Map(), claims: [], alerts: [], purchases: [] };
 g.__dpMem.claims ??= [];
 g.__dpMem.funnel ??= [];
@@ -306,6 +306,19 @@ g.__dpMem.ratings ??= [];
 const ratings = g.__dpMem.ratings;
 g.__dpMem.alerts ??= [];
 g.__dpMem.purchases ??= [];
+// Demo buying log: this morning's and an earlier auction, so Harga hari ini has costs to work from in demo mode.
+if (!g.__dpMem.purchasesSeeded) {
+  g.__dpMem.purchasesSeeded = true;
+  const today = nowJakarta().date, at = new Date().toISOString();
+  const buy = (id: string, date: string, product_id: string, qty: number, total_cost: number, supplier: string): Purchase => ({ id, delivery_date: date, product_id, kind: "purchase", qty, unit: "kg", total_cost, supplier, note: "Contoh data demo", created_at: at });
+  g.__dpMem.purchases.push(
+    buy("pu_demo1", today, "p_kakap", 14, 1218000, "Juragan Udin"),
+    buy("pu_demo2", today, "p_kembung", 20, 560000, "Bu Siti"),
+    buy("pu_demo3", today, "p_kerapu", 6, 744000, "Juragan Udin"),
+    buy("pu_demo4", today, "p_tongkol", 15, 405000, "Bu Siti"),
+    buy("pu_demo5", addDays(today, -2), "p_kakap", 10, 820000, "Juragan Udin"),
+  );
+}
 g.__dpMem.payments ??= [];
 g.__dpMem.wa ??= [];
 g.__dpMem.customers ??= [];

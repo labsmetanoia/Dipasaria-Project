@@ -13,7 +13,7 @@ import { UNIT_LABEL, BUSINESS_TYPES } from "@/lib/config";
 
 type Draft = Omit<Quotation, "id" | "code" | "status" | "accepted_at" | "accepted_name" | "created_at">;
 
-export function QuoteEditor({ quote, accounts, products, defaults, prefillAccount = null }: { quote: Quotation | null; accounts: BusinessAccount[]; products: Product[]; defaults: { valid_until: string; price_from: string }; prefillAccount?: string | null }) {
+export function QuoteEditor({ quote, accounts, products, defaults, prefillAccount = null, costs = {} }: { quote: Quotation | null; accounts: BusinessAccount[]; products: Product[]; defaults: { valid_until: string; price_from: string }; prefillAccount?: string | null; /** recent purchase cost per size (falls back to the stored cost) */ costs?: Record<string, number> }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export function QuoteEditor({ quote, accounts, products, defaults, prefillAccoun
 
       <div>
         <h2 className="text-lg text-ocean-900">Produk dan harga</h2>
-        <p className="text-xs text-mute">Harga awal: harga grosir{account ? " atau harga akun ini saat ini" : ""}. Margin dihitung dari harga modal produk.</p>
+        <p className="text-xs text-mute">Harga awal: harga grosir{account ? " atau harga akun ini saat ini" : ""}. Margin dihitung dari modal rata-rata 7 hari terakhir di Belanja subuh (atau modal tersimpan bila belum ada pembelian).</p>
         {q.lines.length > 0 && (
           <div className="mt-2 overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm" data-quote-lines>
@@ -70,7 +70,8 @@ export function QuoteEditor({ quote, accounts, products, defaults, prefillAccoun
               <tbody>
                 {q.lines.map((l, i) => {
                   const f = find(l.variant_id);
-                  const margin = f && l.price > 0 ? ((l.price - f.v.cost) / l.price) * 100 : null;
+                  const cost = f ? costs[f.v.id] ?? f.v.cost : 0;
+                  const margin = f && l.price > 0 ? ((l.price - cost) / l.price) * 100 : null;
                   return (
                     <tr key={l.variant_id} className="border-b border-line/60">
                       <td className="py-2 pr-2"><b>{f?.p.name ?? "Produk tidak aktif"}</b> <span className="text-mute">{f?.v.label}</span></td>

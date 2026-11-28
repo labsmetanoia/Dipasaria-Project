@@ -913,7 +913,7 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   check(true, "the virtual-account transfer is confirmed on the page by itself");
   await vac.close();
   // the owner cancels the paid order and records the refund with its proof
-  await a.goto(BASE + "/admin/pesanan?q=" + vaCode, { waitUntil: "networkidle" });
+  await a.goto(BASE + "/admin/pesanan?all=1&q=" + vaCode, { waitUntil: "networkidle" });
   await a.getByRole("link", { name: vaCode }).first().click();
   await a.waitForURL(/\/admin\/pesanan\/o_/, { timeout: 15000 });
   await a.waitForLoadState("networkidle");
@@ -995,6 +995,43 @@ const check = (cond, msg) => { if (!cond) { fails.push(msg); console.log("FAIL:"
   check((await a.getByText("Hotel Pantai Uji").count()) >= 1, "accepting created the prospect's account, waiting for approval");
   await a.goto(BASE + "/admin/penawaran", { waitUntil: "networkidle" });
   check((await a.locator("tr", { hasText: "Hotel Pantai Uji" }).getByText("Diterima").count()) === 1, "the quotation list shows it accepted");
+
+  // 8l) Daily prices from auction cost, contract margin watch, price card
+  await a.goto(BASE + "/admin/harga", { waitUntil: "networkidle" });
+  const dpRow = a.locator('[data-price-row="v_kakap_l"]');
+  check((await dpRow.getByText("pagi ini").count()) === 1 && (await dpRow.getByRole("button", { name: /saran Rp117\.000/ }).count()) === 1, "Harga hari ini shows this morning's cost for kakap and the price that keeps the 20% target");
+  check((await a.locator("[data-contract-alerts] tbody tr", { hasText: "Kakap Merah" }).count()) >= 1, "a restaurant contract under the target margin at the recent cost is listed");
+  await a.screenshot({ path: `${OUT}/81-admin-daily-prices-desktop.png` });
+  await dpRow.getByRole("button", { name: "Pakai saran" }).click();
+  check((await dpRow.getByLabel(/Harga rumah tangga Kakap Merah/).inputValue()) === "117000" && (await dpRow.getByLabel(/Harga grosir Kakap Merah/).inputValue()) === "106000", "'Pakai saran' fills both suggested prices; nothing is saved yet");
+  await a.getByRole("button", { name: /^Simpan \d+ perubahan$/ }).click();
+  await a.getByText(/ukuran disimpan\. Harga baru berlaku di toko sekarang\./).waitFor({ timeout: 15000 });
+  const shopP = await browser.newPage();
+  await shopP.goto(BASE + "/belanja/produk/kakap-merah", { waitUntil: "networkidle" });
+  check((await shopP.getByText("Rp117.000").count()) >= 1, "the saved price is what the shop charges");
+  await shopP.close();
+  await a.goto(BASE + "/admin", { waitUntil: "networkidle" });
+  check((await a.getByRole("link", { name: /harga kontrak restoran di bawah target margin/ }).count()) === 1, "the dashboard points to contracts under the target margin");
+  await a.goto(BASE + "/admin/harga", { waitUntil: "networkidle" });
+  const cardP = a.locator("[data-price-card]");
+  await cardP.getByLabel("Catatan di kartu (opsional)").fill("Kakap merah besar hari ini");
+  await a.waitForFunction(() => { const i = document.querySelector("[data-card-preview]"); return i && i.complete && i.naturalWidth === 1080 && i.src.includes("note="); }, null, { timeout: 30000 });
+  check(true, "the card preview renders at 1080 px wide with the note");
+  const cardUrl = await cardP.getByRole("link", { name: "Unduh gambar" }).getAttribute("href");
+  const cardRes = await a.request.get(BASE + cardUrl);
+  check(cardRes.status() === 200 && cardRes.headers()["content-type"] === "image/png", "the card downloads as a PNG");
+  require("fs").writeFileSync(`${OUT}/82-price-card-story.png`, await cardRes.body());
+  await cardP.getByRole("button", { name: "Post 4:5" }).click();
+  await a.waitForFunction(() => { const i = document.querySelector("[data-card-preview]"); return i && i.complete && i.naturalHeight === 1350; }, null, { timeout: 30000 });
+  check(true, "the 4:5 post format renders at 1080 × 1350");
+  const anon = await browser.newContext();
+  check((await anon.request.get(BASE + cardUrl)).status() === 401, "the card (which can carry wholesale prices) needs the admin login");
+  await anon.close();
+  await cardP.getByRole("button", { name: "Restoran (grosir)" }).click();
+  await cardP.getByRole("link", { name: "Daftar harga (PDF)" }).click();
+  await a.waitForURL(/\/admin\/harga\/cetak/);
+  check((await a.getByText("Daftar harga grosir").count()) === 1 && (await a.locator("[data-price-list]").getByText("Rp106.000").count()) >= 1, "the printable list shows the wholesale prices just saved");
+  await a.screenshot({ path: `${OUT}/83-price-list-desktop.png`, fullPage: true });
 
   // 9) Rate limit: a script guessing logins from one device is stopped (on top of the per-phone lockout)
   const rl = await browser.newContext();

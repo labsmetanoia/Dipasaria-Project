@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
   htmlLimitedBots: /.*/,
   // guarantee reports carry up to 3 photos (compressed in the browser to well under 1 MB each)
   experimental: { serverActions: { bodySizeLimit: "3mb" } },
+  // the price card is drawn on the server with the brand fonts and logo read from disk
+  outputFileTracingIncludes: { "/admin/harga/kartu": ["./src/assets/fonts/*.woff", "./public/brand/logo-horizontal-reversed.png"] },
   images: {
     // Only our own files and photos uploaded to Supabase Storage are optimised: no open image proxy.
     remotePatterns: [{ protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" }],
